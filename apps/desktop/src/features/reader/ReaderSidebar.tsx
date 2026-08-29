@@ -8,7 +8,6 @@ import {
   Trash2,
   CornerDownRight,
   ChevronRight,
-  BookOpen,
 } from "lucide-react";
 import { AnnotationItem } from "@luma/annotation-ui";
 import { useReaderStore } from "../../state/readerState";

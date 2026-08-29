@@ -1,7 +1,7 @@
 import React from "react";
 import { X, Type, Columns, AlignJustify, Sun, Moon, Coffee, Monitor } from "lucide-react";
 import { useReaderStore } from "../../state/readerState";
-import { ReaderTheme, ReaderLayoutMode } from "@luma/shared-types";
+import { ReaderTheme } from "@luma/shared-types";
 
 export const TypographySettingsDrawer: React.FC = () => {
   const isTypographyOpen = useReaderStore((s) => s.isTypographyOpen);

@@ -19,7 +19,7 @@ export const TextSelectionToolbar: React.FC<TextSelectionToolbarProps> = ({
 }) => {
   const [isNoteInputOpen, setIsNoteInputOpen] = useState(false);
   const [noteText, setNoteText] = useState("");
-  const [selectedColor, setSelectedColor] = useState(ANNOTATION_HIGHLIGHT_COLORS[0].hex);
+  const [selectedColor, setSelectedColor] = useState<string>(ANNOTATION_HIGHLIGHT_COLORS[0].hex);
   const [copied, setCopied] = useState(false);
 
   if (!position || !selectedText) return null;
