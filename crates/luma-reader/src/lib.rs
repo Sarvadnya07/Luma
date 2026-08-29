@@ -1,9 +1,17 @@
+pub mod cover;
+pub mod detector;
+pub mod extractors;
+
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
 use luma_core::error::Result;
 use luma_core::models::book::DocumentFormat;
+
+pub use cover::CoverStore;
+pub use detector::FormatDetector;
+pub use extractors::*;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TocItem {
@@ -13,7 +21,7 @@ pub struct TocItem {
     pub children: Vec<TocItem>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub struct DocumentMetadata {
     pub title: String,
     pub authors: Vec<String>,
@@ -52,6 +60,22 @@ impl FormatCapabilities {
                 supports_cfi: false,
                 supports_page_coordinates: true,
                 supports_embedded_fonts: true,
+                supports_text_extraction: true,
+            },
+            DocumentFormat::Cbz | DocumentFormat::Cbr => Self {
+                supports_reflow: false,
+                supports_fixed_layout: true,
+                supports_cfi: false,
+                supports_page_coordinates: true,
+                supports_embedded_fonts: false,
+                supports_text_extraction: false,
+            },
+            DocumentFormat::Txt | DocumentFormat::Md | DocumentFormat::Html => Self {
+                supports_reflow: true,
+                supports_fixed_layout: false,
+                supports_cfi: false,
+                supports_page_coordinates: false,
+                supports_embedded_fonts: false,
                 supports_text_extraction: true,
             },
         }

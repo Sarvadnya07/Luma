@@ -1,6 +1,14 @@
-export type DocumentFormat = "epub" | "pdf";
+export type DocumentFormat = "epub" | "pdf" | "cbz" | "cbr" | "txt" | "md" | "html";
 
-export type AnnotationType = "highlight" | "underline" | "note" | "bookmark";
+export type ReadingStatus = "unread" | "reading" | "completed" | "archived";
+
+export type LibraryState = "active" | "archived" | "trashed";
+
+export type FileAvailability = "available" | "missing" | "changed" | "invalid";
+
+export type DuplicateMatchLevel = "exact_duplicate" | "likely_duplicate" | "possible_duplicate" | "unrelated";
+
+export type ImportJobStatus = "queued" | "processing" | "completed" | "partial_success" | "failed" | "cancelled";
 
 export interface SyncMetadata {
   version: number;
@@ -9,6 +17,21 @@ export interface SyncMetadata {
   device_id: string;
   is_deleted: boolean;
   deleted_at?: string | null;
+}
+
+export interface BookFile {
+  id: string;
+  book_id: string;
+  original_filename: string;
+  relative_path: string;
+  canonical_path?: string | null;
+  format: DocumentFormat;
+  mime_type?: string | null;
+  file_size_bytes: number;
+  sha256_hash: string;
+  imported_at: string;
+  modified_at?: string | null;
+  availability: FileAvailability;
 }
 
 export interface Book {
@@ -23,10 +46,115 @@ export interface Book {
   published_date?: string | null;
   language?: string | null;
   isbn?: string | null;
+  cover_image_id?: string | null;
   cover_image_path?: string | null;
   primary_file_id?: string | null;
+  reading_status: ReadingStatus;
+  library_state: LibraryState;
+  trashed_at?: string | null;
   sync: SyncMetadata;
 }
+
+export interface Author {
+  id: string;
+  name: string;
+  sort_name?: string | null;
+  sync: SyncMetadata;
+}
+
+export interface Series {
+  id: string;
+  title: string;
+  description?: string | null;
+  sync: SyncMetadata;
+}
+
+export interface Tag {
+  id: string;
+  name: string;
+  color_hex?: string | null;
+  sync: SyncMetadata;
+}
+
+export interface Collection {
+  id: string;
+  name: string;
+  description?: string | null;
+  book_ids: string[];
+  sync: SyncMetadata;
+}
+
+export interface CoverImage {
+  id: string;
+  book_id?: string | null;
+  file_size_bytes: number;
+  sha256_hash: string;
+  mime_type: string;
+  relative_path: string;
+  width?: number | null;
+  height?: number | null;
+  created_at: string;
+}
+
+export interface DuplicateAssessment {
+  level: DuplicateMatchLevel;
+  existing_book_id?: string | null;
+  existing_file_id?: string | null;
+  confidence_score: number;
+  reason: string;
+}
+
+export interface ImportJobItem {
+  source_path: string;
+  original_filename: string;
+  status: string;
+  book_id?: string | null;
+  file_id?: string | null;
+  duplicate_level?: DuplicateMatchLevel | null;
+  error_message?: string | null;
+}
+
+export interface ImportJob {
+  id: string;
+  total_files: number;
+  completed_count: number;
+  failed_count: number;
+  skipped_count: number;
+  status: ImportJobStatus;
+  items: ImportJobItem[];
+  started_at: string;
+  ended_at?: string | null;
+}
+
+export interface LibraryFilterOptions {
+  search_query?: string | null;
+  format?: DocumentFormat | null;
+  reading_status?: ReadingStatus | null;
+  library_state?: LibraryState | null;
+  author_id?: string | null;
+  series_id?: string | null;
+  tag_id?: string | null;
+  collection_id?: string | null;
+}
+
+export type LibrarySortBy = "title" | "author" | "created_at" | "last_read_at" | "published_date" | "file_size";
+
+export interface LibrarySortOptions {
+  sort_by: LibrarySortBy;
+  ascending: boolean;
+}
+
+export interface BookDetailViewData {
+  book: Book;
+  files: BookFile[];
+  authors: Author[];
+  series?: Series | null;
+  tags: Tag[];
+  collections: Collection[];
+  reading_progress?: ReadingProgress | null;
+}
+
+export type AnnotationType = "highlight" | "underline" | "note" | "bookmark";
 
 export interface TextQuoteAnchor {
   exact: string;

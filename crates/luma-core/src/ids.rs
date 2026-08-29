@@ -75,6 +75,8 @@ define_id!(BookmarkId, "bmk");
 define_id!(DeviceId, "dev");
 define_id!(SessionId, "sess");
 define_id!(ChangeRecordId, "cr");
+define_id!(CoverImageId, "cov");
+define_id!(ImportJobId, "job");
 
 #[cfg(test)]
 mod tests {

@@ -1,42 +1,485 @@
-import { Book, Annotation, ReadingProgress, ResolutionResult } from "@luma/shared-types";
+import {
+  Book,
+  BookDetailViewData,
+  Collection,
+  Author,
+  Series,
+  Tag,
+  ImportJob,
+  LibraryFilterOptions,
+  LibrarySortOptions,
+  ReadingProgress,
+  Annotation,
+  ResolutionResult,
+} from "@luma/shared-types";
 
-// Tauri invoke wrapper with graceful fallback for standalone browser preview
-async function invokeTauri<T>(command: string, args: Record<string, unknown> = {}): Promise<T> {
-  if (typeof window !== "undefined" && "__TAURI_INTERNALS__" in window) {
-    const { invoke } = await import("@tauri-apps/api/core");
-    return invoke<T>(command, args);
-  }
+// In-memory mock store when Tauri IPC is not available in browser dev environment
+const mockBooks: Book[] = [
+  {
+    id: "book_01918a23010170008000000000000001",
+    title: "The Rust Programming Language",
+    subtitle: "Covers Rust 2021 Edition",
+    author_ids: [],
+    series_id: null,
+    series_index: null,
+    description: "The official guide to learning the Rust systems programming language with memory safety guarantees.",
+    publisher: "No Starch Press",
+    published_date: "2023-02-15",
+    language: "en",
+    isbn: "978-1718503106",
+    cover_image_id: null,
+    cover_image_path: null,
+    primary_file_id: "file_01918a23010170008000000000000002",
+    reading_status: "reading",
+    library_state: "active",
+    trashed_at: null,
+    sync: {
+      version: 1,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      device_id: "dev_01",
+      is_deleted: false,
+      deleted_at: null,
+    },
+  },
+  {
+    id: "book_01918a23010170008000000000000003",
+    title: "Designing Data-Intensive Applications",
+    subtitle: "The Big Ideas Behind Reliable, Scalable, and Maintainable Systems",
+    author_ids: [],
+    series_id: null,
+    series_index: null,
+    description: "An authoritative guide to data systems architecture, replication, partitioning, transactions, and consensus.",
+    publisher: "O'Reilly Media",
+    published_date: "2017-03-16",
+    language: "en",
+    isbn: "978-1449373320",
+    cover_image_id: null,
+    cover_image_path: null,
+    primary_file_id: "file_01918a23010170008000000000000004",
+    reading_status: "unread",
+    library_state: "active",
+    trashed_at: null,
+    sync: {
+      version: 1,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      device_id: "dev_01",
+      is_deleted: false,
+      deleted_at: null,
+    },
+  },
+];
 
-  // Standalone web development mock
-  console.warn(`[Luma Tauri Mock] Invoking command: ${command}`, args);
-  if (command === "list_books") {
-    return [
-      {
-        id: "book_01j7b5w8e8z4t1a0b3c4d5e6f7",
-        title: "The Architecture of Open Source Applications",
-        subtitle: "Elegance, Evolution, and a Few Fearless Hacks",
+let mockAnnotations: Annotation[] = [];
+let mockCollections: Collection[] = [
+  {
+    id: "col_01",
+    name: "Engineering & Architecture",
+    description: "Core systems engineering books",
+    book_ids: ["book_01918a23010170008000000000000001", "book_01918a23010170008000000000000003"],
+    sync: {
+      version: 1,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      device_id: "dev_01",
+      is_deleted: false,
+    },
+  },
+];
+let mockTags: Tag[] = [
+  {
+    id: "tag_01",
+    name: "Systems",
+    color_hex: "#38bdf8",
+    sync: { version: 1, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), device_id: "dev_01", is_deleted: false },
+  },
+  {
+    id: "tag_02",
+    name: "Distributed",
+    color_hex: "#a855f7",
+    sync: { version: 1, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), device_id: "dev_01", is_deleted: false },
+  },
+];
+
+const isTauri = () => typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+
+export const LumaApi = {
+  async listBooks(filter?: LibraryFilterOptions, sort?: LibrarySortOptions, page?: number, pageSize?: number): Promise<Book[]> {
+    if (isTauri()) {
+      const { invoke } = await import("@tauri-apps/api/core");
+      return invoke<Book[]>("list_books", { filter, sort, page, pageSize });
+    }
+    let res = [...mockBooks];
+    if (filter?.library_state) {
+      res = res.filter((b) => b.library_state === filter.library_state);
+    } else {
+      res = res.filter((b) => b.library_state === "active");
+    }
+    if (filter?.reading_status) {
+      res = res.filter((b) => b.reading_status === filter.reading_status);
+    }
+    if (filter?.search_query) {
+      const q = filter.search_query.toLowerCase();
+      res = res.filter((b) => b.title.toLowerCase().includes(q) || (b.description && b.description.toLowerCase().includes(q)));
+    }
+    return res;
+  },
+
+  async getBookDetails(bookId: string): Promise<BookDetailViewData | null> {
+    if (isTauri()) {
+      const { invoke } = await import("@tauri-apps/api/core");
+      return invoke<BookDetailViewData | null>("get_book_details", { bookId });
+    }
+    const book = mockBooks.find((b) => b.id === bookId);
+    if (!book) return null;
+    return {
+      book,
+      files: [
+        {
+          id: book.primary_file_id ?? "file_01",
+          book_id: book.id,
+          original_filename: `${book.title.replace(/\s+/g, "_")}.epub`,
+          relative_path: `library/${book.title.replace(/\s+/g, "_")}.epub`,
+          canonical_path: `/Users/luma/Documents/${book.title}.epub`,
+          format: "epub",
+          mime_type: "application/epub+zip",
+          file_size_bytes: 4829104,
+          sha256_hash: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          imported_at: book.sync.created_at,
+          availability: "available",
+        },
+      ],
+      authors: [
+        {
+          id: "auth_01",
+          name: "Steve Klabnik & Carol Nichols",
+          sync: { version: 1, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), device_id: "dev_01", is_deleted: false },
+        },
+      ],
+      series: null,
+      tags: mockTags,
+      collections: mockCollections.filter((c) => c.book_ids.includes(bookId)),
+      reading_progress: {
+        book_id: book.id,
+        progress_percentage: 0.35,
+        current_locator: "epubcfi(/6/14[chapter-3]!/4/2/10)",
+        current_chapter_title: "Chapter 3: Common Programming Concepts",
+        current_page_number: 48,
+        total_pages: 580,
+        last_read_at: new Date().toISOString(),
+        sync: { version: 1, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), device_id: "dev_01", is_deleted: false },
+      },
+    };
+  },
+
+  async updateBookMetadata(
+    bookId: string,
+    metadata: {
+      title: string;
+      subtitle?: string | null;
+      description?: string | null;
+      publisher?: string | null;
+      published_date?: string | null;
+      language?: string | null;
+      isbn?: string | null;
+    }
+  ): Promise<void> {
+    if (isTauri()) {
+      const { invoke } = await import("@tauri-apps/api/core");
+      return invoke("update_book_metadata", { bookId, metadata });
+    }
+    const idx = mockBooks.findIndex((b) => b.id === bookId);
+    if (idx !== -1 && mockBooks[idx]) {
+      const b = mockBooks[idx]!;
+      mockBooks[idx] = {
+        ...b,
+        ...metadata,
+        sync: { ...b.sync, updated_at: new Date().toISOString(), version: b.sync.version + 1 },
+      };
+    }
+  },
+
+  async setReadingStatus(bookId: string, status: string): Promise<void> {
+    if (isTauri()) {
+      const { invoke } = await import("@tauri-apps/api/core");
+      return invoke("set_reading_status", { bookId, status });
+    }
+    const idx = mockBooks.findIndex((b) => b.id === bookId);
+    if (idx !== -1 && mockBooks[idx]) {
+      mockBooks[idx]!.reading_status = status as any;
+    }
+  },
+
+  async trashBook(bookId: string): Promise<void> {
+    if (isTauri()) {
+      const { invoke } = await import("@tauri-apps/api/core");
+      return invoke("trash_book", { bookId });
+    }
+    const idx = mockBooks.findIndex((b) => b.id === bookId);
+    if (idx !== -1 && mockBooks[idx]) {
+      mockBooks[idx]!.library_state = "trashed";
+      mockBooks[idx]!.trashed_at = new Date().toISOString();
+    }
+  },
+
+  async restoreBook(bookId: string): Promise<void> {
+    if (isTauri()) {
+      const { invoke } = await import("@tauri-apps/api/core");
+      return invoke("restore_book", { bookId });
+    }
+    const idx = mockBooks.findIndex((b) => b.id === bookId);
+    if (idx !== -1 && mockBooks[idx]) {
+      mockBooks[idx]!.library_state = "active";
+      mockBooks[idx]!.trashed_at = null;
+    }
+  },
+
+  async deleteBookPermanently(bookId: string, deleteFiles: boolean): Promise<void> {
+    if (isTauri()) {
+      const { invoke } = await import("@tauri-apps/api/core");
+      return invoke("delete_book_permanently", { bookId, deleteFiles });
+    }
+    const idx = mockBooks.findIndex((b) => b.id === bookId);
+    if (idx !== -1) {
+      mockBooks.splice(idx, 1);
+    }
+  },
+
+  async importFiles(filePaths: string[]): Promise<ImportJob> {
+    if (isTauri()) {
+      const { invoke } = await import("@tauri-apps/api/core");
+      return invoke<ImportJob>("import_files", { filePaths });
+    }
+    const newItems = filePaths.map((fp, i) => {
+      const name = fp.split(/[\\/]/).pop() || `Imported Book ${mockBooks.length + 1}`;
+      const newBook: Book = {
+        id: `book_mock_${Date.now()}_${i}`,
+        title: name.replace(/\.[^/.]+$/, "").replace(/[_-]/g, " "),
+        subtitle: null,
         author_ids: [],
+        series_id: null,
+        series_index: null,
+        description: "Locally imported digital publication.",
+        publisher: "Independent",
+        published_date: "2024",
+        language: "en",
+        isbn: null,
+        cover_image_id: null,
+        cover_image_path: null,
+        primary_file_id: `file_mock_${Date.now()}_${i}`,
+        reading_status: "unread",
+        library_state: "active",
+        trashed_at: null,
         sync: {
           version: 1,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
-          device_id: "dev_01j7b5w8e8z4t1a0b3c4d5e6f8",
+          device_id: "dev_01",
           is_deleted: false,
         },
-      } as unknown as Book,
-    ] as unknown as T;
-  }
+      };
+      mockBooks.push(newBook);
+      return {
+        source_path: fp,
+        original_filename: name,
+        status: "success",
+        book_id: newBook.id,
+        file_id: newBook.primary_file_id,
+        duplicate_level: "unrelated" as const,
+        error_message: null,
+      };
+    });
 
-  return {} as T;
-}
+    return {
+      id: `job_${Date.now()}`,
+      total_files: filePaths.length,
+      completed_count: filePaths.length,
+      failed_count: 0,
+      skipped_count: 0,
+      status: "completed",
+      items: newItems,
+      started_at: new Date().toISOString(),
+      ended_at: new Date().toISOString(),
+    };
+  },
 
-export const LumaApi = {
-  listBooks: () => invokeTauri<Book[]>("list_books"),
-  getBook: (bookId: string) => invokeTauri<Book | null>("get_book", { bookId }),
-  listAnnotations: (bookId: string) => invokeTauri<Annotation[]>("list_annotations", { bookId }),
-  saveAnnotation: (annotation: Annotation) => invokeTauri<void>("save_annotation", { annotation }),
-  getReadingProgress: (bookId: string) => invokeTauri<ReadingProgress | null>("get_reading_progress", { bookId }),
-  saveReadingProgress: (progress: ReadingProgress) => invokeTauri<void>("save_reading_progress", { progress }),
-  resolveAnchor: (quote: string, prefix: string | null, suffix: string | null, documentText: string) =>
-    invokeTauri<ResolutionResult>("resolve_anchor", { quote, prefix, suffix, documentText }),
+  async importDirectory(dirPath: string, recursive: boolean): Promise<ImportJob> {
+    if (isTauri()) {
+      const { invoke } = await import("@tauri-apps/api/core");
+      return invoke<ImportJob>("import_directory", { dirPath, recursive });
+    }
+    return this.importFiles([`${dirPath}/sample_epub.epub`, `${dirPath}/sample_pdf.pdf`]);
+  },
+
+  async listCollections(): Promise<Collection[]> {
+    if (isTauri()) {
+      const { invoke } = await import("@tauri-apps/api/core");
+      return invoke<Collection[]>("list_collections");
+    }
+    return mockCollections;
+  },
+
+  async createCollection(name: string, description?: string): Promise<Collection> {
+    if (isTauri()) {
+      const { invoke } = await import("@tauri-apps/api/core");
+      return invoke<Collection>("create_collection", { name, description });
+    }
+    const newCol: Collection = {
+      id: `col_${Date.now()}`,
+      name,
+      description: description || null,
+      book_ids: [],
+      sync: { version: 1, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), device_id: "dev_01", is_deleted: false },
+    };
+    mockCollections.push(newCol);
+    return newCol;
+  },
+
+  async addBooksToCollection(collectionId: string, bookIds: string[]): Promise<void> {
+    if (isTauri()) {
+      const { invoke } = await import("@tauri-apps/api/core");
+      return invoke("add_books_to_collection", { collectionId, bookIds });
+    }
+    const col = mockCollections.find((c) => c.id === collectionId);
+    if (col) {
+      for (const bid of bookIds) {
+        if (!col.book_ids.includes(bid)) col.book_ids.push(bid);
+      }
+    }
+  },
+
+  async listTags(): Promise<Tag[]> {
+    if (isTauri()) {
+      const { invoke } = await import("@tauri-apps/api/core");
+      return invoke<Tag[]>("list_tags");
+    }
+    return mockTags;
+  },
+
+  async addTagToBook(bookId: string, tagName: string): Promise<Tag> {
+    if (isTauri()) {
+      const { invoke } = await import("@tauri-apps/api/core");
+      return invoke<Tag>("add_tag_to_book", { bookId, tagName });
+    }
+    let tag = mockTags.find((t) => t.name.toLowerCase() === tagName.toLowerCase());
+    if (!tag) {
+      tag = {
+        id: `tag_${Date.now()}`,
+        name: tagName,
+        color_hex: "#38bdf8",
+        sync: { version: 1, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), device_id: "dev_01", is_deleted: false },
+      };
+      mockTags.push(tag);
+    }
+    return tag;
+  },
+
+  async removeTagFromBook(bookId: string, tagId: string): Promise<void> {
+    if (isTauri()) {
+      const { invoke } = await import("@tauri-apps/api/core");
+      return invoke("remove_tag_from_book", { bookId, tagId });
+    }
+  },
+
+  async listAuthors(): Promise<Author[]> {
+    if (isTauri()) {
+      const { invoke } = await import("@tauri-apps/api/core");
+      return invoke<Author[]>("list_authors");
+    }
+    return [];
+  },
+
+  async listSeries(): Promise<Series[]> {
+    if (isTauri()) {
+      const { invoke } = await import("@tauri-apps/api/core");
+      return invoke<Series[]>("list_series");
+    }
+    return [];
+  },
+
+  async reconcileLibraryFiles(): Promise<number> {
+    if (isTauri()) {
+      const { invoke } = await import("@tauri-apps/api/core");
+      return invoke<number>("reconcile_library_files");
+    }
+    return 0;
+  },
+
+  async getReadingProgress(bookId: string): Promise<ReadingProgress | null> {
+    if (isTauri()) {
+      const { invoke } = await import("@tauri-apps/api/core");
+      return invoke<ReadingProgress | null>("get_reading_progress", { bookId });
+    }
+    return null;
+  },
+
+  async saveReadingProgress(progress: ReadingProgress): Promise<void> {
+    if (isTauri()) {
+      const { invoke } = await import("@tauri-apps/api/core");
+      return invoke("save_reading_progress", { progress });
+    }
+  },
+
+  async listAnnotations(bookId: string): Promise<Annotation[]> {
+    if (isTauri()) {
+      const { invoke } = await import("@tauri-apps/api/core");
+      return invoke<Annotation[]>("list_annotations", { bookId });
+    }
+    return mockAnnotations.filter((a) => a.book_id === bookId);
+  },
+
+  async saveAnnotation(annotation: Annotation): Promise<void> {
+    if (isTauri()) {
+      const { invoke } = await import("@tauri-apps/api/core");
+      return invoke("save_annotation", { annotation });
+    }
+    const idx = mockAnnotations.findIndex((a) => a.id === annotation.id);
+    if (idx >= 0) {
+      mockAnnotations[idx] = annotation;
+    } else {
+      mockAnnotations.push(annotation);
+    }
+  },
+
+  async resolveAnchor(
+    exact: string,
+    prefix: string | null,
+    suffix: string | null,
+    documentText: string
+  ): Promise<ResolutionResult> {
+    if (isTauri()) {
+      const { invoke } = await import("@tauri-apps/api/core");
+      return invoke<ResolutionResult>("resolve_anchor", {
+        exact,
+        prefix,
+        suffix,
+        documentText,
+      });
+    }
+
+    const idx = documentText.indexOf(exact);
+    if (idx !== -1) {
+      return {
+        status: "highconfidence",
+        data: {
+          start_char: idx,
+          end_char: idx + exact.length,
+          matched_text: exact,
+          confidence_score: 1.0,
+          exact_text_matched: true,
+          prefix_matched: true,
+          suffix_matched: true,
+          fuzzy_similarity: 1.0,
+        },
+      };
+    }
+
+    return {
+      status: "failed",
+      data: {
+        reason: "Anchor text not found in document",
+      },
+    };
+  },
 };

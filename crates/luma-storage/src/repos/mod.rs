@@ -1,7 +1,19 @@
 pub mod annotation_repo;
+pub mod author_repo;
+pub mod book_file_repo;
 pub mod book_repo;
-pub mod reading_repo;
+pub mod collection_repo;
+pub mod cover_repo;
+pub mod reading_progress_repo;
+pub mod series_repo;
+pub mod tag_repo;
 
 pub use annotation_repo::AnnotationRepository;
-pub use book_repo::BookRepository;
-pub use reading_repo::ReadingProgressRepository;
+pub use author_repo::AuthorRepository;
+pub use book_file_repo::BookFileRepository;
+pub use book_repo::{BookRepository, LibraryFilterOptions, LibrarySortBy, LibrarySortOptions};
+pub use collection_repo::CollectionRepository;
+pub use cover_repo::CoverRepository;
+pub use reading_progress_repo::ReadingProgressRepository;
+pub use series_repo::SeriesRepository;
+pub use tag_repo::TagRepository;

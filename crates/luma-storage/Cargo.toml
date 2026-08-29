@@ -7,6 +7,8 @@ authors.workspace = true
 
 [dependencies]
 luma-core = { workspace = true }
+luma-reader = { workspace = true }
+luma-security = { workspace = true }
 rusqlite = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
@@ -14,6 +16,7 @@ chrono = { workspace = true }
 uuid = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+unicode-normalization = { workspace = true }
 
 [dev-dependencies]
 tokio = { workspace = true }

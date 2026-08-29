@@ -52,6 +52,8 @@ sha2 = "0.10"
 hex = "0.4"
 unicode-normalization = "0.1"
 regex = "1.10"
+zip = { version = "2.2", default-features = false, features = ["deflate"] }
+quick-xml = { version = "0.36" }
 
 # Tauri 2
 tauri = { version = "2.0", default-features = false }

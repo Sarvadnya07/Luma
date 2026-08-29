@@ -12,7 +12,9 @@ tauri-build = { workspace = true }
 tauri = { workspace = true }
 luma-core = { workspace = true }
 luma-anchor = { workspace = true }
+luma-reader = { workspace = true }
 luma-storage = { workspace = true }
+luma-search = { workspace = true }
 luma-security = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

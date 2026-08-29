@@ -1,4 +1,4 @@
-use rusqlite::{Connection, Transaction};
+use rusqlite::Connection;
 use crate::error::StorageResult;
 
 pub const V1_INITIAL_SCHEMA: &str = r#"
@@ -153,6 +153,117 @@ CREATE INDEX IF NOT EXISTS idx_change_records_entity ON change_records(entity_ty
 CREATE INDEX IF NOT EXISTS idx_change_records_occurred_at ON change_records(occurred_at);
 "#;
 
+pub const V2_CORE_LIBRARY_SCHEMA: &str = r#"
+-- Series table
+CREATE TABLE IF NOT EXISTS series (
+    id TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    description TEXT,
+    version INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    device_id TEXT NOT NULL,
+    is_deleted INTEGER NOT NULL DEFAULT 0,
+    deleted_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_series_title ON series(title);
+
+-- Tags table
+CREATE TABLE IF NOT EXISTS tags (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE,
+    color_hex TEXT,
+    version INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    device_id TEXT NOT NULL,
+    is_deleted INTEGER NOT NULL DEFAULT 0,
+    deleted_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_tags_name ON tags(name);
+
+-- Book Tags junction table
+CREATE TABLE IF NOT EXISTS book_tags (
+    book_id TEXT NOT NULL REFERENCES books(id) ON DELETE CASCADE,
+    tag_id TEXT NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+    PRIMARY KEY (book_id, tag_id)
+);
+
+-- Collections table
+CREATE TABLE IF NOT EXISTS collections (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT,
+    version INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    device_id TEXT NOT NULL,
+    is_deleted INTEGER NOT NULL DEFAULT 0,
+    deleted_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_collections_name ON collections(name);
+
+-- Book Collections junction table
+CREATE TABLE IF NOT EXISTS book_collections (
+    collection_id TEXT NOT NULL REFERENCES collections(id) ON DELETE CASCADE,
+    book_id TEXT NOT NULL REFERENCES books(id) ON DELETE CASCADE,
+    position INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (collection_id, book_id)
+);
+
+-- Cover Images table
+CREATE TABLE IF NOT EXISTS cover_images (
+    id TEXT PRIMARY KEY,
+    book_id TEXT REFERENCES books(id) ON DELETE SET NULL,
+    file_size_bytes INTEGER NOT NULL,
+    sha256_hash TEXT NOT NULL,
+    mime_type TEXT NOT NULL,
+    relative_path TEXT NOT NULL,
+    width INTEGER,
+    height INTEGER,
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_cover_images_hash ON cover_images(sha256_hash);
+
+-- Import Jobs and Items
+CREATE TABLE IF NOT EXISTS import_jobs (
+    id TEXT PRIMARY KEY,
+    total_files INTEGER NOT NULL,
+    completed_count INTEGER NOT NULL DEFAULT 0,
+    failed_count INTEGER NOT NULL DEFAULT 0,
+    skipped_count INTEGER NOT NULL DEFAULT 0,
+    status TEXT NOT NULL,
+    started_at TEXT NOT NULL,
+    ended_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS import_job_items (
+    id TEXT PRIMARY KEY,
+    job_id TEXT NOT NULL REFERENCES import_jobs(id) ON DELETE CASCADE,
+    source_path TEXT NOT NULL,
+    original_filename TEXT NOT NULL,
+    status TEXT NOT NULL,
+    book_id TEXT,
+    file_id TEXT,
+    duplicate_level TEXT,
+    error_message TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_import_job_items_job_id ON import_job_items(job_id);
+
+-- FTS5 Full-Text Search Table
+CREATE VIRTUAL TABLE IF NOT EXISTS books_fts USING fts5(
+    book_id UNINDEXED,
+    title,
+    subtitle,
+    authors,
+    series,
+    tags,
+    description,
+    isbn,
+    tokenize = 'unicode61'
+);
+"#;
+
 pub fn run_migrations(conn: &mut Connection) -> StorageResult<()> {
     let tx = conn.transaction()?;
 
@@ -177,6 +288,38 @@ pub fn run_migrations(conn: &mut Connection) -> StorageResult<()> {
         tx.execute_batch(V1_INITIAL_SCHEMA)?;
         tx.execute(
             "INSERT INTO schema_migrations (version, applied_at) VALUES (1, datetime('now'))",
+            [],
+        )?;
+    }
+
+    if current_version < 2 {
+        // Apply V2 migrations: columns on books and book_files
+        let _ = tx.execute("ALTER TABLE books ADD COLUMN cover_image_id TEXT", []);
+        let _ = tx.execute("ALTER TABLE books ADD COLUMN reading_status TEXT NOT NULL DEFAULT 'unread'", []);
+        let _ = tx.execute("ALTER TABLE books ADD COLUMN library_state TEXT NOT NULL DEFAULT 'active'", []);
+        let _ = tx.execute("ALTER TABLE books ADD COLUMN trashed_at TEXT", []);
+
+        let _ = tx.execute("ALTER TABLE book_files ADD COLUMN original_filename TEXT NOT NULL DEFAULT ''", []);
+        let _ = tx.execute("ALTER TABLE book_files ADD COLUMN canonical_path TEXT", []);
+        let _ = tx.execute("ALTER TABLE book_files ADD COLUMN mime_type TEXT", []);
+        let _ = tx.execute("ALTER TABLE book_files ADD COLUMN imported_at TEXT NOT NULL DEFAULT (datetime('now'))", []);
+        let _ = tx.execute("ALTER TABLE book_files ADD COLUMN modified_at TEXT", []);
+        let _ = tx.execute("ALTER TABLE book_files ADD COLUMN availability TEXT NOT NULL DEFAULT 'available'", []);
+
+        tx.execute_batch(V2_CORE_LIBRARY_SCHEMA)?;
+
+        // Populate initial FTS5 index from existing books
+        let _ = tx.execute(
+            r#"
+            INSERT OR IGNORE INTO books_fts (book_id, title, subtitle, authors, series, tags, description, isbn)
+            SELECT b.id, b.title, COALESCE(b.subtitle, ''), '', '', '', COALESCE(b.description, ''), COALESCE(b.isbn, '')
+            FROM books b
+            "#,
+            [],
+        );
+
+        tx.execute(
+            "INSERT INTO schema_migrations (version, applied_at) VALUES (2, datetime('now'))",
             [],
         )?;
     }
