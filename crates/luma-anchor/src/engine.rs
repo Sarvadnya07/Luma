@@ -101,7 +101,7 @@ impl AnchorEngine {
         doc: &str,
         start_char: usize,
         end_char: usize,
-        target_text: &str,
+        _target_text: &str,
         prefix_context: Option<&str>,
         suffix_context: Option<&str>,
         exact_text_matched: bool,
