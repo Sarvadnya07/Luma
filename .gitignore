@@ -1,0 +1,29 @@
+# Rust
+target/
+**/*.rs.bk
+Cargo.lock
+
+# Node / pnpm
+node_modules/
+dist/
+.pnpm-store/
+*.log
+
+# Tauri
+apps/desktop/src-tauri/target/
+
+# IDE / Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Test databases & outputs
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+tests/temp/
+test-data/
+scratch/

@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  rust-checks:
+    name: Rust Checks & Tests
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+          targets: wasm32-unknown-unknown
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Format Check
+        run: cargo fmt --check
+
+      - name: Clippy Linter
+        run: cargo clippy --workspace -- -D warnings
+
+      - name: Run Tests
+        run: cargo test --workspace --verbose
+
+      - name: WASM Compilation Check
+        run: |
+          cargo check -p luma-core --target wasm32-unknown-unknown
+          cargo check -p luma-anchor --target wasm32-unknown-unknown
+
+  frontend-checks:
+    name: Frontend Typecheck, Lint & Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: TypeScript Check
+        run: pnpm typecheck
+
+      - name: Build Packages & Desktop
+        run: pnpm build
