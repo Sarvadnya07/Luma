@@ -43,8 +43,17 @@ fn main() {
             commands::list_authors,
             commands::list_series,
             commands::search_library,
+            commands::open_reader_document,
+            commands::get_reader_chapter,
+            commands::get_reader_pdf_page,
+            commands::search_document,
+            commands::list_bookmarks,
+            commands::create_bookmark,
+            commands::delete_bookmark,
             commands::list_annotations,
             commands::save_annotation,
+            commands::delete_annotation,
+            commands::update_annotation_note,
             commands::resolve_anchor,
         ])
         .run(tauri::generate_context!())

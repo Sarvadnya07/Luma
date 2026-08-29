@@ -1,235 +1,223 @@
-import React, { useState } from "react";
-import { Book, Annotation } from "@luma/shared-types";
-import { Button, Badge } from "@luma/ui";
-import { ANNOTATION_HIGHLIGHT_COLORS } from "@luma/design-system";
-import { LumaApi } from "../../lib/tauri";
-import { useReaderStore } from "../../state/readerState";
-import { AnnotationList } from "../annotations/AnnotationList";
+import React, { useEffect } from "react";
 import {
   ArrowLeft,
+  ListTree,
   Highlighter,
-  Sliders,
+  Bookmark as BookmarkIcon,
+  Search,
+  Type,
+  Maximize,
+  Minimize,
   CheckCircle2,
 } from "lucide-react";
+import { Book } from "@luma/shared-types";
+import { useReaderStore } from "../../state/readerState";
+import { ReaderSidebar } from "./ReaderSidebar";
+import { TypographySettingsDrawer } from "./TypographySettingsDrawer";
+import { EpubReaderView } from "./EpubReaderView";
+import { PdfReaderView } from "./PdfReaderView";
 
 export interface ReaderViewProps {
   book: Book;
 }
 
-const SAMPLE_TEXT = `Chapter 1: The Principle of Architecture
-
-In software engineering, local-first systems prioritize user ownership and data autonomy. When network partitions occur, the application continues to operate without interruption.
-
-Annotation integrity is the cornerstone of any serious reading system. If a highlight drifts or attaches to the wrong sentence after font changes, reader trust is permanently broken.
-
-Every highlight must maintain multiple anchor signals: exact text quote, surrounding prefix and suffix context, normalized character sequences, and format-specific coordinates.`;
-
 export const ReaderView: React.FC<ReaderViewProps> = ({ book }) => {
-  const setCurrentBook = useReaderStore((s) => s.setCurrentBook);
-  const annotations = useReaderStore((s) => s.annotations);
-  const addAnnotation = useReaderStore((s) => s.addAnnotation);
+  const closeReader = useReaderStore((s) => s.closeReader);
+  const documentData = useReaderStore((s) => s.documentData);
+  const currentChapter = useReaderStore((s) => s.currentChapter);
+  const readingProgress = useReaderStore((s) => s.readingProgress);
+  const bookmarks = useReaderStore((s) => s.bookmarks);
+  const sidebarTab = useReaderStore((s) => s.sidebarTab);
+  const setSidebarTab = useReaderStore((s) => s.setSidebarTab);
+  const toggleTypography = useReaderStore((s) => s.toggleTypography);
+  const toggleBookmark = useReaderStore((s) => s.toggleBookmark);
+  const statusMessage = useReaderStore((s) => s.statusMessage);
+  const loadChapter = useReaderStore((s) => s.loadChapter);
+  const currentSpineIndex = useReaderStore((s) => s.currentSpineIndex);
 
-  const [fontSize, setFontSize] = useState<number>(18);
-  const [lineHeight, setLineHeight] = useState<number>(1.7);
-  const [fontFamily, setFontFamily] = useState<"serif" | "sans" | "mono">("serif");
-  const [selectedText, setSelectedText] = useState<string>("");
-  const [prefixContext, setPrefixContext] = useState<string>("");
-  const [suffixContext, setSuffixContext] = useState<string>("");
-  const [selectedColor, setSelectedColor] = useState<string>(ANNOTATION_HIGHLIGHT_COLORS[0].hex);
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [isFullscreen, setIsFullscreen] = React.useState(false);
 
+  const isCurrentBookmarked =
+    readingProgress && bookmarks.some((b) => b.locator === readingProgress.current_locator);
 
-  const handleTextSelection = () => {
-    const selection = window.getSelection();
-    if (!selection || selection.isCollapsed) return;
+  // Keyboard navigation shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't trigger shortcuts if typing inside input / textarea
+      if (["INPUT", "TEXTAREA"].includes((e.target as HTMLElement)?.tagName)) {
+        return;
+      }
 
-    const text = selection.toString().trim();
-    if (!text) return;
-
-    const fullDoc = SAMPLE_TEXT;
-    const idx = fullDoc.indexOf(text);
-    if (idx !== -1) {
-      const prefix = fullDoc.substring(Math.max(0, idx - 40), idx).trim();
-      const suffix = fullDoc.substring(idx + text.length, Math.min(fullDoc.length, idx + text.length + 40)).trim();
-      setSelectedText(text);
-      setPrefixContext(prefix);
-      setSuffixContext(suffix);
-    } else {
-      setSelectedText(text);
-      setPrefixContext("");
-      setSuffixContext("");
-    }
-  };
-
-  const handleCreateHighlight = async () => {
-    if (!selectedText) return;
-
-    const newAnn: Annotation = {
-      id: `ann_${Date.now()}`,
-      book_id: book.id,
-      annotation_type: "highlight",
-      color_hex: selectedColor,
-      quote: selectedText,
-      note: null,
-      anchor_payload_json: JSON.stringify({
-        exact: selectedText,
-        prefix: prefixContext,
-        suffix: suffixContext,
-      }),
-      sync: {
-        version: 1,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        device_id: "dev_local_primary",
-        is_deleted: false,
-      },
+      switch (e.key.toLowerCase()) {
+        case "escape":
+          if (sidebarTab) setSidebarTab(null);
+          else closeReader();
+          break;
+        case "b":
+          toggleBookmark();
+          break;
+        case "t":
+          setSidebarTab(sidebarTab === "toc" ? null : "toc");
+          break;
+        case "a":
+          setSidebarTab(sidebarTab === "annotations" ? null : "annotations");
+          break;
+        case "f":
+          setSidebarTab(sidebarTab === "search" ? null : "search");
+          break;
+        case "arrowleft":
+          if (currentSpineIndex > 0) loadChapter(currentSpineIndex - 1);
+          break;
+        case "arrowright":
+          if (documentData && currentSpineIndex < (documentData.total_pages_or_spines || 1) - 1) {
+            loadChapter(currentSpineIndex + 1);
+          }
+          break;
+      }
     };
 
-    addAnnotation(newAnn);
-    setStatusMessage(`Saved anchor for "${selectedText.slice(0, 30)}..."`);
-    setSelectedText("");
-  };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [sidebarTab, currentSpineIndex, documentData]);
 
-  const handleVerifyAnchor = async (ann: Annotation) => {
-    try {
-      const payload = JSON.parse(ann.anchor_payload_json);
-      const res = await LumaApi.resolveAnchor(
-        payload.exact,
-        payload.prefix ?? null,
-        payload.suffix ?? null,
-        SAMPLE_TEXT
-      );
-
-      if (res.status === "highconfidence") {
-        setStatusMessage(`Anchor resolved with ${(res.data.confidence_score * 100).toFixed(1)}% confidence score`);
-      } else if (res.status === "ambiguous") {
-        setStatusMessage("Anchor is ambiguous across multiple locations");
-      } else {
-        setStatusMessage(`Anchor failed: ${res.data.reason}`);
-      }
-    } catch (e) {
-      setStatusMessage(`Verification error: ${String(e)}`);
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+      setIsFullscreen(true);
+    } else {
+      document.exitFullscreen().catch(() => {});
+      setIsFullscreen(false);
     }
   };
 
+  const isPdf = documentData?.file.format === "pdf";
+
   return (
-    <div className="flex-1 flex flex-col h-full bg-slate-950 overflow-hidden">
-      {/* Header Bar */}
-      <div className="h-14 border-b border-slate-800 px-4 flex items-center justify-between bg-slate-900/60">
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" onClick={() => setCurrentBook(null)}>
-            <ArrowLeft className="w-4 h-4 mr-1.5" />
-            Library
-          </Button>
-          <span className="text-slate-600">|</span>
-          <h2 className="text-sm font-medium text-slate-200 truncate max-w-md">
-            {book.title}
-          </h2>
+    <div className="relative w-full h-full flex flex-col bg-slate-950 text-slate-100 overflow-hidden select-none">
+      {/* Status Toast Notification */}
+      {statusMessage && (
+        <div className="fixed top-16 left-1/2 transform -translate-x-1/2 z-50 bg-slate-900/95 border border-slate-700/80 text-sky-400 text-xs px-4 py-2 rounded-full shadow-2xl flex items-center gap-2 animate-in fade-in slide-in-from-top-2 duration-150 backdrop-blur-md font-medium">
+          <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+          {statusMessage}
         </div>
+      )}
 
-        {/* Reflow Controls Toolbar */}
-        <div className="flex items-center gap-4 bg-slate-800/60 px-3 py-1.5 rounded-lg border border-slate-700/60">
-          <Sliders className="w-4 h-4 text-slate-400" />
-          <div className="flex items-center gap-1">
-            <span className="text-xs text-slate-400">Size:</span>
-            <input
-              type="range"
-              min="14"
-              max="28"
-              value={fontSize}
-              onChange={(e) => setFontSize(Number(e.target.value))}
-              className="w-20 accent-sky-400"
-            />
-            <span className="text-xs text-slate-300 w-6">{fontSize}px</span>
-          </div>
-
-          <div className="flex items-center gap-1 border-l border-slate-700 pl-3">
-            <span className="text-xs text-slate-400">Font:</span>
-            <select
-              value={fontFamily}
-              onChange={(e) => setFontFamily(e.target.value as "serif" | "sans" | "mono")}
-              className="bg-slate-900 text-xs text-slate-200 rounded px-1.5 py-0.5 border border-slate-700"
-            >
-              <option value="serif">Serif</option>
-              <option value="sans">Sans</option>
-              <option value="mono">Monospace</option>
-            </select>
-          </div>
-
-          <div className="flex items-center gap-1 border-l border-slate-700 pl-3">
-            <span className="text-xs text-slate-400">Leading:</span>
-            <input
-              type="range"
-              min="1.2"
-              max="2.2"
-              step="0.1"
-              value={lineHeight}
-              onChange={(e) => setLineHeight(Number(e.target.value))}
-              className="w-16 accent-sky-400"
-            />
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Badge variant="success">Phase 1 Spike Active</Badge>
-        </div>
-      </div>
-
-      {/* Main Content Area */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Document Reading View */}
-        <div className="flex-1 flex flex-col p-8 overflow-y-auto items-center">
-          <div
-            onMouseUp={handleTextSelection}
-            style={{
-              fontSize: `${fontSize}px`,
-              lineHeight: lineHeight,
-              fontFamily: fontFamily === "serif" ? "Georgia, Cambria, serif" : fontFamily === "mono" ? "monospace" : "sans-serif",
-            }}
-            className="max-w-2xl w-full p-8 bg-slate-900/40 border border-slate-800/80 rounded-2xl text-slate-200 select-text whitespace-pre-line shadow-lg"
+      {/* Top Reader Navigation Bar */}
+      <header className="h-14 border-b border-slate-800 bg-slate-900/80 backdrop-blur-md px-4 flex items-center justify-between z-30 flex-shrink-0">
+        {/* Left: Back & Title */}
+        <div className="flex items-center gap-3 min-w-0">
+          <button
+            onClick={closeReader}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-slate-100 hover:bg-slate-800 transition-colors"
+            title="Return to Library (Esc)"
           >
-            {SAMPLE_TEXT}
+            <ArrowLeft className="w-4 h-4" />
+            <span className="hidden sm:inline">Library</span>
+          </button>
+          <div className="w-[1px] h-4 bg-slate-800 hidden sm:block" />
+          <div className="min-w-0">
+            <h1 className="text-xs font-semibold text-slate-100 truncate max-w-sm sm:max-w-md">
+              {book.title}
+            </h1>
+            {currentChapter?.title && (
+              <p className="text-[10px] text-slate-400 truncate hidden md:block">
+                {currentChapter.title}
+              </p>
+            )}
           </div>
-
-          {/* Selection Highlight Action Bar */}
-          {selectedText && (
-            <div className="mt-4 p-3 bg-slate-900 border border-sky-500/40 rounded-xl shadow-2xl flex items-center gap-3 animate-in fade-in zoom-in-95 duration-150">
-              <span className="text-xs text-slate-400 font-medium">Highlight:</span>
-              <div className="flex items-center gap-1.5">
-                {ANNOTATION_HIGHLIGHT_COLORS.map((c) => (
-                  <button
-                    key={c.name}
-                    onClick={() => setSelectedColor(c.hex)}
-                    style={{ backgroundColor: c.hex }}
-                    className={`w-5 h-5 rounded-full border-2 transition-transform ${
-                      selectedColor === c.hex ? "scale-125 border-white" : "border-transparent"
-                    }`}
-                  />
-                ))}
-              </div>
-              <Button size="sm" variant="primary" onClick={handleCreateHighlight}>
-                <Highlighter className="w-3.5 h-3.5 mr-1" />
-                Create Anchor
-              </Button>
-            </div>
-          )}
-
-          {/* Status / Anchor Verification Banner */}
-          {statusMessage && (
-            <div className="mt-4 px-4 py-2 bg-slate-900 border border-slate-800 rounded-lg text-xs text-sky-300 flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-              {statusMessage}
-            </div>
-          )}
         </div>
 
-        {/* Sidebar: Annotations & Resilience Inspector */}
-        <div className="w-80 border-l border-slate-800 bg-slate-900/30 flex flex-col">
-          <AnnotationList
-            annotations={annotations}
-            onJumpTo={handleVerifyAnchor}
-          />
+        {/* Right: Reader Action Controls */}
+        <div className="flex items-center gap-1">
+          {/* Table of Contents */}
+          <button
+            onClick={() => setSidebarTab(sidebarTab === "toc" ? null : "toc")}
+            className={`p-2 rounded-lg transition-colors ${
+              sidebarTab === "toc" ? "bg-slate-800 text-sky-400" : "text-slate-400 hover:text-slate-200 hover:bg-slate-800"
+            }`}
+            title="Table of Contents (T)"
+          >
+            <ListTree className="w-4 h-4" />
+          </button>
+
+          {/* Annotations */}
+          <button
+            onClick={() => setSidebarTab(sidebarTab === "annotations" ? null : "annotations")}
+            className={`p-2 rounded-lg transition-colors ${
+              sidebarTab === "annotations" ? "bg-slate-800 text-sky-400" : "text-slate-400 hover:text-slate-200 hover:bg-slate-800"
+            }`}
+            title="Annotations (A)"
+          >
+            <Highlighter className="w-4 h-4" />
+          </button>
+
+          {/* Bookmarks */}
+          <button
+            onClick={() => setSidebarTab(sidebarTab === "bookmarks" ? null : "bookmarks")}
+            className={`p-2 rounded-lg transition-colors ${
+              sidebarTab === "bookmarks" ? "bg-slate-800 text-sky-400" : "text-slate-400 hover:text-slate-200 hover:bg-slate-800"
+            }`}
+            title="Bookmarks Panel"
+          >
+            <BookmarkIcon className="w-4 h-4" />
+          </button>
+
+          {/* In-Doc Search */}
+          <button
+            onClick={() => setSidebarTab(sidebarTab === "search" ? null : "search")}
+            className={`p-2 rounded-lg transition-colors ${
+              sidebarTab === "search" ? "bg-slate-800 text-sky-400" : "text-slate-400 hover:text-slate-200 hover:bg-slate-800"
+            }`}
+            title="Search in Document (F)"
+          >
+            <Search className="w-4 h-4" />
+          </button>
+
+          {/* Toggle Bookmark Current Page */}
+          <button
+            onClick={toggleBookmark}
+            className={`p-2 rounded-lg transition-colors ${
+              isCurrentBookmarked ? "text-amber-400 hover:bg-amber-500/10" : "text-slate-400 hover:text-slate-200 hover:bg-slate-800"
+            }`}
+            title={isCurrentBookmarked ? "Remove bookmark" : "Bookmark this location (B)"}
+          >
+            <BookmarkIcon className={`w-4 h-4 ${isCurrentBookmarked ? "fill-amber-400" : ""}`} />
+          </button>
+
+          <div className="w-[1px] h-4 bg-slate-800 mx-1" />
+
+          {/* Typography Settings */}
+          <button
+            onClick={toggleTypography}
+            className="p-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors"
+            title="Reading Settings & Themes"
+          >
+            <Type className="w-4 h-4" />
+          </button>
+
+          {/* Fullscreen */}
+          <button
+            onClick={toggleFullscreen}
+            className="p-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors hidden sm:block"
+            title="Toggle Fullscreen"
+          >
+            {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
+          </button>
         </div>
+      </header>
+
+      {/* Main Workspace Body */}
+      <div className="flex-1 flex overflow-hidden relative">
+        {/* Collapsible Tabbed Sidebar */}
+        <ReaderSidebar />
+
+        {/* Floating Typography Settings Drawer */}
+        <TypographySettingsDrawer />
+
+        {/* Document Engine Viewport */}
+        <main className="flex-1 h-full overflow-hidden flex flex-col relative">
+          {isPdf ? <PdfReaderView /> : <EpubReaderView />}
+        </main>
       </div>
     </div>
   );

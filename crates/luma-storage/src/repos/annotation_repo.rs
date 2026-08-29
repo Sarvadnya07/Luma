@@ -129,4 +129,24 @@ impl AnnotationRepository {
             Ok(annotations)
         })
     }
+
+    pub fn delete(&self, id: &AnnotationId) -> StorageResult<()> {
+        self.db.with_conn(|conn| {
+            conn.execute(
+                "UPDATE annotations SET is_deleted = 1, deleted_at = datetime('now'), updated_at = datetime('now'), version = version + 1 WHERE id = ?1",
+                params![id.to_string()],
+            )?;
+            Ok(())
+        })
+    }
+
+    pub fn update_note(&self, id: &AnnotationId, note: Option<&str>) -> StorageResult<()> {
+        self.db.with_conn(|conn| {
+            conn.execute(
+                "UPDATE annotations SET note = ?1, updated_at = datetime('now'), version = version + 1 WHERE id = ?2",
+                params![note, id.to_string()],
+            )?;
+            Ok(())
+        })
+    }
 }

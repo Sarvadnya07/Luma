@@ -2,10 +2,12 @@ pub mod annotation;
 pub mod collection;
 pub mod import;
 pub mod library;
+pub mod reader;
 pub mod search;
 
 pub use annotation::*;
 pub use collection::*;
 pub use import::*;
 pub use library::*;
+pub use reader::*;
 pub use search::*;

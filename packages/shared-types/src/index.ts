@@ -10,6 +10,20 @@ export type DuplicateMatchLevel = "exact_duplicate" | "likely_duplicate" | "poss
 
 export type ImportJobStatus = "queued" | "processing" | "completed" | "partial_success" | "failed" | "cancelled";
 
+export type ReaderTheme = "dark" | "light" | "sepia" | "eink";
+
+export type ReaderLayoutMode = "paginated" | "scroll";
+
+export interface ReaderSettings {
+  theme: ReaderTheme;
+  fontSize: number;
+  fontFamily: "serif" | "sans" | "mono";
+  lineHeight: number;
+  marginHorizontal: number;
+  layoutMode: ReaderLayoutMode;
+  twoColumn: boolean;
+}
+
 export interface SyncMetadata {
   version: number;
   created_at: string;
@@ -152,6 +166,86 @@ export interface BookDetailViewData {
   tags: Tag[];
   collections: Collection[];
   reading_progress?: ReadingProgress | null;
+}
+
+export interface TocItem {
+  title: string;
+  locator: string;
+  play_order?: number | null;
+  children: TocItem[];
+}
+
+export interface DocumentMetadata {
+  title: string;
+  authors: string[];
+  language?: string | null;
+  publisher?: string | null;
+  description?: string | null;
+  isbn?: string | null;
+  format: DocumentFormat;
+  total_pages_or_spines?: number | null;
+}
+
+export interface FormatCapabilities {
+  supports_reflow: bool;
+  supports_fixed_layout: bool;
+  supports_cfi: bool;
+  supports_page_coordinates: bool;
+  supports_embedded_fonts: bool;
+  supports_text_extraction: bool;
+}
+
+type bool = boolean;
+
+export interface SpineItem {
+  id: string;
+  href: string;
+  media_type: string;
+  linear: boolean;
+}
+
+export interface ChapterContent {
+  spine_index: number;
+  id: string;
+  title: string;
+  href: string;
+  html_content: string;
+  text_content: string;
+}
+
+export interface PdfPageData {
+  page_number: number;
+  width_pt: number;
+  height_pt: number;
+  text_content: string;
+}
+
+export interface DocumentSearchMatch {
+  spine_index: number;
+  chapter_title: string;
+  locator: string;
+  snippet: string;
+  match_char_offset: number;
+}
+
+export interface OpenDocumentResult {
+  book: Book;
+  file: BookFile;
+  metadata: DocumentMetadata;
+  toc: TocItem[];
+  total_pages_or_spines: number;
+  capabilities: FormatCapabilities;
+  initial_progress?: ReadingProgress | null;
+}
+
+export interface Bookmark {
+  id: string;
+  book_id: string;
+  locator: string;
+  title?: string | null;
+  chapter_title?: string | null;
+  page_number?: number | null;
+  sync: SyncMetadata;
 }
 
 export type AnnotationType = "highlight" | "underline" | "note" | "bookmark";

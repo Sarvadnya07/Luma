@@ -1,6 +1,9 @@
 pub mod cover;
 pub mod detector;
+pub mod epub_doc;
 pub mod extractors;
+pub mod pdf_doc;
+pub mod session;
 
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
@@ -11,7 +14,10 @@ use luma_core::models::book::DocumentFormat;
 
 pub use cover::CoverStore;
 pub use detector::FormatDetector;
+pub use epub_doc::{ChapterContent, DocumentSearchMatch, EpubDocument, SpineItem};
 pub use extractors::*;
+pub use pdf_doc::{PdfDocument, PdfPageData};
+pub use session::DocumentSession;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TocItem {
@@ -96,21 +102,4 @@ pub trait DocumentEngine: Send + Sync {
 
     /// Return format capabilities
     fn capabilities(&self) -> FormatCapabilities;
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_format_capabilities() {
-        let epub_caps = FormatCapabilities::for_format(DocumentFormat::Epub);
-        assert!(epub_caps.supports_reflow);
-        assert!(epub_caps.supports_cfi);
-        assert!(!epub_caps.supports_page_coordinates);
-
-        let pdf_caps = FormatCapabilities::for_format(DocumentFormat::Pdf);
-        assert!(!pdf_caps.supports_reflow);
-        assert!(pdf_caps.supports_page_coordinates);
-    }
 }

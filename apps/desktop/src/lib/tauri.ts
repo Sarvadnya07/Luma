@@ -11,6 +11,11 @@ import {
   ReadingProgress,
   Annotation,
   ResolutionResult,
+  OpenDocumentResult,
+  ChapterContent,
+  PdfPageData,
+  DocumentSearchMatch,
+  Bookmark,
 } from "@luma/shared-types";
 
 // In-memory mock store when Tauri IPC is not available in browser dev environment
@@ -71,7 +76,36 @@ const mockBooks: Book[] = [
   },
 ];
 
-let mockAnnotations: Annotation[] = [];
+let mockAnnotations: Annotation[] = [
+  {
+    id: "ann_01",
+    book_id: "book_01918a23010170008000000000000001",
+    annotation_type: "highlight",
+    color_hex: "#38bdf8",
+    quote: "Annotation integrity is the cornerstone of any serious reading system.",
+    note: "P0 architectural differentiator for Luma.",
+    anchor_payload_json: JSON.stringify({
+      exact: "Annotation integrity is the cornerstone of any serious reading system.",
+      prefix: "partitions occur without interruption. ",
+      suffix: " If a highlight drifts",
+      normalized_exact: "annotation integrity is the cornerstone of any serious reading system",
+    }),
+    sync: { version: 1, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), device_id: "dev_01", is_deleted: false },
+  },
+];
+
+let mockBookmarks: Bookmark[] = [
+  {
+    id: "bmk_01",
+    book_id: "book_01918a23010170008000000000000001",
+    locator: "epubcfi(/6/4[ch1]!/4/2:0)",
+    title: "Chapter 1: The Principle of Architecture",
+    chapter_title: "Chapter 1",
+    page_number: 1,
+    sync: { version: 1, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), device_id: "dev_01", is_deleted: false },
+  },
+];
+
 let mockCollections: Collection[] = [
   {
     id: "col_01",
@@ -101,6 +135,17 @@ let mockTags: Tag[] = [
     sync: { version: 1, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), device_id: "dev_01", is_deleted: false },
   },
 ];
+
+const SAMPLE_CHAPTER_HTML = `
+<div class="chapter-content">
+  <h1 class="text-2xl font-bold mb-4">Chapter 1: The Principle of Architecture</h1>
+  <p class="mb-4">In software engineering, local-first systems prioritize user ownership and data autonomy. When network partitions occur, the application continues to operate without interruption.</p>
+  <p class="mb-4">Annotation integrity is the cornerstone of any serious reading system. If a highlight drifts or attaches to the wrong sentence after font changes, reader trust is permanently broken.</p>
+  <p class="mb-4">Every highlight must maintain multiple anchor signals: exact text quote, surrounding prefix and suffix context, normalized character sequences, and format-specific coordinates.</p>
+  <blockquote class="border-l-4 border-sky-500 pl-4 italic mb-4">"A reader that destroys annotations on reflow is not a reading system; it is merely an ephemeral document viewer."</blockquote>
+  <p class="mb-4">By storing anchors independently of presentation states, Luma guarantees that annotations survive across devices, font choices, and window sizes.</p>
+</div>
+`;
 
 const isTauri = () => typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
@@ -163,14 +208,203 @@ export const LumaApi = {
       reading_progress: {
         book_id: book.id,
         progress_percentage: 0.35,
-        current_locator: "epubcfi(/6/14[chapter-3]!/4/2/10)",
-        current_chapter_title: "Chapter 3: Common Programming Concepts",
-        current_page_number: 48,
-        total_pages: 580,
+        current_locator: "epubcfi(/6/4[chapter-1]!/4/2/10)",
+        current_chapter_title: "Chapter 1: The Principle of Architecture",
+        current_page_number: 1,
+        total_pages: 12,
         last_read_at: new Date().toISOString(),
         sync: { version: 1, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), device_id: "dev_01", is_deleted: false },
       },
     };
+  },
+
+  async openReaderDocument(bookId: string, fileId?: string): Promise<OpenDocumentResult> {
+    if (isTauri()) {
+      const { invoke } = await import("@tauri-apps/api/core");
+      return invoke<OpenDocumentResult>("open_reader_document", { bookId, fileId });
+    }
+    const book = mockBooks.find((b) => b.id === bookId) || mockBooks[0]!;
+    return {
+      book,
+      file: {
+        id: book.primary_file_id ?? "file_01",
+        book_id: book.id,
+        original_filename: `${book.title}.epub`,
+        relative_path: `library/${book.title}.epub`,
+        canonical_path: `/Users/luma/${book.title}.epub`,
+        format: "epub",
+        mime_type: "application/epub+zip",
+        file_size_bytes: 3429104,
+        sha256_hash: "mocksha256",
+        imported_at: new Date().toISOString(),
+        availability: "available",
+      },
+      metadata: {
+        title: book.title,
+        authors: ["Steve Klabnik", "Carol Nichols"],
+        language: "en",
+        publisher: "No Starch Press",
+        description: book.description,
+        isbn: book.isbn,
+        format: "epub",
+        total_pages_or_spines: 4,
+      },
+      toc: [
+        { title: "Chapter 1: The Principle of Architecture", locator: "epubcfi(/6/2!/4/1:0)", play_order: 1, children: [] },
+        { title: "Chapter 2: Data Autonomy & Sync", locator: "epubcfi(/6/4!/4/1:0)", play_order: 2, children: [] },
+        { title: "Chapter 3: Resilient Annotation Anchoring", locator: "epubcfi(/6/6!/4/1:0)", play_order: 3, children: [] },
+        { title: "Chapter 4: Conclusion & Knowledge Mesh", locator: "epubcfi(/6/8!/4/1:0)", play_order: 4, children: [] },
+      ],
+      total_pages_or_spines: 4,
+      capabilities: {
+        supports_reflow: true,
+        supports_fixed_layout: false,
+        supports_cfi: true,
+        supports_page_coordinates: false,
+        supports_embedded_fonts: true,
+        supports_text_extraction: true,
+      },
+      initial_progress: {
+        book_id: book.id,
+        progress_percentage: 0.25,
+        current_locator: "epubcfi(/6/2!/4/1:0)",
+        current_chapter_title: "Chapter 1: The Principle of Architecture",
+        current_page_number: 1,
+        total_pages: 4,
+        last_read_at: new Date().toISOString(),
+        sync: { version: 1, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), device_id: "dev_01", is_deleted: false },
+      },
+    };
+  },
+
+  async getReaderChapter(bookId: string, spineIndex: number): Promise<ChapterContent> {
+    if (isTauri()) {
+      const { invoke } = await import("@tauri-apps/api/core");
+      return invoke<ChapterContent>("get_reader_chapter", { bookId, spineIndex });
+    }
+    return {
+      spine_index: spineIndex,
+      id: `ch_${spineIndex + 1}`,
+      title: `Chapter ${spineIndex + 1}: The Principle of Architecture`,
+      href: `text/ch${spineIndex + 1}.xhtml`,
+      html_content: SAMPLE_CHAPTER_HTML,
+      text_content: "Chapter 1: The Principle of Architecture. In software engineering, local-first systems prioritize user ownership and data autonomy. Annotation integrity is the cornerstone of any serious reading system.",
+    };
+  },
+
+  async getReaderPdfPage(bookId: string, pageNumber: number): Promise<PdfPageData> {
+    if (isTauri()) {
+      const { invoke } = await import("@tauri-apps/api/core");
+      return invoke<PdfPageData>("get_reader_pdf_page", { bookId, pageNumber });
+    }
+    return {
+      page_number: pageNumber,
+      width_pt: 595.0,
+      height_pt: 842.0,
+      text_content: `PDF Page ${pageNumber} content for local reading. Annotation integrity remains preserved.`,
+    };
+  },
+
+  async searchDocument(bookId: string, query: string): Promise<DocumentSearchMatch[]> {
+    if (isTauri()) {
+      const { invoke } = await import("@tauri-apps/api/core");
+      return invoke<DocumentSearchMatch[]>("search_document", { bookId, query });
+    }
+    const q = query.toLowerCase();
+    if ("annotation integrity".includes(q) || "architecture".includes(q) || "systems".includes(q)) {
+      return [
+        {
+          spine_index: 0,
+          chapter_title: "Chapter 1: The Principle of Architecture",
+          locator: "epubcfi(/6/2!/4/100:0)",
+          snippet: "...Annotation integrity is the cornerstone of any serious reading system...",
+          match_char_offset: 120,
+        },
+      ];
+    }
+    return [];
+  },
+
+  async listBookmarks(bookId: string): Promise<Bookmark[]> {
+    if (isTauri()) {
+      const { invoke } = await import("@tauri-apps/api/core");
+      return invoke<Bookmark[]>("list_bookmarks", { bookId });
+    }
+    return mockBookmarks.filter((b) => b.book_id === bookId);
+  },
+
+  async createBookmark(
+    bookId: string,
+    locator: string,
+    title?: string | null,
+    chapterTitle?: string | null,
+    pageNumber?: number | null
+  ): Promise<Bookmark> {
+    if (isTauri()) {
+      const { invoke } = await import("@tauri-apps/api/core");
+      return invoke<Bookmark>("create_bookmark", { bookId, locator, title, chapterTitle, pageNumber });
+    }
+    const newBmk: Bookmark = {
+      id: `bmk_${Date.now()}`,
+      book_id: bookId,
+      locator,
+      title: title || null,
+      chapter_title: chapterTitle || null,
+      page_number: pageNumber || null,
+      sync: { version: 1, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), device_id: "dev_01", is_deleted: false },
+    };
+    mockBookmarks.push(newBmk);
+    return newBmk;
+  },
+
+  async deleteBookmark(bookmarkId: string): Promise<void> {
+    if (isTauri()) {
+      const { invoke } = await import("@tauri-apps/api/core");
+      return invoke("delete_bookmark", { bookmarkId });
+    }
+    mockBookmarks = mockBookmarks.filter((b) => b.id !== bookmarkId);
+  },
+
+  async listAnnotations(bookId: string): Promise<Annotation[]> {
+    if (isTauri()) {
+      const { invoke } = await import("@tauri-apps/api/core");
+      return invoke<Annotation[]>("list_annotations", { bookId });
+    }
+    return mockAnnotations.filter((a) => a.book_id === bookId);
+  },
+
+  async saveAnnotation(annotation: Annotation): Promise<void> {
+    if (isTauri()) {
+      const { invoke } = await import("@tauri-apps/api/core");
+      return invoke("save_annotation", { annotation });
+    }
+    const idx = mockAnnotations.findIndex((a) => a.id === annotation.id);
+    if (idx >= 0) {
+      mockAnnotations[idx] = annotation;
+    } else {
+      mockAnnotations.push(annotation);
+    }
+  },
+
+  async deleteAnnotation(annotationId: string): Promise<void> {
+    if (isTauri()) {
+      const { invoke } = await import("@tauri-apps/api/core");
+      return invoke("delete_annotation", { annotationId });
+    }
+    mockAnnotations = mockAnnotations.filter((a) => a.id !== annotationId);
+  },
+
+  async updateAnnotationNote(annotationId: string, note: string | null): Promise<void> {
+    if (isTauri()) {
+      const { invoke } = await import("@tauri-apps/api/core");
+      return invoke("update_annotation_note", { annotationId, note });
+    }
+    const target = mockAnnotations.find((a) => a.id === annotationId);
+    if (target) {
+      target.note = note;
+      target.sync.updated_at = new Date().toISOString();
+      target.sync.version += 1;
+    }
   },
 
   async updateBookMetadata(
@@ -418,27 +652,6 @@ export const LumaApi = {
     if (isTauri()) {
       const { invoke } = await import("@tauri-apps/api/core");
       return invoke("save_reading_progress", { progress });
-    }
-  },
-
-  async listAnnotations(bookId: string): Promise<Annotation[]> {
-    if (isTauri()) {
-      const { invoke } = await import("@tauri-apps/api/core");
-      return invoke<Annotation[]>("list_annotations", { bookId });
-    }
-    return mockAnnotations.filter((a) => a.book_id === bookId);
-  },
-
-  async saveAnnotation(annotation: Annotation): Promise<void> {
-    if (isTauri()) {
-      const { invoke } = await import("@tauri-apps/api/core");
-      return invoke("save_annotation", { annotation });
-    }
-    const idx = mockAnnotations.findIndex((a) => a.id === annotation.id);
-    if (idx >= 0) {
-      mockAnnotations[idx] = annotation;
-    } else {
-      mockAnnotations.push(annotation);
     }
   },
 
