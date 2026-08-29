@@ -26,9 +26,18 @@ importers:
 
   apps/desktop:
     dependencies:
+      '@luma/annotation-ui':
+        specifier: workspace:*
+        version: link:../../packages/annotation-ui
       '@luma/design-system':
         specifier: workspace:*
         version: link:../../packages/design-system
+      '@luma/library-ui':
+        specifier: workspace:*
+        version: link:../../packages/library-ui
+      '@luma/reader-ui':
+        specifier: workspace:*
+        version: link:../../packages/reader-ui
       '@luma/shared-types':
         specifier: workspace:*
         version: link:../../packages/shared-types

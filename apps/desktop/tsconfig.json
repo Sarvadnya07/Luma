@@ -14,7 +14,13 @@
     "jsx": "react-jsx",
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@luma/shared-types": ["../../packages/shared-types/src/index.ts"],
+      "@luma/design-system": ["../../packages/design-system/src/index.ts"],
+      "@luma/ui": ["../../packages/ui/src/index.tsx"],
+      "@luma/reader-ui": ["../../packages/reader-ui/src/index.tsx"],
+      "@luma/library-ui": ["../../packages/library-ui/src/index.tsx"],
+      "@luma/annotation-ui": ["../../packages/annotation-ui/src/index.tsx"]
     }
   },
   "include": ["src"]

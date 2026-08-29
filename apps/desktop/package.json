@@ -12,8 +12,11 @@
   },
   "dependencies": {
     "@luma/shared-types": "workspace:*",
-    "@luma/ui": "workspace:*",
     "@luma/design-system": "workspace:*",
+    "@luma/ui": "workspace:*",
+    "@luma/reader-ui": "workspace:*",
+    "@luma/library-ui": "workspace:*",
+    "@luma/annotation-ui": "workspace:*",
     "@tauri-apps/api": "^2.0.0",
     "@tauri-apps/plugin-shell": "^2.0.0",
     "clsx": "^2.1.1",

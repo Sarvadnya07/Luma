@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Book, Annotation, MatchCandidate } from "@luma/shared-types";
+import { Book, Annotation } from "@luma/shared-types";
 import { Button, Badge } from "@luma/ui";
 import { ANNOTATION_HIGHLIGHT_COLORS } from "@luma/design-system";
 import { LumaApi } from "../../lib/tauri";
@@ -7,11 +7,9 @@ import { useReaderStore } from "../../state/readerState";
 import { AnnotationList } from "../annotations/AnnotationList";
 import {
   ArrowLeft,
-  Settings,
   Highlighter,
   Sliders,
   CheckCircle2,
-  AlertTriangle,
 } from "lucide-react";
 
 export interface ReaderViewProps {
@@ -38,8 +36,8 @@ export const ReaderView: React.FC<ReaderViewProps> = ({ book }) => {
   const [prefixContext, setPrefixContext] = useState<string>("");
   const [suffixContext, setSuffixContext] = useState<string>("");
   const [selectedColor, setSelectedColor] = useState<string>(ANNOTATION_HIGHLIGHT_COLORS[0].hex);
-  const [resolvedMatch, setResolvedMatch] = useState<MatchCandidate | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+
 
   const handleTextSelection = () => {
     const selection = window.getSelection();
@@ -103,7 +101,6 @@ export const ReaderView: React.FC<ReaderViewProps> = ({ book }) => {
       );
 
       if (res.status === "highconfidence") {
-        setResolvedMatch(res.data);
         setStatusMessage(`Anchor resolved with ${(res.data.confidence_score * 100).toFixed(1)}% confidence score`);
       } else if (res.status === "ambiguous") {
         setStatusMessage("Anchor is ambiguous across multiple locations");
