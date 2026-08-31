@@ -106,7 +106,7 @@ export const StudyFlashcards: React.FC = () => {
             </button>
             <button
               onClick={handleNext}
-              className="py-2 px-4 rounded-xl bg-[#18181B] hover:bg-[#27272A] text-white text-xs font-semibold rounded-xl shadow-2xs transition-colors"
+              className="py-2 px-4 rounded-xl bg-[#18181B] hover:bg-[#27272A] text-white text-xs font-semibold shadow-2xs transition-colors"
             >
               Easy (7d)
             </button>
