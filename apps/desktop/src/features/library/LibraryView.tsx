@@ -12,6 +12,7 @@ import { CollectionModal } from "./CollectionModal";
 import { DropZoneOverlay } from "./DropZoneOverlay";
 import { LumaHomeView } from "./LumaHomeView";
 import { DuplicateReviewModal } from "./DuplicateReviewModal";
+import { GlobalAnnotationCenter } from "../annotations/GlobalAnnotationCenter";
 import { BookOpen } from "lucide-react";
 
 const BOOK_AUTHORS_MAP: Record<string, string> = {
@@ -225,11 +226,17 @@ export const LibraryView: React.FC = () => {
             <div className="flex-1 flex items-center justify-center text-[#78716C] py-20 text-xs">
               Loading library collection...
             </div>
+          ) : currentSection === "annotations" ? (
+            /* Screenshot 5: Global Annotation Center */
+            <GlobalAnnotationCenter
+              onOpenBook={(bookId) => {
+                const b = books.find((x) => x.id === bookId);
+                if (b) setCurrentBook(b);
+              }}
+            />
           ) : currentSection === "library" && !searchQuery && formatFilter === "all" && statusFilter === "all" ? (
             /* Screenshot 3: Luma Home View */
             <LumaHomeView
-              books={books}
-              authorMap={BOOK_AUTHORS_MAP}
               onSelectBook={(b) => handleOpenDetails(b.id)}
               onOpenReader={(b) => {
                 setCurrentBook(b);
@@ -347,6 +354,7 @@ export const LibraryView: React.FC = () => {
             await loadData();
           }
         }}
+        onAddToCollection={() => setIsCollectionModalOpen(true)}
       />
 
       {/* Metadata Editor Modal */}

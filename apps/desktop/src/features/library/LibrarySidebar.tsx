@@ -1,4 +1,3 @@
-import React from "react";
 import {
   Library,
   BookOpen,
@@ -7,9 +6,15 @@ import {
   Tag as TagIcon,
   Users,
   Bookmark,
+  Edit3,
   Archive,
   Trash2,
   Plus,
+  Compass,
+  FileText,
+  HelpCircle,
+  FolderKanban,
+  BarChart2,
 } from "lucide-react";
 import { Collection, Tag } from "@luma/shared-types";
 
@@ -21,6 +26,12 @@ export type SidebarSection =
   | "tags"
   | "authors"
   | "series"
+  | "annotations"
+  | "history"
+  | "atrium"
+  | "notes"
+  | "flashcards"
+  | "projects"
   | "archive"
   | "trash";
 
@@ -57,9 +68,18 @@ export const LibrarySidebar: React.FC<LibrarySidebarProps> = ({
     { id: "tags", label: "Tags", icon: TagIcon },
   ];
 
+  const studyItems = [
+    { id: "atrium", label: "The Atrium", icon: Compass },
+    { id: "notes", label: "Notes Workspace", icon: FileText },
+    { id: "flashcards", label: "Flashcards", icon: HelpCircle },
+    { id: "projects", label: "Research Projects", icon: FolderKanban },
+    { id: "history", label: "Reading Intelligence", icon: BarChart2 },
+  ];
+
   const exploreItems = [
     { id: "authors", label: "Authors", icon: Users },
     { id: "series", label: "Series", icon: Bookmark },
+    { id: "annotations", label: "Annotations", icon: Edit3 },
     { id: "archive", label: "Archive", icon: Archive },
     { id: "trash", label: "Trash", icon: Trash2 },
   ];
@@ -80,6 +100,35 @@ export const LibrarySidebar: React.FC<LibrarySidebarProps> = ({
         {/* Primary Views */}
         <div className="space-y-1">
           {navItems.map((item) => {
+            const Icon = item.icon;
+            const isActive = currentSection === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => {
+                  onSelectSection(item.id as SidebarSection);
+                  onSelectCollection?.(null);
+                  onSelectTag?.(null);
+                }}
+                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                  isActive
+                    ? "bg-[#E4DED3] text-[#1C1917] font-semibold shadow-xs"
+                    : "text-[#57534E] hover:text-[#1C1917] hover:bg-[#EBE5DB]"
+                }`}
+              >
+                <Icon className={`w-4 h-4 ${isActive ? "text-[#1C1917]" : "text-[#78716C]"}`} />
+                <span>{item.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Deep Study Workspace Section */}
+        <div className="space-y-1">
+          <div className="px-3 text-[10px] font-semibold text-[#8C8275] uppercase tracking-wider mb-2">
+            Deep Study
+          </div>
+          {studyItems.map((item) => {
             const Icon = item.icon;
             const isActive = currentSection === item.id;
             return (

@@ -271,27 +271,29 @@ const BOOK_AUTHORS_MAP: Record<string, string> = {
 };
 
 const GATSBY_CHAPTER_3_HTML = `
-<div class="chapter-content">
-  <h1 class="text-3xl font-serif font-bold text-center mb-8 text-[#1C1917]">Chapter III</h1>
+<div class="chapter-content max-w-xl mx-auto">
+  <div class="text-[10px] font-bold text-[#78716C] tracking-widest text-center uppercase mb-1 font-mono">CHAPTER III</div>
+  <h1 class="text-3xl font-serif font-bold text-center text-[#1C1917] mb-1">The Great Gatsby</h1>
+  <p class="text-center text-xs italic text-[#57534E] mb-8 font-serif">by F. Scott Fitzgerald</p>
   
   <p class="mb-5 leading-relaxed text-[#292524]">
-    There was music from my neighbor's house through the summer nights. In his blue gardens men and girls came and went like moths among the whisperings and the champagne and the stars. At high tide in the afternoon I watched his guests diving from the tower of his raft, or taking the sun on the hot sand of his beach while his two motor-boats slit the waters of the Sound, drawing aquaplanes over cataracts of foam. On week-ends his Rolls-Royce became an omnibus, bearing parties to and from the city between nine in the morning and long past midnight, while his station wagon scampered like a brisk yellow bug to meet all trains. And on Mondays eight servants, including an extra gardener, toiled all day with mops and scrubbing-brushes and hammers and garden-shears, repairing the ravages of the night before.
+    <span class="drop-cap">T</span>here was music from my neighbor's house through the summer nights. In his blue gardens men and girls came and went like moths among the whisperings and the champagne and the stars. At high tide in the afternoon I watched his guests diving from the tower of his raft, or taking the sun on the hot sand of his beach while his two motor-boats slit the waters of the Sound, drawing aquaplanes over cataracts of foam. On week-ends his Rolls-Royce became an omnibus, bearing parties to and from the city between nine in the morning and long past midnight, while his station wagon scampered like a brisk yellow bug to meet all trains.
   </p>
 
   <p class="mb-5 leading-relaxed text-[#292524]">
-    Every Friday five crates of oranges and lemons arrived from a fruiterer in New York—every Monday these same oranges and lemons left his back door in a pyramid of pulpless halves. There was a machine in the kitchen which could extract the juice of two hundred oranges in half an hour if a little button was pressed two hundred times by a butler's thumb.
-  </p>
-
-  <blockquote class="my-8 pl-4 border-l-2 border-[#D6CEC2] italic text-[#57534E] text-center font-serif text-sm">
-    "I believe that on the first night I went to Gatsby's house I was one of the few guests who had actually been invited."
-  </blockquote>
-
-  <p class="mb-5 leading-relaxed text-[#292524]">
-    At least once a fortnight a corps of caterers came down with several hundred feet of canvas and enough colored lights to make a Christmas tree of Gatsby's enormous garden. On buffet tables, garnished with glistening hors-d'oeuvre, spiced baked hams crowded against salads of harlequin designs and pastry pigs and turkeys bewitched to a dark gold. In the main hall a bar with a real brass rail was set up, and stocked with gins and liquors and with cordials so long forgotten that most of his female guests were too young to know one from another.
+    By seven o'clock the orchestra has arrived, no thin five-piece affair, but a whole pitful of oboes and trombones and saxophones and viols and cornets and piccolos, and low and high drums. The last swimmers have come in from the beach now and are dressing up stairs; the cars from New York are parked five deep in the drive, and already the halls and salons and verandas are gaudy with primary colors, and hair shorn in strange new ways, and shawls beyond the dreams of Castile.
   </p>
 
   <p class="mb-5 leading-relaxed text-[#292524]">
-    By seven o'clock the orchestra has arrived, no thin five-piece affair, but a whole pitful of oboes and trombones and saxophones and viols and cornets and piccolos, and low and high drums. The last swimmers have come in from the beach now and are dressing up-stairs; the cars from New York are parked five deep in the drive, and already the halls and salons and verandas are gaudy with primary colors, and hair shorn in strange new ways, and shawls beyond the dreams of Castile. The bar is in full swing, and floating rounds of cocktails permeate the garden outside, until the air is alive with chatter and laughter, and casual innuendo and introductions forgotten on the spot, and enthusiastic meetings between women who never knew each other's names.
+    I believe that on the first night I went to Gatsby's house I was one of the few guests who had actually been invited. People were not invited—they went there. They got into automobiles which bore them out to Long Island, and somehow they ended up at Gatsby's door. Once there they were introduced by somebody who knew Gatsby, and after that they conducted themselves according to the rules of behavior associated with an amusement park.
+  </p>
+
+  <p class="mb-5 leading-relaxed text-[#292524]">
+    Sometimes they came and went without having met Gatsby at all, came for the party with a simplicity of heart that was its own ticket of admission. <span class="reader-highlight">A chauffeur in a uniform of robin's-egg blue crossed my lawn early that Saturday morning with a surprisingly formal note from his employer:</span> the honor would be entirely Gatsby's, it said, if I would attend his "little party" that night.
+  </p>
+
+  <p class="mb-5 leading-relaxed text-[#292524]">
+    He had seen me several times, and had intended to call on me long before, but a peculiar nervousness, or rather a dignity that gave him poise, had held him back.
   </p>
 </div>
 `;

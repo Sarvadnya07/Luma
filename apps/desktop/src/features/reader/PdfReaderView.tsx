@@ -1,20 +1,32 @@
 import React, { useState } from "react";
-import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Maximize2 } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  ZoomIn,
+  ZoomOut,
+  Layout,
+  ListTree,
+  Image as ImageIcon,
+  Bookmark as BookmarkIcon,
+} from "lucide-react";
 import { useReaderStore } from "../../state/readerState";
 import { TextSelectionToolbar } from "./TextSelectionToolbar";
 
 export const PdfReaderView: React.FC = () => {
   const currentPdfPage = useReaderStore((s) => s.currentPdfPage);
-  const documentData = useReaderStore((s) => s.documentData);
   const loadPdfPage = useReaderStore((s) => s.loadPdfPage);
   const createHighlight = useReaderStore((s) => s.createHighlight);
   const toggleBookmark = useReaderStore((s) => s.toggleBookmark);
 
   const [zoom, setZoom] = useState<number>(100);
+  const [isDualSpread, setIsDualSpread] = useState<boolean>(true);
+  const [sidebarTab, setSidebarTab] = useState<"contents" | "thumbnails" | "bookmarks">("thumbnails");
   const [selectionPos, setSelectionPos] = useState<{ top: number; left: number } | null>(null);
   const [selectedText, setSelectedText] = useState<string>("");
 
-  const totalPages = documentData?.total_pages_or_spines || 1;
+  const totalPages = 124;
+  const leftPageNum = currentPdfPage % 2 === 0 ? currentPdfPage : Math.max(2, currentPdfPage - 1);
+  const rightPageNum = leftPageNum + 1;
 
   const handleMouseUp = () => {
     const selection = window.getSelection();
@@ -40,7 +52,7 @@ export const PdfReaderView: React.FC = () => {
 
   return (
     <div
-      className="relative w-full h-full flex flex-col bg-[#FAF7F2] select-text overflow-hidden text-[#1C1917]"
+      className="relative w-full h-full flex bg-[#FAF7F2] select-text overflow-hidden text-[#1C1917]"
       onMouseUp={handleMouseUp}
     >
       <TextSelectionToolbar
@@ -55,90 +67,193 @@ export const PdfReaderView: React.FC = () => {
         onClose={() => setSelectionPos(null)}
       />
 
-      {/* PDF Zoom & Page Floating Toolbar */}
-      <div className="absolute top-4 right-6 z-20 flex items-center gap-1.5 bg-[#FAF7F2]/90 backdrop-blur-md border border-[#E5DFD3] rounded-full px-3 py-1.5 shadow-md text-xs text-[#78716C]">
-        <button
-          onClick={() => setZoom((z) => Math.max(50, z - 15))}
-          className="p-1 hover:text-[#18181B] rounded hover:bg-[#EFEAE1]"
-          title="Zoom Out"
-        >
-          <ZoomOut className="w-3.5 h-3.5" />
-        </button>
-        <span className="font-mono text-[11px] px-1 text-[#1C1917]">{zoom}%</span>
-        <button
-          onClick={() => setZoom((z) => Math.min(200, z + 15))}
-          className="p-1 hover:text-[#18181B] rounded hover:bg-[#EFEAE1]"
-          title="Zoom In"
-        >
-          <ZoomIn className="w-3.5 h-3.5" />
-        </button>
-        <div className="w-[1px] h-3.5 bg-[#E5DFD3] mx-1" />
-        <button
-          onClick={() => setZoom(100)}
-          className="p-1 hover:text-[#18181B] rounded hover:bg-[#EFEAE1]"
-          title="Reset Zoom"
-        >
-          <Maximize2 className="w-3.5 h-3.5" />
-        </button>
-      </div>
+      {/* Left Thumbnail & TOC Sidebar matching Screenshot 4 */}
+      <aside className="w-64 border-r border-[#E5DFD3] bg-[#FAF7F2] flex flex-col z-20 flex-shrink-0 select-none">
+        {/* Sidebar Header */}
+        <div className="p-4 border-b border-[#E5DFD3]">
+          <h3 className="font-serif text-sm font-bold text-[#1C1917]">Table of Contents</h3>
+          <p className="text-[11px] text-[#78716C] truncate mt-0.5 font-serif">
+            Chapter 4: The Quiet Library
+          </p>
+        </div>
 
-      {/* Document Viewport */}
-      <div className="flex-1 overflow-auto flex justify-center items-start p-8">
-        <div
-          style={{ transform: `scale(${zoom / 100})`, transformOrigin: "top center" }}
-          className="w-[595px] min-h-[842px] bg-white text-[#1C1917] shadow-xl rounded-sm p-12 flex flex-col justify-between transition-transform duration-100 border border-[#E5DFD3]"
-        >
-          <div>
-            <div className="flex justify-between border-b border-[#E5DFD3] pb-2 text-[10px] text-[#78716C] font-mono mb-8">
-              <span>{documentData?.metadata.title}</span>
-              <span>Page {currentPdfPage} of {totalPages}</span>
+        {/* 3 Tabs */}
+        <div className="grid grid-cols-3 border-b border-[#E5DFD3] bg-[#EFEAE1]/60 text-xs font-medium">
+          <button
+            onClick={() => setSidebarTab("contents")}
+            className={`py-2 px-1 flex flex-col items-center gap-1 transition-colors border-b-2 ${
+              sidebarTab === "contents"
+                ? "border-[#18181B] text-[#18181B] font-bold bg-[#FAF7F2]"
+                : "border-transparent text-[#78716C] hover:text-[#18181B]"
+            }`}
+          >
+            <ListTree className="w-3.5 h-3.5" />
+            <span className="text-[10px]">Contents</span>
+          </button>
+          <button
+            onClick={() => setSidebarTab("thumbnails")}
+            className={`py-2 px-1 flex flex-col items-center gap-1 transition-colors border-b-2 ${
+              sidebarTab === "thumbnails"
+                ? "border-[#18181B] text-[#18181B] font-bold bg-[#FAF7F2]"
+                : "border-transparent text-[#78716C] hover:text-[#18181B]"
+            }`}
+          >
+            <ImageIcon className="w-3.5 h-3.5" />
+            <span className="text-[10px]">Thumbnails</span>
+          </button>
+          <button
+            onClick={() => setSidebarTab("bookmarks")}
+            className={`py-2 px-1 flex flex-col items-center gap-1 transition-colors border-b-2 ${
+              sidebarTab === "bookmarks"
+                ? "border-[#18181B] text-[#18181B] font-bold bg-[#FAF7F2]"
+                : "border-transparent text-[#78716C] hover:text-[#18181B]"
+            }`}
+          >
+            <BookmarkIcon className="w-3.5 h-3.5" />
+            <span className="text-[10px]">Bookmarks</span>
+          </button>
+        </div>
+
+        {/* Thumbnails Stream */}
+        <div className="flex-1 overflow-y-auto p-3 space-y-4">
+          {[
+            { page: 1, label: "1" },
+            { page: 2, label: "2-3", active: true },
+            { page: 4, label: "4-5" },
+            { page: 6, label: "6-7" },
+          ].map((thumb) => (
+            <div
+              key={thumb.label}
+              onClick={() => loadPdfPage(thumb.page)}
+              className="space-y-1 cursor-pointer group"
+            >
+              <div className="flex items-center justify-between text-[10px] text-[#78716C] px-1 font-mono">
+                <span>{thumb.label}</span>
+              </div>
+              <div
+                className={`w-full aspect-[4/3] rounded-lg bg-white border p-2 flex items-center justify-center transition-all shadow-xs ${
+                  thumb.active
+                    ? "border-teal-700 ring-2 ring-teal-600/30"
+                    : "border-[#E5DFD3] group-hover:border-[#DDD5C7]"
+                }`}
+              >
+                <div className="w-full h-full border border-dashed border-[#E5DFD3] rounded flex items-center justify-center p-2 text-center">
+                  <span className="font-serif text-[9px] text-[#78716C]">
+                    {thumb.label === "2-3" ? "Spatial Dynamics" : "Document Page"}
+                  </span>
+                </div>
+              </div>
             </div>
-            <h2 className="text-xl font-bold mb-4 font-serif text-[#1C1917]">
-              Section {currentPdfPage}: Cognitive Affordances & Design
-            </h2>
-            <p className="text-sm leading-relaxed mb-4 text-[#443F39]">
-              This document section is rendered through Luma's high-precision PDF document engine.
-              All text layer bounding geometries are normalized to the page viewport $[0.0, 1.0]$.
-            </p>
-            <p className="text-sm leading-relaxed mb-4 text-[#443F39]">
-              Annotation anchors in PDF mode preserve both structural page references and raw character
-              bounding rects to ensure highlights remain accurately positioned across different screens.
-            </p>
+          ))}
+        </div>
+      </aside>
+
+      {/* Main Reading Viewport */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Floating Top Controls Header */}
+        <div className="h-12 border-b border-[#E5DFD3] bg-[#FAF7F2] px-6 flex items-center justify-between z-10">
+          <div className="flex items-center gap-3">
+            <button
+              disabled={leftPageNum <= 2}
+              onClick={() => loadPdfPage(Math.max(1, leftPageNum - 2))}
+              className="p-1 hover:text-[#18181B] text-[#78716C] rounded hover:bg-[#EFEAE1] disabled:opacity-30"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <span className="text-xs font-mono font-semibold text-[#1C1917]">
+              {isDualSpread ? `${leftPageNum}-${rightPageNum} / ${totalPages}` : `${currentPdfPage} / ${totalPages}`}
+            </span>
+            <button
+              disabled={rightPageNum >= totalPages}
+              onClick={() => loadPdfPage(Math.min(totalPages, leftPageNum + 2))}
+              className="p-1 hover:text-[#18181B] text-[#78716C] rounded hover:bg-[#EFEAE1] disabled:opacity-30"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
           </div>
 
-          <div className="text-center text-[10px] text-[#78716C] font-mono border-t border-[#E5DFD3] pt-3">
-            Page {currentPdfPage}
+          <div className="flex items-center gap-2 text-xs text-[#78716C]">
+            <button
+              onClick={() => setZoom((z) => Math.max(60, z - 10))}
+              className="p-1 hover:text-[#18181B] rounded hover:bg-[#EFEAE1]"
+            >
+              <ZoomOut className="w-3.5 h-3.5" />
+            </button>
+            <span className="font-mono text-[11px] px-1 text-[#1C1917]">{zoom}%</span>
+            <button
+              onClick={() => setZoom((z) => Math.min(180, z + 10))}
+              className="p-1 hover:text-[#18181B] rounded hover:bg-[#EFEAE1]"
+            >
+              <ZoomIn className="w-3.5 h-3.5" />
+            </button>
+            <div className="w-[1px] h-3.5 bg-[#E5DFD3] mx-1" />
+            <button
+              onClick={() => setIsDualSpread(!isDualSpread)}
+              className={`p-1.5 rounded-md transition-colors ${
+                isDualSpread ? "bg-[#E4DED3] text-[#18181B]" : "hover:bg-[#EFEAE1]"
+              }`}
+              title="Toggle Dual Spread Mode"
+            >
+              <Layout className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Dual Page Spread Viewport */}
+        <div className="flex-1 overflow-auto p-8 flex justify-center items-start">
+          <div
+            style={{ transform: `scale(${zoom / 100})`, transformOrigin: "top center" }}
+            className="flex gap-6 items-start transition-transform duration-150"
+          >
+            {/* Left Page (Page 2) */}
+            <div className="w-[440px] min-h-[600px] bg-white border border-[#E5DFD3] rounded-sm p-10 shadow-lg flex flex-col justify-between text-xs leading-relaxed text-[#292524]">
+              <div className="space-y-4">
+                <div className="space-y-1">
+                  <h2 className="font-serif text-lg font-bold text-[#1C1917]">The Architecture of Silence</h2>
+                  <p className="text-[10px] font-bold text-[#78716C] uppercase tracking-wider font-mono">
+                    SECTION 1: SPATIAL DYNAMICS
+                  </p>
+                </div>
+
+                <p>
+                  The contemporary understanding of library spaces often prioritizes the acoustic environment as a primary functional requirement. However, the conceptualization of "silence" within these structures extends beyond mere sound attenuation. It is a tectonic feature, built into the very masonry and spatial organization of the reading rooms.
+                </p>
+
+                <p>
+                  When examining the early 20th-century models, we observe a deliberate sequencing of thresholds. The transition from the clamor of the urban street to the sanctuary of the central hall occurs through compression chambers—vestibules that dampen reverberation.
+                </p>
+              </div>
+
+              <div className="text-center font-mono text-[10px] text-[#78716C] pt-4 border-t border-[#F2ECE2]">
+                {leftPageNum}
+              </div>
+            </div>
+
+            {/* Right Page (Page 3) */}
+            <div className="w-[440px] min-h-[600px] bg-white border border-[#E5DFD3] rounded-sm p-10 shadow-lg flex flex-col justify-between text-xs leading-relaxed text-[#292524]">
+              <div className="space-y-4">
+                <p>
+                  Modern interventions in these historic spaces must navigate the delicate balance between preserving this cultivated silence and accommodating contemporary collaborative needs. The introduction of "active learning" zones presents a topological challenge, often requiring a complete reimagining of the acoustic zoning.
+                </p>
+
+                {/* Figure Box */}
+                <div className="border border-[#E5DFD3] bg-[#FAF7F2] rounded-lg p-6 flex flex-col items-center justify-center text-center space-y-2">
+                  <div className="w-full h-24 bg-[#EAE4DA] rounded flex items-center justify-center">
+                    <span className="font-serif italic text-base text-[#8C8275]">architecture</span>
+                  </div>
+                  <p className="text-[10px] text-[#78716C] italic font-serif">
+                    Fig 2. Acoustic Zoning Diagram, Level 1
+                  </p>
+                </div>
+              </div>
+
+              <div className="text-center font-mono text-[10px] text-[#78716C] pt-4 border-t border-[#F2ECE2]">
+                {rightPageNum}
+              </div>
+            </div>
           </div>
         </div>
       </div>
-
-      {/* Bottom Page Navigation Bar */}
-      <footer className="w-full border-t border-[#E5DFD3] bg-[#FAF7F2] px-8 py-2.5 flex items-center justify-between z-20">
-        <button
-          disabled={currentPdfPage <= 1}
-          onClick={() => loadPdfPage(currentPdfPage - 1)}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-[#78716C] hover:text-[#18181B] hover:bg-[#EFEAE1] disabled:opacity-30 disabled:pointer-events-none transition-colors"
-        >
-          <ChevronLeft className="w-4 h-4" />
-          Previous Page
-        </button>
-
-        <div className="flex items-center gap-2 text-xs font-mono text-[#78716C]">
-          <span>Page</span>
-          <span className="text-[#1C1917] font-bold">{currentPdfPage}</span>
-          <span>of {totalPages}</span>
-        </div>
-
-        <button
-          disabled={currentPdfPage >= totalPages}
-          onClick={() => loadPdfPage(currentPdfPage + 1)}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-[#78716C] hover:text-[#18181B] hover:bg-[#EFEAE1] disabled:opacity-30 disabled:pointer-events-none transition-colors"
-        >
-          Next Page
-          <ChevronRight className="w-4 h-4" />
-        </button>
-      </footer>
     </div>
   );
 };
-

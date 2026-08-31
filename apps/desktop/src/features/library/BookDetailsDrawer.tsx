@@ -128,7 +128,7 @@ export const BookDetailsDrawer: React.FC<BookDetailsDrawerProps> = ({
                   <span>Edit</span>
                 </button>
                 <button
-                  onClick={() => {}}
+                  onClick={onAddToCollection}
                   className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 bg-[#FAF7F2] hover:bg-[#F3EFE6] active:bg-[#EAE4DA] text-[#1C1917] text-xs font-medium rounded-lg border border-[#DDD5C7] shadow-2xs transition-colors"
                 >
                   <Plus className="w-3.5 h-3.5 text-[#57534E]" />

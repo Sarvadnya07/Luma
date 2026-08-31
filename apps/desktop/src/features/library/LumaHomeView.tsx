@@ -1,6 +1,6 @@
 import React from "react";
 import { Book } from "@luma/shared-types";
-import { BookOpen, FileText } from "lucide-react";
+import { BookOpen } from "lucide-react";
 
 export interface LumaHomeViewProps {
   books?: Book[];
@@ -58,9 +58,6 @@ export const LumaHomeView: React.FC<LumaHomeViewProps> = ({
 
   const todayStr = new Date().toLocaleDateString("en-US", {
     weekday: "long",
-    month: "long",
-    day: "numeric",
-  }).toUpperCase();
     month: "long",
     day: "numeric",
   }).toUpperCase();
