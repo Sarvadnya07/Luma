@@ -18,7 +18,8 @@ export interface BookDetailsDrawerProps {
   onTrash: () => void;
   onRestore?: () => void;
   onPermanentDelete?: () => void;
-  onAddTag: (name: string) => void;
+  onAddTag?: (name: string) => void;
+  onAddToCollection?: () => void;
 }
 
 export const BookDetailsDrawer: React.FC<BookDetailsDrawerProps> = ({
@@ -31,6 +32,7 @@ export const BookDetailsDrawer: React.FC<BookDetailsDrawerProps> = ({
   onRestore,
   onPermanentDelete,
   onAddTag: _onAddTag,
+  onAddToCollection,
 }) => {
   if (!data) return null;
   const { book, authors, reading_progress } = data;

@@ -228,6 +228,8 @@ export const LibraryView: React.FC = () => {
           ) : currentSection === "library" && !searchQuery && formatFilter === "all" && statusFilter === "all" ? (
             /* Screenshot 3: Luma Home View */
             <LumaHomeView
+              books={books}
+              authorMap={BOOK_AUTHORS_MAP}
               onSelectBook={(b) => handleOpenDetails(b.id)}
               onOpenReader={(b) => {
                 setCurrentBook(b);

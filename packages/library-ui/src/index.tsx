@@ -90,33 +90,31 @@ export const BookTable: React.FC<BookTableProps> = ({
 }) => {
   const getProgressNumber = (book: Book) => {
     if (book.reading_status === "completed") return 100;
-    if (book.id === "book_arch_stillness" || book.id === "book_arch_happiness") return 45;
-    if (book.id === "book_great_gatsby") return 66;
-    if (book.id === "book_meditations") return 62;
-    if (book.id === "book_thinking_fast") return 0;
-    if (book.id === "book_dune") return 100;
-    if (book.id === "book_design_everyday") return 12;
     if (book.reading_status === "unread") return 0;
-    return 25;
+    return 35;
   };
 
   const getFormat = (book: Book) => {
-    if (book.id === "book_design_everyday" || book.id === "book_thinking_fast") return "PDF";
-    if (book.id === "book_dune") return "MOBI";
+    if (book.primary_file_id) {
+      const lower = book.primary_file_id.toLowerCase();
+      if (lower.includes("pdf")) return "PDF";
+      if (lower.includes("cbz")) return "CBZ";
+      if (lower.includes("md")) return "MD";
+      if (lower.includes("txt")) return "TXT";
+    }
     return "EPUB";
   };
 
   const getCategory = (book: Book) => {
-    if (book.id === "book_arch_happiness" || book.id === "book_arch_stillness") return "Philosophy";
-    if (book.id === "book_thinking_fast") return "Psychology";
-    if (book.id === "book_dune") return "Science Fiction";
-    if (book.id === "book_meditations") return "Philosophy";
-    return "Literature";
+    if (book.subtitle) return book.subtitle;
+    if (book.language) return `Language: ${book.language.toUpperCase()}`;
+    return "Publication";
   };
 
   const getSeriesTag = (book: Book) => {
-    if (book.id === "book_dune") return "Dune Chronicles #1";
-    if (book.series_id || book.id === "book_foundation") return "Foundation #1";
+    if (book.series_id) {
+      return book.series_index ? `${book.series_id} #${book.series_index}` : book.series_id;
+    }
     return null;
   };
 
@@ -125,7 +123,7 @@ export const BookTable: React.FC<BookTableProps> = ({
       const d = new Date(iso);
       return d.toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" });
     } catch {
-      return "Oct 12, 2023";
+      return "Recent";
     }
   };
 
@@ -145,15 +143,7 @@ export const BookTable: React.FC<BookTableProps> = ({
         </thead>
         <tbody className="divide-y divide-[#EFEAE1] text-xs text-[#292524]">
           {books.map((book) => {
-            const author = authorMap[book.id] || (
-              book.id === "book_arch_happiness"
-                ? "Alain de Botton"
-                : book.id === "book_thinking_fast"
-                ? "Daniel Kahneman"
-                : book.id === "book_dune"
-                ? "Frank Herbert"
-                : "Unknown Author"
-            );
+            const author = authorMap[book.id] || "Unknown Author";
             const progress = getProgressNumber(book);
             const isSelected = selectedBookId === book.id;
             const seriesTag = getSeriesTag(book);
