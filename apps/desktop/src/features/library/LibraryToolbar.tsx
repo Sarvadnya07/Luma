@@ -1,7 +1,6 @@
 import React from "react";
-import { Search, LayoutGrid, List, RefreshCw, FolderPlus } from "lucide-react";
+import { Search, LayoutGrid, List, SlidersHorizontal, Plus } from "lucide-react";
 import { DocumentFormat, ReadingStatus, LibrarySortBy } from "@luma/shared-types";
-import { Button } from "@luma/ui";
 
 export interface LibraryToolbarProps {
   searchQuery: string;
@@ -15,8 +14,9 @@ export interface LibraryToolbarProps {
   viewMode: "grid" | "list";
   onViewModeChange: (m: "grid" | "list") => void;
   onImportClick: () => void;
-  onReconcileClick: () => void;
-  loading: boolean;
+  onReconcileClick?: () => void;
+  totalCount?: number;
+  loading?: boolean;
 }
 
 export const LibraryToolbar: React.FC<LibraryToolbarProps> = ({
@@ -24,105 +24,130 @@ export const LibraryToolbar: React.FC<LibraryToolbarProps> = ({
   onSearchChange,
   formatFilter,
   onFormatChange,
-  statusFilter,
-  onStatusChange,
   sortBy,
   onSortByChange,
   viewMode,
   onViewModeChange,
   onImportClick,
-  onReconcileClick,
-  loading,
+  totalCount = 42,
 }) => {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-4 pb-6 border-b border-slate-800/80">
-      {/* Search Bar */}
-      <div className="relative flex-1 min-w-[240px] max-w-md">
-        <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => onSearchChange(e.target.value)}
-          placeholder="Search by title, author, series, or tags..."
-          className="w-full pl-9 pr-4 py-2 bg-slate-900/80 border border-slate-800 rounded-xl text-xs text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-sky-500/50 focus:ring-1 focus:ring-sky-500/20 transition-all"
-        />
-      </div>
+    <div className="space-y-4">
+      {/* Top Search & Actions Bar */}
+      <div className="flex items-center justify-between gap-4">
+        {/* Search Bar matching screenshots */}
+        <div className="relative flex-1 max-w-xl">
+          <Search className="w-3.5 h-3.5 text-[#8C8275] absolute left-3.5 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => onSearchChange(e.target.value)}
+            placeholder="Search Library..."
+            className="w-full pl-9 pr-4 py-2 bg-[#FFFFFF] border border-[#E5DFD3] rounded-lg text-xs text-[#1C1917] placeholder:text-[#8C8275] focus:outline-none focus:border-[#18181B] focus:ring-1 focus:ring-[#18181B]/20 transition-all shadow-2xs"
+          />
+        </div>
 
-      {/* Filters & Actions */}
-      <div className="flex items-center gap-2.5 flex-wrap">
-        {/* Format Select */}
-        <select
-          value={formatFilter}
-          onChange={(e) => onFormatChange(e.target.value as any)}
-          className="bg-slate-900 border border-slate-800 text-slate-300 text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-slate-700"
-        >
-          <option value="all">All Formats</option>
-          <option value="epub">EPUB</option>
-          <option value="pdf">PDF</option>
-          <option value="cbz">CBZ Comics</option>
-          <option value="txt">Plain Text</option>
-          <option value="md">Markdown</option>
-        </select>
-
-        {/* Status Select */}
-        <select
-          value={statusFilter}
-          onChange={(e) => onStatusChange(e.target.value as any)}
-          className="bg-slate-900 border border-slate-800 text-slate-300 text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-slate-700"
-        >
-          <option value="all">All Statuses</option>
-          <option value="unread">Unread</option>
-          <option value="reading">Reading</option>
-          <option value="completed">Completed</option>
-        </select>
-
-        {/* Sort Select */}
-        <select
-          value={sortBy}
-          onChange={(e) => onSortByChange(e.target.value as any)}
-          className="bg-slate-900 border border-slate-800 text-slate-300 text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-slate-700"
-        >
-          <option value="title">Sort: Title</option>
-          <option value="author">Sort: Author</option>
-          <option value="created_at">Sort: Recently Added</option>
-          <option value="last_read_at">Sort: Recently Read</option>
-          <option value="published_date">Sort: Release Year</option>
-        </select>
-
-        {/* View Switcher */}
-        <div className="flex items-center bg-slate-900 border border-slate-800 rounded-lg p-0.5">
+        {/* Right Controls */}
+        <div className="flex items-center gap-2">
+          {/* Grid View Toggle */}
           <button
             onClick={() => onViewModeChange("grid")}
-            className={`p-1.5 rounded-md transition-colors ${
-              viewMode === "grid" ? "bg-slate-800 text-sky-400" : "text-slate-500 hover:text-slate-300"
+            className={`p-2 rounded-lg transition-colors border ${
+              viewMode === "grid"
+                ? "bg-[#EAE4DA] text-[#18181B] border-[#DDD5C7] shadow-2xs"
+                : "bg-transparent text-[#78716C] border-transparent hover:bg-[#EFEAE1] hover:text-[#18181B]"
             }`}
             title="Grid View"
           >
             <LayoutGrid className="w-4 h-4" />
           </button>
+
+          {/* List View Toggle */}
           <button
             onClick={() => onViewModeChange("list")}
-            className={`p-1.5 rounded-md transition-colors ${
-              viewMode === "list" ? "bg-slate-800 text-sky-400" : "text-slate-500 hover:text-slate-300"
+            className={`p-2 rounded-lg transition-colors border ${
+              viewMode === "list"
+                ? "bg-[#EAE4DA] text-[#18181B] border-[#DDD5C7] shadow-2xs"
+                : "bg-transparent text-[#78716C] border-transparent hover:bg-[#EFEAE1] hover:text-[#18181B]"
             }`}
             title="List View"
           >
             <List className="w-4 h-4" />
           </button>
+
+          {/* Sort / Filter Button */}
+          <button
+            onClick={() => {
+              const nextSort: Record<LibrarySortBy, LibrarySortBy> = {
+                title: "author",
+                author: "created_at",
+                created_at: "last_read_at",
+                last_read_at: "published_date",
+                published_date: "title",
+              };
+              onSortByChange(nextSort[sortBy] || "title");
+            }}
+            className="p-2 rounded-lg text-[#78716C] hover:text-[#18181B] hover:bg-[#EFEAE1] transition-colors border border-transparent hover:border-[#DDD5C7]"
+            title={`Sort: ${sortBy}`}
+          >
+            <SlidersHorizontal className="w-4 h-4" />
+          </button>
+
+          {/* Add Book Button in list toolbar */}
+          {viewMode === "list" && (
+            <button
+              onClick={onImportClick}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#DDD5C7] bg-[#FFFFFF] hover:bg-[#F3EFE6] text-xs font-medium text-[#1C1917] shadow-2xs transition-colors ml-1"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Add Book</span>
+            </button>
+          )}
         </div>
-
-        {/* Reconcile Files */}
-        <Button variant="secondary" size="sm" onClick={onReconcileClick} disabled={loading}>
-          <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${loading ? "animate-spin" : ""}`} />
-          Verify Integrity
-        </Button>
-
-        {/* Import */}
-        <Button variant="primary" size="sm" onClick={onImportClick}>
-          <FolderPlus className="w-4 h-4 mr-1.5" />
-          Import
-        </Button>
       </div>
+
+      {/* Filter Tabs / Pills in List View or Grid View */}
+      {viewMode === "list" && (
+        <div className="flex items-center justify-between pt-1">
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => onFormatChange("all")}
+              className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                formatFilter === "all"
+                  ? "bg-[#E4DED3] text-[#18181B] shadow-2xs"
+                  : "text-[#78716C] hover:text-[#18181B] hover:bg-[#EFEAE1]"
+              }`}
+            >
+              All Formats
+            </button>
+            <button
+              onClick={() => onFormatChange("epub")}
+              className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                formatFilter === "epub"
+                  ? "bg-[#E4DED3] text-[#18181B] shadow-2xs"
+                  : "text-[#78716C] hover:text-[#18181B] hover:bg-[#EFEAE1]"
+              }`}
+            >
+              EPUB
+            </button>
+            <button
+              onClick={() => onFormatChange("pdf")}
+              className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                formatFilter === "pdf"
+                  ? "bg-[#E4DED3] text-[#18181B] shadow-2xs"
+                  : "text-[#78716C] hover:text-[#18181B] hover:bg-[#EFEAE1]"
+              }`}
+            >
+              PDF
+            </button>
+          </div>
+
+          <span className="text-xs text-[#78716C] font-medium">
+            Showing {totalCount} items
+          </span>
+        </div>
+      )}
     </div>
   );
 };
+

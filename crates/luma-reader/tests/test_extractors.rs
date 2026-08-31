@@ -1,18 +1,18 @@
 use std::fs::File;
 use std::io::Write;
 use tempfile::NamedTempFile;
-use zip::write::FileOptions;
+use zip::write::SimpleFileOptions;
 use zip::ZipWriter;
 
 use luma_core::models::book::DocumentFormat;
 use luma_reader::detector::FormatDetector;
-use luma_reader::extractors::{CbzExtractor, EpubExtractor, PdfExtractor, TextExtractor};
+use luma_reader::extractors::{EpubExtractor, PdfExtractor, TextExtractor};
 
 fn create_sample_epub() -> NamedTempFile {
     let file = NamedTempFile::new().unwrap();
     let mut zip = ZipWriter::new(File::create(file.path()).unwrap());
 
-    let options: FileOptions<'_> = FileOptions::default()
+    let options = SimpleFileOptions::default()
         .compression_method(zip::CompressionMethod::Stored)
         .unix_permissions(0o644);
 

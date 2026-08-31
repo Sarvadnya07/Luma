@@ -147,12 +147,16 @@ impl EpubExtractor {
 
         let mut buf = Vec::new();
         let mut current_tag = String::new();
+        let mut current_meta_name = String::new();
+        let mut current_meta_property = String::new();
 
         loop {
             match reader.read_event_into(&mut buf) {
                 Ok(Event::Start(e)) => {
                     let local_name = String::from_utf8_lossy(e.local_name().as_ref()).to_string();
                     current_tag = local_name.clone();
+                    current_meta_name.clear();
+                    current_meta_property.clear();
 
                     // Check EPUB 3 cover image property
                     if local_name == "item" {
@@ -172,10 +176,47 @@ impl EpubExtractor {
                         if is_cover && !item_href.is_empty() {
                             cover_id_or_href = Some(item_href);
                         }
+                    } else if local_name == "meta" {
+                        for attr in e.attributes().flatten() {
+                            let k = String::from_utf8_lossy(attr.key.as_ref()).to_string();
+                            let v = String::from_utf8_lossy(&attr.value).to_string();
+                            if k == "name" {
+                                current_meta_name = v;
+                            } else if k == "property" {
+                                current_meta_property = v;
+                            } else if k == "content" {
+                                if current_meta_name == "calibre:series" && !v.is_empty() {
+                                    series = Some(v);
+                                } else if current_meta_name == "calibre:series_index"
+                                    && !v.is_empty()
+                                {
+                                    series_index = v.parse::<f32>().ok();
+                                }
+                            }
+                        }
                     }
                 }
                 Ok(Event::Empty(e)) => {
                     let local_name = String::from_utf8_lossy(e.local_name().as_ref()).to_string();
+
+                    if local_name == "item" {
+                        let mut item_href = String::new();
+                        let mut is_cover = false;
+
+                        for attr in e.attributes().flatten() {
+                            let k = String::from_utf8_lossy(attr.key.as_ref()).to_string();
+                            let v = String::from_utf8_lossy(&attr.value).to_string();
+                            if k == "href" {
+                                item_href = v;
+                            } else if k == "properties" && v.contains("cover-image") {
+                                is_cover = true;
+                            }
+                        }
+
+                        if is_cover && !item_href.is_empty() {
+                            cover_id_or_href = Some(item_href);
+                        }
+                    }
 
                     // Check EPUB 2 Calibre and EPUB 3 meta tags
                     if local_name == "meta" {
@@ -245,12 +286,25 @@ impl EpubExtractor {
                                     subjects.push(clean);
                                 }
                             }
+                            "meta" => {
+                                if current_meta_name == "calibre:series" {
+                                    series = Some(sanitize_untrusted_html(&text));
+                                } else if current_meta_name == "calibre:series_index" {
+                                    series_index = text.parse::<f32>().ok();
+                                } else if current_meta_property == "belongs-to-collection" {
+                                    series = Some(sanitize_untrusted_html(&text));
+                                } else if current_meta_property == "group-position" {
+                                    series_index = text.parse::<f32>().ok();
+                                }
+                            }
                             _ => {}
                         }
                     }
                 }
                 Ok(Event::End(_)) => {
                     current_tag.clear();
+                    current_meta_name.clear();
+                    current_meta_property.clear();
                 }
                 Ok(Event::Eof) => break,
                 Err(e) => {

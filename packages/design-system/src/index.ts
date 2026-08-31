@@ -1,36 +1,49 @@
 export const LUMA_THEMES = {
-  dark: {
-    bg: "#090d16",
-    surface: "#131b2e",
-    border: "#1e293b",
-    textPrimary: "#f8fafc",
-    textSecondary: "#94a3b8",
-    accent: "#38bdf8",
+  paper: {
+    bg: "#FAF7F2",
+    surface: "#FFFFFF",
+    sidebar: "#F3EFE6",
+    border: "#E5DFD3",
+    textPrimary: "#1C1917",
+    textSecondary: "#78716C",
+    accent: "#18181B",
   },
   sepia: {
-    bg: "#fbf0d9",
-    surface: "#f4e4c1",
-    border: "#dfcca6",
+    bg: "#F4ECD8",
+    surface: "#FDF6E2",
+    sidebar: "#EBDDBF",
+    border: "#D8C7A5",
     textPrimary: "#433422",
-    textSecondary: "#7c6a53",
-    accent: "#b45309",
+    textSecondary: "#7C6A53",
+    accent: "#8C4A1E",
+  },
+  dark: {
+    bg: "#18181B",
+    surface: "#27272A",
+    sidebar: "#202023",
+    border: "#3F3F46",
+    textPrimary: "#F4F4F5",
+    textSecondary: "#A1A1AA",
+    accent: "#FAFAFA",
   },
   light: {
-    bg: "#ffffff",
-    surface: "#f8fafc",
-    border: "#e2e8f0",
-    textPrimary: "#0f172a",
-    textSecondary: "#64748b",
-    accent: "#0284c7",
+    bg: "#FFFFFF",
+    surface: "#F8FAFC",
+    sidebar: "#F1F5F9",
+    border: "#E2E8F0",
+    textPrimary: "#0F172A",
+    textSecondary: "#64748B",
+    accent: "#0F172A",
   },
 } as const;
 
 export const ANNOTATION_HIGHLIGHT_COLORS = [
-  { name: "Yellow", hex: "#fde047", darkHex: "#eab308" },
-  { name: "Green", hex: "#86efac", darkHex: "#22c55e" },
-  { name: "Blue", hex: "#93c5fd", darkHex: "#3b82f6" },
-  { name: "Pink", hex: "#f472b6", darkHex: "#ec4899" },
-  { name: "Purple", hex: "#d8b4fe", darkHex: "#a855f7" },
+  { name: "Yellow", hex: "#FDE68A", darkHex: "#F59E0B" },
+  { name: "Green", hex: "#A7F3D0", darkHex: "#10B981" },
+  { name: "Blue", hex: "#BAE6FD", darkHex: "#0EA5E9" },
+  { name: "Pink", hex: "#FBCFE8", darkHex: "#EC4899" },
+  { name: "Purple", hex: "#E9D5FF", darkHex: "#A855F7" },
 ] as const;
 
 export type ThemeName = keyof typeof LUMA_THEMES;
+

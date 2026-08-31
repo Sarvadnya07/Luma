@@ -21,129 +21,295 @@ import {
 // In-memory mock store when Tauri IPC is not available in browser dev environment
 const mockBooks: Book[] = [
   {
-    id: "book_01918a23010170008000000000000001",
-    title: "The Rust Programming Language",
-    subtitle: "Covers Rust 2021 Edition",
+    id: "book_arch_stillness",
+    title: "The Architecture of Stillness",
+    subtitle: "Space and Silence in Modernist Literature",
     author_ids: [],
     series_id: null,
     series_index: null,
-    description: "The official guide to learning the Rust systems programming language with memory safety guarantees.",
-    publisher: "No Starch Press",
-    published_date: "2023-02-15",
+    description:
+      "In this profound exploration of spatial dynamics within literature, the author examines how the physical environments constructed by modernist writers serve as vessels for silence and psychological depth. Drawing on architectural theory and literary analysis, the book offers a new perspective on the deliberate use of emptiness in narrative structure.",
+    publisher: "Sanctuary Press",
+    published_date: "2023-04-12",
     language: "en",
-    isbn: "978-1718503106",
+    isbn: "978-0143127741",
     cover_image_id: null,
-    cover_image_path: null,
-    primary_file_id: "file_01918a23010170008000000000000002",
+    cover_image_path: "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?q=80&w=600&auto=format&fit=crop",
+    primary_file_id: "file_arch_stillness",
     reading_status: "reading",
     library_state: "active",
     trashed_at: null,
     sync: {
       version: 1,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      created_at: "2023-10-15T10:00:00Z",
+      updated_at: "2023-10-15T10:00:00Z",
       device_id: "dev_01",
       is_deleted: false,
-      deleted_at: null,
     },
   },
   {
-    id: "book_01918a23010170008000000000000003",
-    title: "Designing Data-Intensive Applications",
-    subtitle: "The Big Ideas Behind Reliable, Scalable, and Maintainable Systems",
+    id: "book_meditations",
+    title: "Meditations",
+    subtitle: "A New Translation with Introduction & Notes",
     author_ids: [],
     series_id: null,
     series_index: null,
-    description: "An authoritative guide to data systems architecture, replication, partitioning, transactions, and consensus.",
-    publisher: "O'Reilly Media",
-    published_date: "2017-03-16",
+    description: "Personal writings of the Roman Emperor Marcus Aurelius on Stoic philosophy, duty, resilience, and inner tranquility.",
+    publisher: "Modern Library",
+    published_date: "2003-05-06",
     language: "en",
-    isbn: "978-1449373320",
+    isbn: "978-0812968255",
     cover_image_id: null,
-    cover_image_path: null,
-    primary_file_id: "file_01918a23010170008000000000000004",
+    cover_image_path: "https://images.unsplash.com/photo-1512820790803-83ca734da794?q=80&w=600&auto=format&fit=crop",
+    primary_file_id: "file_meditations",
+    reading_status: "reading",
+    library_state: "active",
+    trashed_at: null,
+    sync: {
+      version: 1,
+      created_at: "2023-10-12T08:30:00Z",
+      updated_at: "2023-10-12T08:30:00Z",
+      device_id: "dev_01",
+      is_deleted: false,
+    },
+  },
+  {
+    id: "book_great_gatsby",
+    title: "The Great Gatsby",
+    subtitle: "The Authorized Edition",
+    author_ids: [],
+    series_id: null,
+    series_index: null,
+    description: "The classic American novel of the Jazz Age exploring ambition, illusion, wealth, and longing in 1920s Long Island.",
+    publisher: "Scribner",
+    published_date: "1925-04-10",
+    language: "en",
+    isbn: "978-0743273565",
+    cover_image_id: null,
+    cover_image_path: "https://images.unsplash.com/photo-1543002588-bfa74002ed7e?q=80&w=600&auto=format&fit=crop",
+    primary_file_id: "file_great_gatsby",
+    reading_status: "reading",
+    library_state: "active",
+    trashed_at: null,
+    sync: {
+      version: 1,
+      created_at: "2023-10-08T14:15:00Z",
+      updated_at: "2023-10-08T14:15:00Z",
+      device_id: "dev_01",
+      is_deleted: false,
+    },
+  },
+  {
+    id: "book_foundation",
+    title: "Foundation",
+    subtitle: "The Foundation Series, Book 1",
+    author_ids: [],
+    series_id: "series_foundation",
+    series_index: 1,
+    description: "Hari Seldon discovers psychohistory and calculates that the Galactic Empire will soon fall into thirty thousand years of barbarism.",
+    publisher: "Spectra",
+    published_date: "1951-05-01",
+    language: "en",
+    isbn: "978-0553293357",
+    cover_image_id: null,
+    cover_image_path: "https://images.unsplash.com/photo-1516979187457-637abb4f9353?q=80&w=600&auto=format&fit=crop",
+    primary_file_id: "file_foundation",
+    reading_status: "completed",
+    library_state: "active",
+    trashed_at: null,
+    sync: {
+      version: 1,
+      created_at: "2023-09-28T11:00:00Z",
+      updated_at: "2023-09-28T11:00:00Z",
+      device_id: "dev_01",
+      is_deleted: false,
+    },
+  },
+  {
+    id: "book_design_everyday",
+    title: "The Design of Everyday Things",
+    subtitle: "Revised and Expanded Edition",
+    author_ids: [],
+    series_id: null,
+    series_index: null,
+    description: "The seminal work on cognitive engineering, user-centered design, and affordances by former Apple VP Don Norman.",
+    publisher: "Basic Books",
+    published_date: "2013-11-05",
+    language: "en",
+    isbn: "978-0465050659",
+    cover_image_id: null,
+    cover_image_path: "https://images.unsplash.com/photo-1507842229451-9f01079ca4b5?q=80&w=600&auto=format&fit=crop",
+    primary_file_id: "file_design_everyday",
+    reading_status: "reading",
+    library_state: "active",
+    trashed_at: null,
+    sync: {
+      version: 1,
+      created_at: "2023-09-15T09:40:00Z",
+      updated_at: "2023-09-15T09:40:00Z",
+      device_id: "dev_01",
+      is_deleted: false,
+    },
+  },
+  {
+    id: "book_leaves_of_grass",
+    title: "Leaves of Grass",
+    subtitle: "The Original 1855 Edition",
+    author_ids: [],
+    series_id: null,
+    series_index: null,
+    description: "Walt Whitman's masterpiece celebrating democracy, nature, love, and the transcendent human spirit.",
+    publisher: "Penguin Classics",
+    published_date: "1855-07-04",
+    language: "en",
+    isbn: "978-0140421996",
+    cover_image_id: null,
+    cover_image_path: "https://images.unsplash.com/photo-1476275466078-4007374efbbe?q=80&w=600&auto=format&fit=crop",
+    primary_file_id: "file_leaves_grass",
     reading_status: "unread",
     library_state: "active",
     trashed_at: null,
     sync: {
       version: 1,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      created_at: "2023-09-02T16:20:00Z",
+      updated_at: "2023-09-02T16:20:00Z",
       device_id: "dev_01",
       is_deleted: false,
-      deleted_at: null,
     },
   },
-];
-
-let mockAnnotations: Annotation[] = [
   {
-    id: "ann_01",
-    book_id: "book_01918a23010170008000000000000001",
-    annotation_type: "highlight",
-    color_hex: "#38bdf8",
-    quote: "Annotation integrity is the cornerstone of any serious reading system.",
-    note: "P0 architectural differentiator for Luma.",
-    anchor_payload_json: JSON.stringify({
-      exact: "Annotation integrity is the cornerstone of any serious reading system.",
-      prefix: "partitions occur without interruption. ",
-      suffix: " If a highlight drifts",
-      normalized_exact: "annotation integrity is the cornerstone of any serious reading system",
-    }),
-    sync: { version: 1, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), device_id: "dev_01", is_deleted: false },
-  },
-];
-
-let mockBookmarks: Bookmark[] = [
-  {
-    id: "bmk_01",
-    book_id: "book_01918a23010170008000000000000001",
-    locator: "epubcfi(/6/4[ch1]!/4/2:0)",
-    title: "Chapter 1: The Principle of Architecture",
-    chapter_title: "Chapter 1",
-    page_number: 1,
-    sync: { version: 1, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), device_id: "dev_01", is_deleted: false },
-  },
-];
-
-const mockCollections: Collection[] = [
-  {
-    id: "col_01",
-    name: "Engineering & Architecture",
-    description: "Core systems engineering books",
-    book_ids: ["book_01918a23010170008000000000000001", "book_01918a23010170008000000000000003"],
+    id: "book_thinking_fast",
+    title: "Thinking, Fast and Slow",
+    subtitle: "Two Systems That Drive the Way We Think",
+    author_ids: [],
+    series_id: null,
+    series_index: null,
+    description: "Nobel laureate Daniel Kahneman's definitive exploration of human cognition, biases, and decision making.",
+    publisher: "Farrar, Straus and Giroux",
+    published_date: "2011-10-25",
+    language: "en",
+    isbn: "978-0374533557",
+    cover_image_id: null,
+    cover_image_path: "https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?q=80&w=600&auto=format&fit=crop",
+    primary_file_id: "file_thinking_fast",
+    reading_status: "unread",
+    library_state: "active",
+    trashed_at: null,
     sync: {
       version: 1,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      created_at: "2023-08-20T10:00:00Z",
+      updated_at: "2023-08-20T10:00:00Z",
+      device_id: "dev_01",
+      is_deleted: false,
+    },
+  },
+  {
+    id: "book_sapiens",
+    title: "Sapiens",
+    subtitle: "A Brief History of Humankind",
+    author_ids: [],
+    series_id: null,
+    series_index: null,
+    description: "100,000 years ago, at least six human species inhabited the earth. Today there is just one. Us. Homo sapiens.",
+    publisher: "Harper",
+    published_date: "2015-02-10",
+    language: "en",
+    isbn: "978-0062316097",
+    cover_image_id: null,
+    cover_image_path: "https://images.unsplash.com/photo-1532012164546-f432f2e3edd3?q=80&w=600&auto=format&fit=crop",
+    primary_file_id: "file_sapiens",
+    reading_status: "unread",
+    library_state: "active",
+    trashed_at: null,
+    sync: {
+      version: 1,
+      created_at: "2023-08-10T12:00:00Z",
+      updated_at: "2023-08-10T12:00:00Z",
+      device_id: "dev_01",
+      is_deleted: false,
+    },
+  },
+  {
+    id: "book_poetics_of_space",
+    title: "The Poetics of Space",
+    subtitle: "The Classic Look at How We Experience Architecture",
+    author_ids: [],
+    series_id: null,
+    series_index: null,
+    description: "Gaston Bachelard's philosophical investigation into how our domestic intimate spaces shape our memories and imagination.",
+    publisher: "Beacon Press",
+    published_date: "1994-04-01",
+    language: "en",
+    isbn: "978-0807064733",
+    cover_image_id: null,
+    cover_image_path: "https://images.unsplash.com/photo-1497633762265-9d179a990aa6?q=80&w=600&auto=format&fit=crop",
+    primary_file_id: "file_poetics_space",
+    reading_status: "unread",
+    library_state: "active",
+    trashed_at: null,
+    sync: {
+      version: 1,
+      created_at: "2023-07-25T14:30:00Z",
+      updated_at: "2023-07-25T14:30:00Z",
       device_id: "dev_01",
       is_deleted: false,
     },
   },
 ];
-const mockTags: Tag[] = [
-  {
-    id: "tag_01",
-    name: "Systems",
-    color_hex: "#38bdf8",
-    sync: { version: 1, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), device_id: "dev_01", is_deleted: false },
-  },
-  {
-    id: "tag_02",
-    name: "Distributed",
-    color_hex: "#a855f7",
-    sync: { version: 1, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), device_id: "dev_01", is_deleted: false },
-  },
-];
 
-const SAMPLE_CHAPTER_HTML = `
+const BOOK_AUTHORS_MAP: Record<string, string> = {
+  book_arch_stillness: "E. M. Forster",
+  book_meditations: "Marcus Aurelius",
+  book_great_gatsby: "F. Scott Fitzgerald",
+  book_foundation: "Isaac Asimov",
+  book_design_everyday: "Don Norman",
+  book_leaves_of_grass: "Walt Whitman",
+  book_thinking_fast: "Daniel Kahneman",
+  book_sapiens: "Yuval Noah Harari",
+  book_poetics_of_space: "Gaston Bachelard",
+};
+
+const GATSBY_CHAPTER_3_HTML = `
 <div class="chapter-content">
-  <h1 class="text-2xl font-bold mb-4">Chapter 1: The Principle of Architecture</h1>
-  <p class="mb-4">In software engineering, local-first systems prioritize user ownership and data autonomy. When network partitions occur, the application continues to operate without interruption.</p>
-  <p class="mb-4">Annotation integrity is the cornerstone of any serious reading system. If a highlight drifts or attaches to the wrong sentence after font changes, reader trust is permanently broken.</p>
-  <p class="mb-4">Every highlight must maintain multiple anchor signals: exact text quote, surrounding prefix and suffix context, normalized character sequences, and format-specific coordinates.</p>
-  <blockquote class="border-l-4 border-sky-500 pl-4 italic mb-4">"A reader that destroys annotations on reflow is not a reading system; it is merely an ephemeral document viewer."</blockquote>
-  <p class="mb-4">By storing anchors independently of presentation states, Luma guarantees that annotations survive across devices, font choices, and window sizes.</p>
+  <h1 class="text-3xl font-serif font-bold text-center mb-8 text-[#1C1917]">Chapter III</h1>
+  
+  <p class="mb-5 leading-relaxed text-[#292524]">
+    There was music from my neighbor's house through the summer nights. In his blue gardens men and girls came and went like moths among the whisperings and the champagne and the stars. At high tide in the afternoon I watched his guests diving from the tower of his raft, or taking the sun on the hot sand of his beach while his two motor-boats slit the waters of the Sound, drawing aquaplanes over cataracts of foam. On week-ends his Rolls-Royce became an omnibus, bearing parties to and from the city between nine in the morning and long past midnight, while his station wagon scampered like a brisk yellow bug to meet all trains. And on Mondays eight servants, including an extra gardener, toiled all day with mops and scrubbing-brushes and hammers and garden-shears, repairing the ravages of the night before.
+  </p>
+
+  <p class="mb-5 leading-relaxed text-[#292524]">
+    Every Friday five crates of oranges and lemons arrived from a fruiterer in New York—every Monday these same oranges and lemons left his back door in a pyramid of pulpless halves. There was a machine in the kitchen which could extract the juice of two hundred oranges in half an hour if a little button was pressed two hundred times by a butler's thumb.
+  </p>
+
+  <blockquote class="my-8 pl-4 border-l-2 border-[#D6CEC2] italic text-[#57534E] text-center font-serif text-sm">
+    "I believe that on the first night I went to Gatsby's house I was one of the few guests who had actually been invited."
+  </blockquote>
+
+  <p class="mb-5 leading-relaxed text-[#292524]">
+    At least once a fortnight a corps of caterers came down with several hundred feet of canvas and enough colored lights to make a Christmas tree of Gatsby's enormous garden. On buffet tables, garnished with glistening hors-d'oeuvre, spiced baked hams crowded against salads of harlequin designs and pastry pigs and turkeys bewitched to a dark gold. In the main hall a bar with a real brass rail was set up, and stocked with gins and liquors and with cordials so long forgotten that most of his female guests were too young to know one from another.
+  </p>
+
+  <p class="mb-5 leading-relaxed text-[#292524]">
+    By seven o'clock the orchestra has arrived, no thin five-piece affair, but a whole pitful of oboes and trombones and saxophones and viols and cornets and piccolos, and low and high drums. The last swimmers have come in from the beach now and are dressing up-stairs; the cars from New York are parked five deep in the drive, and already the halls and salons and verandas are gaudy with primary colors, and hair shorn in strange new ways, and shawls beyond the dreams of Castile. The bar is in full swing, and floating rounds of cocktails permeate the garden outside, until the air is alive with chatter and laughter, and casual innuendo and introductions forgotten on the spot, and enthusiastic meetings between women who never knew each other's names.
+  </p>
+</div>
+`;
+
+const MEDITATIONS_BOOK_2_HTML = `
+<div class="chapter-content">
+  <h1 class="text-3xl font-serif font-bold text-center mb-8 text-[#1C1917]">Book Two</h1>
+
+  <p class="mb-5 leading-relaxed text-[#292524]">
+    Begin the morning by saying to thyself, I shall meet with the busy-body, the ungrateful, arrogant, deceitful, envious, unsocial. All these things happen to them by reason of their ignorance of what is good and evil. But I who have seen the nature of the good that it is beautiful, and of the bad that it is ugly, and the nature of him who does wrong, that it is akin to me, not only of the same blood or seed, but that it participates in the same intelligence and the same portion of the divinity, I can neither be injured by any of them, for no one can fix on me what is ugly, nor can I be angry with my kinsman, nor hate him.
+  </p>
+
+  <p class="mb-5 leading-relaxed text-[#292524]">
+    For we are made for co-operation, like feet, like hands, like eyelids, like the rows of the upper and lower teeth. To act against one another then is contrary to nature; and it is acting against one another to be vexed and to turn away.
+  </p>
+
+  <p class="mb-5 leading-relaxed text-[#292524]">
+    Whatever this is that I am, it is a little flesh and breath, and the ruling part. Throw away thy books; no longer distract thyself: it is not allowed; but as if thou wast now dying, despise the flesh; it is blood and bones and a network, a contexture of nerves, veins, and arteries. See the breath also, what kind of a thing it is, air, and not always the same, but every moment sent out and again sucked in. <span class="reader-highlight">The third then is the ruling part: consider thus: Thou art an old</span> man; no longer let this be a slave, no longer be pulled by the strings like a puppet to unsocial movements, no longer either be dissatisfied with thy present lot, or shrink from the future.
+  </p>
 </div>
 `;
 
@@ -178,6 +344,9 @@ export const LumaApi = {
     }
     const book = mockBooks.find((b) => b.id === bookId);
     if (!book) return null;
+
+    const authorName = BOOK_AUTHORS_MAP[book.id] || "Unknown Author";
+
     return {
       book,
       files: [
@@ -187,8 +356,8 @@ export const LumaApi = {
           original_filename: `${book.title.replace(/\s+/g, "_")}.epub`,
           relative_path: `library/${book.title.replace(/\s+/g, "_")}.epub`,
           canonical_path: `/Users/luma/Documents/${book.title}.epub`,
-          format: "epub",
-          mime_type: "application/epub+zip",
+          format: book.id === "book_design_everyday" ? "pdf" : "epub",
+          mime_type: book.id === "book_design_everyday" ? "application/pdf" : "application/epub+zip",
           file_size_bytes: 4829104,
           sha256_hash: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
           imported_at: book.sync.created_at,
@@ -198,18 +367,18 @@ export const LumaApi = {
       authors: [
         {
           id: "auth_01",
-          name: "Steve Klabnik & Carol Nichols",
+          name: authorName,
           sync: { version: 1, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), device_id: "dev_01", is_deleted: false },
         },
       ],
-      series: null,
+      series: book.series_id ? { id: book.series_id, title: "Foundation", sync: { version: 1, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), device_id: "dev_01", is_deleted: false } } : null,
       tags: mockTags,
       collections: mockCollections.filter((c) => c.book_ids.includes(bookId)),
       reading_progress: {
         book_id: book.id,
-        progress_percentage: 0.35,
+        progress_percentage: book.id === "book_arch_stillness" ? 0.75 : book.id === "book_great_gatsby" ? 0.66 : book.id === "book_meditations" ? 0.15 : book.id === "book_foundation" ? 1.0 : book.id === "book_design_everyday" ? 0.12 : 0,
         current_locator: "epubcfi(/6/4[chapter-1]!/4/2/10)",
-        current_chapter_title: "Chapter 1: The Principle of Architecture",
+        current_chapter_title: book.id === "book_meditations" ? "Book Two" : book.id === "book_great_gatsby" ? "Chapter III" : "Chapter 1",
         current_page_number: 1,
         total_pages: 12,
         last_read_at: new Date().toISOString(),
@@ -224,6 +393,44 @@ export const LumaApi = {
       return invoke<OpenDocumentResult>("open_reader_document", { bookId, fileId });
     }
     const book = mockBooks.find((b) => b.id === bookId) || mockBooks[0]!;
+    const authorName = BOOK_AUTHORS_MAP[book.id] || "Unknown Author";
+
+    let toc = [
+      { title: "Chapter 1: The Principle of Architecture", locator: "epubcfi(/6/2!/4/1:0)", play_order: 1, children: [] },
+      { title: "Chapter 2: Data Autonomy & Sync", locator: "epubcfi(/6/4!/4/1:0)", play_order: 2, children: [] },
+      { title: "Chapter 3: Resilient Annotation Anchoring", locator: "epubcfi(/6/6!/4/1:0)", play_order: 3, children: [] },
+      { title: "Chapter 4: Conclusion & Knowledge Mesh", locator: "epubcfi(/6/8!/4/1:0)", play_order: 4, children: [] },
+    ];
+
+    if (book.id === "book_great_gatsby") {
+      toc = [
+        { title: "Chapter I", locator: "epubcfi(/6/2!/4/1:0)", play_order: 1, children: [] },
+        { title: "Chapter II", locator: "epubcfi(/6/4!/4/1:0)", play_order: 2, children: [] },
+        { title: "Chapter III", locator: "epubcfi(/6/6!/4/1:0)", play_order: 3, children: [] },
+        { title: "Chapter IV", locator: "epubcfi(/6/8!/4/1:0)", play_order: 4, children: [] },
+        { title: "Chapter V", locator: "epubcfi(/6/10!/4/1:0)", play_order: 5, children: [] },
+      ];
+    } else if (book.id === "book_meditations") {
+      toc = [
+        { title: "Book One", locator: "epubcfi(/6/2!/4/1:0)", play_order: 1, children: [] },
+        {
+          title: "Book Two",
+          locator: "epubcfi(/6/4!/4/1:0)",
+          play_order: 2,
+          children: [
+            { title: "Section 1", locator: "epubcfi(/6/4!/4/2:0)", play_order: 1, children: [] },
+            { title: "Section 2", locator: "epubcfi(/6/4!/4/4:0)", play_order: 2, children: [] },
+            { title: "Section 3", locator: "epubcfi(/6/4!/4/6:0)", play_order: 3, children: [] },
+          ],
+        },
+        { title: "Book Three", locator: "epubcfi(/6/6!/4/1:0)", play_order: 42, children: [] },
+        { title: "Book Four", locator: "epubcfi(/6/8!/4/1:0)", play_order: 58, children: [] },
+        { title: "Book Five", locator: "epubcfi(/6/10!/4/1:0)", play_order: 74, children: [] },
+      ];
+    }
+
+    const isPdf = book.id === "book_design_everyday";
+
     return {
       book,
       file: {
@@ -232,8 +439,8 @@ export const LumaApi = {
         original_filename: `${book.title}.epub`,
         relative_path: `library/${book.title}.epub`,
         canonical_path: `/Users/luma/${book.title}.epub`,
-        format: "epub",
-        mime_type: "application/epub+zip",
+        format: isPdf ? "pdf" : "epub",
+        mime_type: isPdf ? "application/pdf" : "application/epub+zip",
         file_size_bytes: 3429104,
         sha256_hash: "mocksha256",
         imported_at: new Date().toISOString(),
@@ -241,36 +448,31 @@ export const LumaApi = {
       },
       metadata: {
         title: book.title,
-        authors: ["Steve Klabnik", "Carol Nichols"],
+        authors: [authorName],
         language: "en",
-        publisher: "No Starch Press",
+        publisher: book.publisher || "Publisher",
         description: book.description,
         isbn: book.isbn,
-        format: "epub",
-        total_pages_or_spines: 4,
+        format: isPdf ? "pdf" : "epub",
+        total_pages_or_spines: toc.length,
       },
-      toc: [
-        { title: "Chapter 1: The Principle of Architecture", locator: "epubcfi(/6/2!/4/1:0)", play_order: 1, children: [] },
-        { title: "Chapter 2: Data Autonomy & Sync", locator: "epubcfi(/6/4!/4/1:0)", play_order: 2, children: [] },
-        { title: "Chapter 3: Resilient Annotation Anchoring", locator: "epubcfi(/6/6!/4/1:0)", play_order: 3, children: [] },
-        { title: "Chapter 4: Conclusion & Knowledge Mesh", locator: "epubcfi(/6/8!/4/1:0)", play_order: 4, children: [] },
-      ],
-      total_pages_or_spines: 4,
+      toc,
+      total_pages_or_spines: toc.length,
       capabilities: {
-        supports_reflow: true,
-        supports_fixed_layout: false,
-        supports_cfi: true,
-        supports_page_coordinates: false,
+        supports_reflow: !isPdf,
+        supports_fixed_layout: isPdf,
+        supports_cfi: !isPdf,
+        supports_page_coordinates: isPdf,
         supports_embedded_fonts: true,
         supports_text_extraction: true,
       },
       initial_progress: {
         book_id: book.id,
-        progress_percentage: 0.25,
-        current_locator: "epubcfi(/6/2!/4/1:0)",
-        current_chapter_title: "Chapter 1: The Principle of Architecture",
+        progress_percentage: book.id === "book_great_gatsby" ? 0.66 : book.id === "book_meditations" ? 0.15 : 0.75,
+        current_locator: book.id === "book_meditations" ? "epubcfi(/6/4!/4/6:0)" : "epubcfi(/6/6!/4/1:0)",
+        current_chapter_title: book.id === "book_meditations" ? "Book Two" : book.id === "book_great_gatsby" ? "Chapter III" : "Chapter 1",
         current_page_number: 1,
-        total_pages: 4,
+        total_pages: toc.length,
         last_read_at: new Date().toISOString(),
         sync: { version: 1, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), device_id: "dev_01", is_deleted: false },
       },
@@ -282,13 +484,36 @@ export const LumaApi = {
       const { invoke } = await import("@tauri-apps/api/core");
       return invoke<ChapterContent>("get_reader_chapter", { bookId, spineIndex });
     }
+
+    if (bookId === "book_great_gatsby") {
+      return {
+        spine_index: spineIndex,
+        id: `gatsby_ch_${spineIndex + 1}`,
+        title: `Chapter ${["I", "II", "III", "IV", "V"][spineIndex] || spineIndex + 1}`,
+        href: `text/ch${spineIndex + 1}.xhtml`,
+        html_content: GATSBY_CHAPTER_3_HTML,
+        text_content: "Chapter III. There was music from my neighbor's house through the summer nights. In his blue gardens men and girls came and went like moths among the whisperings and the champagne and the stars.",
+      };
+    }
+
+    if (bookId === "book_meditations") {
+      return {
+        spine_index: spineIndex,
+        id: `meditations_book_${spineIndex + 1}`,
+        title: `Book ${["One", "Two", "Three", "Four", "Five"][spineIndex] || spineIndex + 1}`,
+        href: `text/book${spineIndex + 1}.xhtml`,
+        html_content: MEDITATIONS_BOOK_2_HTML,
+        text_content: "Book Two. Begin the morning by saying to thyself, I shall meet with the busy-body, the ungrateful, arrogant, deceitful, envious, unsocial. The third then is the ruling part: consider thus: Thou art an old man.",
+      };
+    }
+
     return {
       spine_index: spineIndex,
       id: `ch_${spineIndex + 1}`,
-      title: `Chapter ${spineIndex + 1}: The Principle of Architecture`,
+      title: `The Architecture of Stillness`,
       href: `text/ch${spineIndex + 1}.xhtml`,
-      html_content: SAMPLE_CHAPTER_HTML,
-      text_content: "Chapter 1: The Principle of Architecture. In software engineering, local-first systems prioritize user ownership and data autonomy. Annotation integrity is the cornerstone of any serious reading system.",
+      html_content: GATSBY_CHAPTER_3_HTML,
+      text_content: "In this profound exploration of spatial dynamics within literature, the author examines how the physical environments constructed by modernist writers serve as vessels for silence and psychological depth.",
     };
   },
 

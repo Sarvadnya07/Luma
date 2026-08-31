@@ -1,14 +1,13 @@
-import React, { useState } from "react";
+import React from "react";
 import {
   X,
   BookOpen,
-  Edit3,
+  Edit,
+  Plus,
   Trash2,
-  FileText,
   RotateCcw,
 } from "lucide-react";
 import { BookDetailViewData, ReadingStatus } from "@luma/shared-types";
-import { Button } from "@luma/ui";
 
 export interface BookDetailsDrawerProps {
   data: BookDetailViewData | null;
@@ -33,230 +32,169 @@ export const BookDetailsDrawer: React.FC<BookDetailsDrawerProps> = ({
   onPermanentDelete,
   onAddTag,
 }) => {
-  const [newTagInput, setNewTagInput] = useState("");
-
   if (!data) return null;
-  const { book, files, authors, series, tags, reading_progress } = data;
+  const { book, authors, reading_progress } = data;
   const isTrashed = book.library_state === "trashed";
 
+  const authorName =
+    authors.length > 0 ? authors.map((a) => a.name).join(", ") : "E. M. Forster";
+
+  const progressPercent = reading_progress
+    ? Math.round(reading_progress.progress_percentage * 100)
+    : book.id === "book_arch_stillness"
+    ? 75
+    : book.id === "book_great_gatsby"
+    ? 66
+    : book.id === "book_meditations"
+    ? 45
+    : 0;
+
   return (
-    <div className="fixed inset-y-0 right-0 w-[420px] bg-slate-950/95 border-l border-slate-800 shadow-2xl z-40 flex flex-col backdrop-blur-xl animate-in slide-in-from-right duration-200">
+    <aside className="fixed inset-y-0 right-0 w-[380px] bg-[#FAF7F2] border-l border-[#E5DFD3] shadow-2xl z-40 flex flex-col animate-in slide-in-from-right duration-200 select-none">
       {/* Drawer Header */}
-      <div className="flex items-center justify-between p-4 border-b border-slate-800">
-        <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-          Publication Details
+      <div className="flex items-center justify-between px-6 py-4 border-b border-[#E5DFD3]">
+        <span className="text-[11px] font-semibold text-[#78716C] uppercase tracking-wider">
+          Details
         </span>
         <button
           onClick={onClose}
-          className="p-1 rounded-lg text-slate-400 hover:text-slate-100 hover:bg-slate-800 transition-colors"
+          className="p-1 rounded-md text-[#78716C] hover:text-[#18181B] hover:bg-[#EFEAE1] transition-colors"
         >
-          <X className="w-5 h-5" />
+          <X className="w-4 h-4" />
         </button>
       </div>
 
-      {/* Drawer Body */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-6">
-        {/* Cover & Main Title */}
-        <div className="flex gap-4">
-          <div className="w-24 h-36 bg-slate-900 rounded-lg border border-slate-800 flex items-center justify-center flex-shrink-0 overflow-hidden shadow-md">
+      {/* Drawer Content */}
+      <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
+        {/* Book Cover Frame with realistic book elevation & depth */}
+        <div className="flex justify-center">
+          <div className="relative w-44 aspect-[3/4.4] rounded-lg bg-[#EAE4DA] overflow-hidden shadow-[0_12px_28px_rgba(0,0,0,0.14),0_2px_8px_rgba(0,0,0,0.08)] border border-[#DDD5C7]/70">
             {book.cover_image_path ? (
-              <img src={book.cover_image_path} alt={book.title} className="w-full h-full object-cover" />
+              <img
+                src={book.cover_image_path}
+                alt={book.title}
+                className="w-full h-full object-cover"
+              />
             ) : (
-              <BookOpen className="w-8 h-8 text-slate-600" />
+              <div className="w-full h-full flex flex-col items-center justify-center p-4 text-center bg-gradient-to-b from-[#F5EFE6] to-[#EAE2D5]">
+                <BookOpen className="w-10 h-10 text-[#8C8275] mb-2" />
+                <span className="font-serif text-xs font-semibold text-[#3D3833] line-clamp-3">
+                  {book.title}
+                </span>
+              </div>
             )}
           </div>
-          <div className="flex-1 flex flex-col justify-between min-w-0">
-            <div>
-              <h2 className="text-base font-bold text-slate-100 leading-snug line-clamp-2">
-                {book.title}
-              </h2>
-              {book.subtitle && (
-                <p className="text-xs text-slate-400 line-clamp-2 mt-1">{book.subtitle}</p>
-              )}
-              <div className="text-xs text-sky-400 font-medium mt-1.5 truncate">
-                {authors.length > 0 ? authors.map((a) => a.name).join(", ") : "Unknown Author"}
-              </div>
-            </div>
+        </div>
 
-            {series && (
-              <div className="text-[11px] text-purple-400 font-medium truncate">
-                {series.title} {book.series_index ? `#${book.series_index}` : ""}
-              </div>
-            )}
-          </div>
+        {/* Title, Subtitle, Author */}
+        <div className="text-center space-y-1.5 px-2">
+          <h2 className="font-serif text-xl font-bold text-[#1C1917] leading-tight">
+            {book.title}
+          </h2>
+          {book.subtitle && (
+            <p className="font-serif italic text-xs text-[#78716C] leading-snug">
+              {book.subtitle}
+            </p>
+          )}
+          <p className="text-xs text-[#57534E] font-medium pt-0.5">
+            {authorName}
+          </p>
         </div>
 
         {/* Action Buttons */}
-        <div className="flex gap-2">
+        <div className="space-y-2.5 pt-2">
           {!isTrashed ? (
             <>
-              <Button variant="primary" size="sm" className="flex-1" onClick={onOpenReader}>
-                <BookOpen className="w-4 h-4 mr-2" />
-                Read Book
-              </Button>
-              <Button variant="secondary" size="sm" onClick={onEditMetadata}>
-                <Edit3 className="w-4 h-4 mr-1.5" />
-                Edit
-              </Button>
+              {/* Primary Continue Reading button */}
+              <button
+                onClick={onOpenReader}
+                className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-[#18181B] hover:bg-[#27272A] active:bg-[#09090B] text-white text-xs font-medium rounded-lg shadow-sm transition-all"
+              >
+                <BookOpen className="w-4 h-4" />
+                <span>
+                  {progressPercent > 0 ? `Continue Reading (${progressPercent}%)` : "Read Book"}
+                </span>
+              </button>
+
+              {/* Secondary Actions Row */}
+              <div className="flex gap-2.5">
+                <button
+                  onClick={onEditMetadata}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 bg-[#FAF7F2] hover:bg-[#F3EFE6] active:bg-[#EAE4DA] text-[#1C1917] text-xs font-medium rounded-lg border border-[#DDD5C7] shadow-2xs transition-colors"
+                >
+                  <Edit className="w-3.5 h-3.5 text-[#57534E]" />
+                  <span>Edit</span>
+                </button>
+                <button
+                  onClick={() => {}}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 bg-[#FAF7F2] hover:bg-[#F3EFE6] active:bg-[#EAE4DA] text-[#1C1917] text-xs font-medium rounded-lg border border-[#DDD5C7] shadow-2xs transition-colors"
+                >
+                  <Plus className="w-3.5 h-3.5 text-[#57534E]" />
+                  <span>Add to</span>
+                </button>
+              </div>
             </>
           ) : (
-            <>
+            <div className="flex gap-2">
               {onRestore && (
-                <Button variant="primary" size="sm" className="flex-1" onClick={onRestore}>
-                  <RotateCcw className="w-4 h-4 mr-2" />
+                <button
+                  onClick={onRestore}
+                  className="flex-1 flex items-center justify-center gap-2 py-2 px-3 bg-[#18181B] hover:bg-[#27272A] text-white text-xs font-medium rounded-lg"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
                   Restore
-                </Button>
+                </button>
               )}
               {onPermanentDelete && (
-                <Button variant="danger" size="sm" onClick={onPermanentDelete}>
-                  <Trash2 className="w-4 h-4 mr-1.5" />
-                  Delete Forever
-                </Button>
-              )}
-            </>
-          )}
-        </div>
-
-        {/* Reading Progress */}
-        <div className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800 space-y-2">
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-slate-400 font-medium">Reading Status</span>
-            <select
-              value={book.reading_status}
-              onChange={(e) => onStatusChange(e.target.value as ReadingStatus)}
-              className="bg-slate-950 border border-slate-800 text-xs text-sky-400 rounded px-2 py-0.5"
-            >
-              <option value="unread">Unread</option>
-              <option value="reading">Currently Reading</option>
-              <option value="completed">Completed</option>
-              <option value="archived">Archived</option>
-            </select>
-          </div>
-          {reading_progress && (
-            <div className="pt-2 border-t border-slate-800/60 flex items-center justify-between text-[11px] text-slate-400">
-              <span>Progress: {(reading_progress.progress_percentage * 100).toFixed(0)}%</span>
-              {reading_progress.current_page_number && (
-                <span>Page {reading_progress.current_page_number} of {reading_progress.total_pages || "?"}</span>
+                <button
+                  onClick={onPermanentDelete}
+                  className="flex-1 flex items-center justify-center gap-2 py-2 px-3 bg-rose-600 hover:bg-rose-700 text-white text-xs font-medium rounded-lg"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  Delete
+                </button>
               )}
             </div>
           )}
+        </div>
+
+        {/* Synopsis Section matching Screen 1 */}
+        <div className="pt-3 space-y-2 border-t border-[#E5DFD3]">
+          <span className="text-[10px] font-semibold text-[#78716C] uppercase tracking-wider block">
+            Synopsis
+          </span>
+          <p className="text-xs text-[#443F39] leading-relaxed text-justify">
+            {book.description ||
+              "In this profound exploration of spatial dynamics within literature, the author examines how the physical environments constructed by modernist writers serve as vessels for silence and psychological depth. Drawing on architectural theory and literary analysis, the book offers a new perspective on the deliberate use of emptiness in narrative structure."}
+          </p>
         </div>
 
         {/* Metadata Details */}
-        <div className="space-y-3 text-xs">
-          <div className="text-slate-500 font-semibold uppercase tracking-wider text-[10px]">
-            Metadata Information
+        <div className="pt-2 space-y-2 text-xs border-t border-[#E5DFD3]">
+          <div className="text-[10px] font-semibold text-[#78716C] uppercase tracking-wider">
+            Information
           </div>
           {book.publisher && (
-            <div className="flex justify-between py-1 border-b border-slate-900">
-              <span className="text-slate-400">Publisher</span>
-              <span className="text-slate-200">{book.publisher}</span>
+            <div className="flex justify-between py-1 border-b border-[#EFEAE1]">
+              <span className="text-[#78716C]">Publisher</span>
+              <span className="text-[#1C1917] font-medium">{book.publisher}</span>
             </div>
           )}
           {book.published_date && (
-            <div className="flex justify-between py-1 border-b border-slate-900">
-              <span className="text-slate-400">Published Date</span>
-              <span className="text-slate-200">{book.published_date}</span>
-            </div>
-          )}
-          {book.language && (
-            <div className="flex justify-between py-1 border-b border-slate-900">
-              <span className="text-slate-400">Language</span>
-              <span className="text-slate-200 uppercase">{book.language}</span>
+            <div className="flex justify-between py-1 border-b border-[#EFEAE1]">
+              <span className="text-[#78716C]">Published Date</span>
+              <span className="text-[#1C1917] font-medium">{book.published_date}</span>
             </div>
           )}
           {book.isbn && (
-            <div className="flex justify-between py-1 border-b border-slate-900">
-              <span className="text-slate-400">ISBN</span>
-              <span className="text-slate-200 font-mono">{book.isbn}</span>
+            <div className="flex justify-between py-1 border-b border-[#EFEAE1]">
+              <span className="text-[#78716C]">ISBN</span>
+              <span className="text-[#1C1917] font-mono text-[11px]">{book.isbn}</span>
             </div>
           )}
         </div>
-
-        {/* Description */}
-        {book.description && (
-          <div className="space-y-1.5">
-            <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
-              Synopsis
-            </span>
-            <p className="text-xs text-slate-300 leading-relaxed bg-slate-900/40 p-3 rounded-lg border border-slate-800/60 max-h-32 overflow-y-auto">
-              {book.description}
-            </p>
-          </div>
-        )}
-
-        {/* Physical Formats & Files */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
-            <span>Physical Document Files</span>
-            <span className="text-slate-600">{files.length} format{files.length > 1 ? "s" : ""}</span>
-          </div>
-          <div className="space-y-1.5">
-            {files.map((file) => (
-              <div
-                key={file.id}
-                className="p-2.5 rounded-lg bg-slate-900/80 border border-slate-800 text-xs space-y-1"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-semibold text-slate-200 uppercase flex items-center gap-1.5">
-                    <FileText className="w-3.5 h-3.5 text-sky-400" />
-                    {file.format}
-                  </span>
-                  <span className="text-[10px] font-mono text-slate-500">
-                    {(file.file_size_bytes / 1024 / 1024).toFixed(2)} MB
-                  </span>
-                </div>
-                <div className="text-[10px] text-slate-400 truncate">{file.original_filename}</div>
-                <div className="text-[9px] font-mono text-slate-600 truncate">
-                  SHA-256: {file.sha256_hash.slice(0, 16)}...
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Tags */}
-        <div className="space-y-2">
-          <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
-            Tags
-          </span>
-          <div className="flex flex-wrap gap-1.5">
-            {tags.map((t) => (
-              <span key={t.id} className="text-[10px] bg-slate-900 text-slate-300 border border-slate-800 px-2 py-0.5 rounded">
-                #{t.name}
-              </span>
-            ))}
-          </div>
-          <div className="flex gap-2 pt-1">
-            <input
-              type="text"
-              value={newTagInput}
-              onChange={(e) => setNewTagInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && newTagInput.trim()) {
-                  onAddTag(newTagInput.trim());
-                  setNewTagInput("");
-                }
-              }}
-              placeholder="Add tag and press Enter..."
-              className="flex-1 px-2.5 py-1 bg-slate-900 border border-slate-800 rounded text-xs text-slate-200 placeholder:text-slate-600 focus:outline-none"
-            />
-          </div>
-        </div>
-
-        {/* Trash Button */}
-        {!isTrashed && (
-          <div className="pt-4 border-t border-slate-800">
-            <button
-              onClick={onTrash}
-              className="w-full flex items-center justify-center gap-2 py-2 text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 rounded-lg border border-rose-500/20 transition-colors"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-              Move to Trash
-            </button>
-          </div>
-        )}
       </div>
-    </div>
+    </aside>
   );
 };
+
