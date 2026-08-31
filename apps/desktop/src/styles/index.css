@@ -70,7 +70,27 @@ body {
 
 /* Highlight styling */
 .reader-highlight {
+  background-color: #E2E8F0;
+  border-bottom: 1.5px solid #94A3B8;
+  border-radius: 2px;
+  padding: 1px 2px;
+}
+
+.reader-highlight-amber {
   background-color: #FDE68A;
   border-radius: 2px;
   padding: 1px 2px;
+}
+
+/* Drop Cap Styling */
+.drop-cap {
+  float: left;
+  font-family: "Playfair Display", Georgia, serif;
+  font-size: 3.5rem;
+  line-height: 0.8;
+  font-weight: 700;
+  padding-top: 4px;
+  padding-right: 8px;
+  padding-bottom: 2px;
+  color: #1C1917;
 }

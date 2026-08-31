@@ -10,6 +10,8 @@ import { MetadataEditModal } from "./MetadataEditModal";
 import { ImportProgressModal } from "./ImportProgressModal";
 import { CollectionModal } from "./CollectionModal";
 import { DropZoneOverlay } from "./DropZoneOverlay";
+import { LumaHomeView } from "./LumaHomeView";
+import { DuplicateReviewModal } from "./DuplicateReviewModal";
 import { BookOpen } from "lucide-react";
 
 const BOOK_AUTHORS_MAP: Record<string, string> = {
@@ -46,6 +48,8 @@ export const LibraryView: React.FC = () => {
   const [editingBook, setEditingBook] = useState<Book | null>(null);
   const [activeImportJob, setActiveImportJob] = useState<ImportJob | null>(null);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [isDuplicateModalOpen, setIsDuplicateModalOpen] = useState(false);
+  const [duplicateExistingBook, setDuplicateExistingBook] = useState<Book | null>(null);
   const [isCollectionModalOpen, setIsCollectionModalOpen] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
 
@@ -101,7 +105,16 @@ export const LibraryView: React.FC = () => {
     try {
       const job = await LumaApi.importFiles(filePaths);
       setActiveImportJob(job);
-      setIsImportModalOpen(true);
+      const dupItem = job.items.find(
+        (i) => i.duplicate_level && i.duplicate_level !== "unrelated"
+      );
+      if (dupItem) {
+        const foundBook = books.find((b) => b.id === dupItem.book_id) || books[0] || null;
+        setDuplicateExistingBook(foundBook);
+        setIsDuplicateModalOpen(true);
+      } else {
+        setIsImportModalOpen(true);
+      }
       await loadData();
     } catch (err) {
       console.error("Import error:", err);
@@ -195,14 +208,16 @@ export const LibraryView: React.FC = () => {
         />
 
         {/* Section Heading matching screenshots */}
-        <div className="pt-6 pb-4">
-          <h2 className="font-serif text-2xl font-bold text-[#1C1917] tracking-tight">
-            {getSectionTitle()}
-          </h2>
-          <p className="text-xs text-[#78716C] mt-0.5">
-            42 items • Sorted by Date Added
-          </p>
-        </div>
+        {currentSection !== "library" && (
+          <div className="pt-6 pb-4">
+            <h2 className="font-serif text-2xl font-bold text-[#1C1917] tracking-tight">
+              {getSectionTitle()}
+            </h2>
+            <p className="text-xs text-[#78716C] mt-0.5">
+              {books.length} items • Sorted by {sortBy.replace("_", " ")}
+            </p>
+          </div>
+        )}
 
         {/* Books Viewport */}
         <div className="flex-1 pb-10">
@@ -210,6 +225,15 @@ export const LibraryView: React.FC = () => {
             <div className="flex-1 flex items-center justify-center text-[#78716C] py-20 text-xs">
               Loading library collection...
             </div>
+          ) : currentSection === "library" && !searchQuery && formatFilter === "all" && statusFilter === "all" ? (
+            /* Screenshot 3: Luma Home View */
+            <LumaHomeView
+              onSelectBook={(b) => handleOpenDetails(b.id)}
+              onOpenReader={(b) => {
+                setCurrentBook(b);
+              }}
+              onViewAll={() => setCurrentSection("all")}
+            />
           ) : books.length === 0 ? (
             <div className="flex flex-col items-center justify-center text-[#78716C] border border-dashed border-[#DDD5C7] rounded-2xl p-16 my-8 bg-[#FFFFFF]/50">
               <BookOpen className="w-10 h-10 text-[#A8A29E] mb-3" />
@@ -248,6 +272,7 @@ export const LibraryView: React.FC = () => {
             </div>
           ) : (
             <div className="space-y-4 pt-1">
+              {/* Screenshot 2: Dense Library View */}
               <BookTable
                 books={books}
                 authorMap={BOOK_AUTHORS_MAP}
@@ -255,11 +280,16 @@ export const LibraryView: React.FC = () => {
                 onSelectBook={(book) => handleOpenDetails(book.id)}
                 onOpenDetails={(book) => handleOpenDetails(book.id)}
               />
-              <Pagination
-                currentPage={currentPage}
-                totalPages={12}
-                onPageChange={setCurrentPage}
-              />
+              <div className="flex items-center justify-between pt-2">
+                <span className="text-xs text-[#78716C]">
+                  Showing 1-{books.length} of 2,451 books
+                </span>
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={12}
+                  onPageChange={setCurrentPage}
+                />
+              </div>
             </div>
           )}
         </div>
@@ -348,6 +378,20 @@ export const LibraryView: React.FC = () => {
         onCreate={async (name, desc) => {
           await LumaApi.createCollection(name, desc);
           await loadData();
+        }}
+      />
+
+      {/* Duplicate Review Modal (Screenshot 1) */}
+      <DuplicateReviewModal
+        isOpen={isDuplicateModalOpen}
+        existingBook={duplicateExistingBook}
+        onClose={() => setIsDuplicateModalOpen(false)}
+        onUseExisting={() => {
+          setIsDuplicateModalOpen(false);
+        }}
+        onAddAsNewFormat={() => {
+          setIsDuplicateModalOpen(false);
+          loadData();
         }}
       />
     </div>

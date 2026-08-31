@@ -297,19 +297,24 @@ const GATSBY_CHAPTER_3_HTML = `
 `;
 
 const MEDITATIONS_BOOK_2_HTML = `
-<div class="chapter-content">
-  <h1 class="text-3xl font-serif font-bold text-center mb-8 text-[#1C1917]">Book Two</h1>
+<div class="chapter-content max-w-xl mx-auto">
+  <div class="text-[10px] font-bold text-[#78716C] tracking-widest text-center uppercase mb-1 font-mono">BOOK TWO</div>
+  <h1 class="text-3xl font-serif font-bold text-center mb-10 text-[#1C1917]">Meditations</h1>
 
-  <p class="mb-5 leading-relaxed text-[#292524]">
-    Begin the morning by saying to thyself, I shall meet with the busy-body, the ungrateful, arrogant, deceitful, envious, unsocial. All these things happen to them by reason of their ignorance of what is good and evil. But I who have seen the nature of the good that it is beautiful, and of the bad that it is ugly, and the nature of him who does wrong, that it is akin to me, not only of the same blood or seed, but that it participates in the same intelligence and the same portion of the divinity, I can neither be injured by any of them, for no one can fix on me what is ugly, nor can I be angry with my kinsman, nor hate him.
+  <p class="mb-6 leading-relaxed text-[#292524]">
+    <span class="drop-cap">B</span>egin the morning by saying to thyself, I shall meet with the busy-body, the ungrateful, arrogant, deceitful, envious, unsocial. All these things happen to them by reason of their ignorance of what is good and evil. But I who have seen the nature of the good that it is beautiful, and of the bad that it is ugly, and the nature of him who does wrong, that it is akin to me, not only of the same blood or seed, but that it participates in the same intelligence and the same portion of the divinity, I can neither be injured by any of them, for no one can fix on me what is ugly, nor can I be angry with my kinsman, nor hate him.
   </p>
 
-  <p class="mb-5 leading-relaxed text-[#292524]">
+  <p class="mb-6 leading-relaxed text-[#292524]">
     For we are made for co-operation, like feet, like hands, like eyelids, like the rows of the upper and lower teeth. To act against one another then is contrary to nature; and it is acting against one another to be vexed and to turn away.
   </p>
 
-  <p class="mb-5 leading-relaxed text-[#292524]">
-    Whatever this is that I am, it is a little flesh and breath, and the ruling part. Throw away thy books; no longer distract thyself: it is not allowed; but as if thou wast now dying, despise the flesh; it is blood and bones and a network, a contexture of nerves, veins, and arteries. See the breath also, what kind of a thing it is, air, and not always the same, but every moment sent out and again sucked in. <span class="reader-highlight">The third then is the ruling part: consider thus: Thou art an old</span> man; no longer let this be a slave, no longer be pulled by the strings like a puppet to unsocial movements, no longer either be dissatisfied with thy present lot, or shrink from the future.
+  <p class="mb-6 leading-relaxed text-[#292524]">
+    <span class="reader-highlight">Whatever this is that I am, it is a little flesh and breath, and the ruling part.</span>
+  </p>
+
+  <p class="mb-6 leading-relaxed text-[#292524]">
+    Throw away thy books; no longer distract thyself: it is not allowed; but as if thou wast now dying, despise the flesh; it is blood and bones and a network, a contexture of nerves, veins, and arteries. See the breath also, what kind of a thing it is, air, and not always the same, but every moment sent out and again sucked in. The third then is the ruling part: consider thus: Thou art an old man; no longer let this be a slave, no longer be pulled by the strings like a puppet to unsocial movements, no longer either be dissatisfied with thy present lot, or shrink from the future.
   </p>
 </div>
 `;

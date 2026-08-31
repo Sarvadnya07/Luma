@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import {
-  X,
   ListTree,
   Highlighter,
   Bookmark as BookmarkIcon,
@@ -32,21 +31,13 @@ export const ReaderSidebar: React.FC = () => {
   const [expandedNodes, setExpandedNodes] = useState<Record<string, boolean>>({
     "Book Two": true,
   });
-  const [activeSectionId, setActiveSectionId] = useState<string>("Section 3");
+  const [activeSectionId, setActiveSectionId] = useState<string>("Section 2");
 
   if (!sidebarTab) return null;
 
   const toggleExpand = (title: string) => {
     setExpandedNodes((prev) => ({ ...prev, [title]: !prev[title] }));
   };
-
-  const authorName =
-    documentData?.metadata?.authors?.[0] ||
-    (currentBook?.id === "book_meditations"
-      ? "Marcus Aurelius"
-      : currentBook?.id === "book_great_gatsby"
-      ? "F. Scott Fitzgerald"
-      : "E. M. Forster");
 
   const renderTocTree = (items: TocItem[], depth = 0) => {
     return items.map((item, idx) => {
@@ -132,73 +123,61 @@ export const ReaderSidebar: React.FC = () => {
   };
 
   return (
-    <aside className="w-64 h-full bg-[#F3EFE6] border-r border-[#E5DFD3] flex flex-col z-30 animate-in slide-in-from-left duration-150 flex-shrink-0 select-none">
-      {/* Table of Contents Header matching Screen 5 */}
-      {sidebarTab === "toc" ? (
-        <div className="p-4 border-b border-[#E5DFD3]">
-          <h3 className="font-serif text-sm font-bold text-[#1C1917]">
-            Table of Contents
-          </h3>
-          <p className="text-[11px] text-[#78716C] truncate mt-0.5">
-            {currentBook?.title} - {authorName}
+    <aside className="w-72 h-full bg-[#F3EFE6] border-r border-[#E5DFD3] flex flex-col z-30 animate-in slide-in-from-left duration-150 flex-shrink-0 select-none">
+      {/* Brand & Book Header */}
+      <div className="p-4 pb-3 border-b border-[#E5DFD3] flex items-center justify-between">
+        <div>
+          <h2 className="font-serif text-lg font-bold text-[#1C1917] tracking-tight">
+            Luma
+          </h2>
+          <p className="text-xs text-[#78716C] truncate mt-0.5 font-medium">
+            {currentBook?.title || "Meditations"}
           </p>
         </div>
-      ) : (
-        /* Tab Switcher Header */
-        <div className="flex items-center justify-between border-b border-[#E5DFD3] p-2">
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => setSidebarTab("toc")}
-              className="p-1.5 rounded-lg transition-colors text-[#78716C] hover:text-[#1C1917] hover:bg-[#EBE5DB]"
-              title="Table of Contents"
-            >
-              <ListTree className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => setSidebarTab("annotations")}
-              className={`p-1.5 rounded-lg transition-colors relative ${
-                sidebarTab === "annotations"
-                  ? "bg-[#E4DED3] text-[#1C1917]"
-                  : "text-[#78716C] hover:text-[#1C1917] hover:bg-[#EBE5DB]"
-              }`}
-              title="Annotations & Highlights"
-            >
-              <Highlighter className="w-4 h-4" />
-              {annotations.length > 0 && (
-                <span className="absolute top-1 right-1 w-1.5 h-1.5 bg-amber-500 rounded-full" />
-              )}
-            </button>
-            <button
-              onClick={() => setSidebarTab("bookmarks")}
-              className={`p-1.5 rounded-lg transition-colors relative ${
-                sidebarTab === "bookmarks"
-                  ? "bg-[#E4DED3] text-[#1C1917]"
-                  : "text-[#78716C] hover:text-[#1C1917] hover:bg-[#EBE5DB]"
-              }`}
-              title="Bookmarks"
-            >
-              <BookmarkIcon className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => setSidebarTab("search")}
-              className={`p-1.5 rounded-lg transition-colors ${
-                sidebarTab === "search"
-                  ? "bg-[#E4DED3] text-[#1C1917]"
-                  : "text-[#78716C] hover:text-[#1C1917] hover:bg-[#EBE5DB]"
-              }`}
-              title="Search in Document"
-            >
-              <Search className="w-4 h-4" />
-            </button>
-          </div>
-          <button
-            onClick={() => setSidebarTab(null)}
-            className="p-1.5 text-[#78716C] hover:text-[#1C1917] rounded-lg hover:bg-[#EBE5DB]"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-      )}
+        <button
+          onClick={() => setSidebarTab(null)}
+          className="text-xs text-[#78716C] hover:text-[#18181B] font-medium p-1 rounded hover:bg-[#EBE5DB]"
+        >
+          close
+        </button>
+      </div>
+
+      {/* Labeled Tabs Bar matching Screenshot 4 */}
+      <div className="grid grid-cols-3 border-b border-[#E5DFD3] bg-[#EBE5DB]/50 text-xs font-medium">
+        <button
+          onClick={() => setSidebarTab("toc")}
+          className={`py-2.5 px-2 flex items-center justify-center gap-1.5 transition-colors border-b-2 ${
+            sidebarTab === "toc"
+              ? "border-[#18181B] text-[#18181B] font-bold bg-[#F3EFE6]"
+              : "border-transparent text-[#78716C] hover:text-[#18181B]"
+          }`}
+        >
+          <ListTree className="w-3.5 h-3.5" />
+          <span>Contents</span>
+        </button>
+        <button
+          onClick={() => setSidebarTab("annotations")}
+          className={`py-2.5 px-2 flex items-center justify-center gap-1.5 transition-colors border-b-2 ${
+            sidebarTab === "annotations"
+              ? "border-[#18181B] text-[#18181B] font-bold bg-[#F3EFE6]"
+              : "border-transparent text-[#78716C] hover:text-[#18181B]"
+          }`}
+        >
+          <Highlighter className="w-3.5 h-3.5" />
+          <span>Annotations</span>
+        </button>
+        <button
+          onClick={() => setSidebarTab("bookmarks")}
+          className={`py-2.5 px-2 flex items-center justify-center gap-1.5 transition-colors border-b-2 ${
+            sidebarTab === "bookmarks"
+              ? "border-[#18181B] text-[#18181B] font-bold bg-[#F3EFE6]"
+              : "border-transparent text-[#78716C] hover:text-[#18181B]"
+          }`}
+        >
+          <BookmarkIcon className="w-3.5 h-3.5" />
+          <span>Bookmarks</span>
+        </button>
+      </div>
 
       {/* Tab Content Body */}
       <div className="flex-1 overflow-y-auto p-3 space-y-1">

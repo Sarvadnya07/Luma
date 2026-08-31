@@ -88,23 +88,36 @@ export const BookTable: React.FC<BookTableProps> = ({
   onSelectBook,
   onOpenDetails: _onOpenDetails,
 }) => {
-  const getProgressLabel = (book: Book) => {
-    if (book.reading_status === "completed") return "Read";
-    if (book.id === "book_arch_stillness") return "75%";
-    if (book.id === "book_great_gatsby") return "66%";
-    if (book.id === "book_meditations") return "45%";
-    if (book.id === "book_design_everyday") return "12%";
-    if (book.reading_status === "unread") return "0%";
-    return "25%";
+  const getProgressNumber = (book: Book) => {
+    if (book.reading_status === "completed") return 100;
+    if (book.id === "book_arch_stillness" || book.id === "book_arch_happiness") return 45;
+    if (book.id === "book_great_gatsby") return 66;
+    if (book.id === "book_meditations") return 62;
+    if (book.id === "book_thinking_fast") return 0;
+    if (book.id === "book_dune") return 100;
+    if (book.id === "book_design_everyday") return 12;
+    if (book.reading_status === "unread") return 0;
+    return 25;
   };
 
   const getFormat = (book: Book) => {
-    return book.id === "book_design_everyday" ? "PDF" : "EPUB";
+    if (book.id === "book_design_everyday" || book.id === "book_thinking_fast") return "PDF";
+    if (book.id === "book_dune") return "MOBI";
+    return "EPUB";
   };
 
-  const getSeries = (book: Book) => {
+  const getCategory = (book: Book) => {
+    if (book.id === "book_arch_happiness" || book.id === "book_arch_stillness") return "Philosophy";
+    if (book.id === "book_thinking_fast") return "Psychology";
+    if (book.id === "book_dune") return "Science Fiction";
+    if (book.id === "book_meditations") return "Philosophy";
+    return "Literature";
+  };
+
+  const getSeriesTag = (book: Book) => {
+    if (book.id === "book_dune") return "Dune Chronicles #1";
     if (book.series_id || book.id === "book_foundation") return "Foundation #1";
-    return "—";
+    return null;
   };
 
   const formatDate = (iso: string) => {
@@ -117,24 +130,34 @@ export const BookTable: React.FC<BookTableProps> = ({
   };
 
   return (
-    <div className="w-full bg-[#FFFFFF] border border-[#E5DFD3] rounded-xl overflow-hidden shadow-sm">
+    <div className="w-full bg-[#FFFFFF] border border-[#E5DFD3] rounded-xl overflow-hidden shadow-2xs">
       <table className="w-full text-left border-collapse">
         <thead>
-          <tr className="border-b border-[#E5DFD3] bg-[#F7F3EB]/70 text-[10px] font-semibold text-[#78716C] uppercase tracking-wider">
+          <tr className="border-b border-[#E5DFD3] bg-[#FAF7F2]/80 text-[10px] font-semibold text-[#78716C] uppercase tracking-wider">
             <th className="py-3 px-4 w-16">COVER</th>
             <th className="py-3 px-4">TITLE</th>
             <th className="py-3 px-4">AUTHOR</th>
-            <th className="py-3 px-4">SERIES</th>
             <th className="py-3 px-4">FORMAT</th>
             <th className="py-3 px-4">PROGRESS</th>
+            <th className="py-3 px-4">STATUS</th>
             <th className="py-3 px-4">ADDED</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-[#EFEAE1] text-xs text-[#292524]">
           {books.map((book) => {
-            const author = authorMap[book.id] || "Unknown Author";
-            const progress = getProgressLabel(book);
+            const author = authorMap[book.id] || (
+              book.id === "book_arch_happiness"
+                ? "Alain de Botton"
+                : book.id === "book_thinking_fast"
+                ? "Daniel Kahneman"
+                : book.id === "book_dune"
+                ? "Frank Herbert"
+                : "Unknown Author"
+            );
+            const progress = getProgressNumber(book);
             const isSelected = selectedBookId === book.id;
+            const seriesTag = getSeriesTag(book);
+            const category = getCategory(book);
 
             return (
               <tr
@@ -145,48 +168,78 @@ export const BookTable: React.FC<BookTableProps> = ({
                 }`}
               >
                 {/* Cover thumbnail */}
-                <td className="py-2.5 px-4">
-                  <div className="w-9 h-12 rounded bg-[#EAE4DA] overflow-hidden border border-[#DDD5C7] shadow-xs flex items-center justify-center">
+                <td className="py-3 px-4">
+                  <div className="w-8 h-11 rounded bg-[#EAE4DA] overflow-hidden border border-[#DDD5C7] shadow-xs flex items-center justify-center flex-shrink-0">
                     {book.cover_image_path ? (
                       <img src={book.cover_image_path} alt={book.title} className="w-full h-full object-cover" />
                     ) : (
-                      <BookOpen className="w-4 h-4 text-[#8C8275]" />
+                      <BookOpen className="w-3.5 h-3.5 text-[#8C8275]" />
                     )}
                   </div>
                 </td>
 
-                {/* Title */}
-                <td className="py-2.5 px-4 font-semibold text-[#1C1917] group-hover:text-black">
-                  {book.title}
+                {/* Title & Tags */}
+                <td className="py-3 px-4">
+                  <div className="space-y-0.5">
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-serif font-bold text-[#1C1917] group-hover:text-black">
+                        {book.title}
+                      </span>
+                      {seriesTag && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#EFEAE1] text-[#78716C] border border-[#DDD5C7]">
+                          {seriesTag}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-[#78716C]">
+                      {category}
+                    </p>
+                  </div>
                 </td>
 
                 {/* Author */}
-                <td className="py-2.5 px-4 text-[#57534E]">
+                <td className="py-3 px-4 text-[#57534E] font-medium">
                   {author}
                 </td>
 
-                {/* Series */}
-                <td className="py-2.5 px-4 text-[#78716C]">
-                  {getSeries(book)}
-                </td>
-
                 {/* Format */}
-                <td className="py-2.5 px-4">
+                <td className="py-3 px-4">
                   <span className="inline-block px-1.5 py-0.5 text-[10px] font-mono font-medium rounded border border-[#D6CEC2] bg-[#F2EDE4] text-[#443F39]">
                     {getFormat(book)}
                   </span>
                 </td>
 
                 {/* Progress */}
-                <td className="py-2.5 px-4">
+                <td className="py-3 px-4">
                   <div className="flex items-center gap-2">
-                    <span className="text-[#A8A29E]">—</span>
-                    <span className="text-xs text-[#57534E] font-medium min-w-[32px]">{progress}</span>
+                    <span className="text-[11px] text-[#78716C]">—</span>
+                    <span className="text-[11px] font-mono text-[#57534E] min-w-[32px]">
+                      {progress}%
+                    </span>
                   </div>
                 </td>
 
+                {/* Status Badge */}
+                <td className="py-3 px-4">
+                  {progress === 100 ? (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-50 text-emerald-800 border border-emerald-200">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+                      Finished
+                    </span>
+                  ) : progress > 0 ? (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-50 text-amber-800 border border-amber-200">
+                      <BookOpen className="w-3 h-3 text-amber-700" />
+                      Reading
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-stone-100 text-stone-600 border border-stone-200">
+                      Unread
+                    </span>
+                  )}
+                </td>
+
                 {/* Added Date */}
-                <td className="py-2.5 px-4 text-[#78716C] whitespace-nowrap">
+                <td className="py-3 px-4 text-[11px] text-[#78716C]">
                   {formatDate(book.sync.created_at)}
                 </td>
               </tr>
