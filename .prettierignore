@@ -1,0 +1,27 @@
+# Package managers & build outputs
+node_modules
+dist
+build
+out
+target
+Cargo.lock
+pnpm-lock.yaml
+
+# Tauri & Desktop App
+apps/desktop/src-tauri/data
+apps/desktop/src-tauri/gen
+apps/desktop/src-tauri/target
+
+# Databases & logs
+*.sqlite*
+*.db*
+*.log
+reports
+coverage
+.nyc_output
+
+# Temp & Editor
+.vscode
+.idea
+scratch
+tests/temp

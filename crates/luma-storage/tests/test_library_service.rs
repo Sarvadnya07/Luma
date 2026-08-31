@@ -7,9 +7,7 @@ use zip::ZipWriter;
 use luma_core::ids::DeviceId;
 use luma_core::models::book::{DocumentFormat, LibraryState, ReadingStatus};
 use luma_core::models::ingest::DuplicateMatchLevel;
-use luma_storage::repos::{
-    BookRepository, LibraryFilterOptions, LibrarySortOptions,
-};
+use luma_storage::repos::{BookRepository, LibraryFilterOptions, LibrarySortOptions};
 use luma_storage::{Database, LibraryService};
 
 fn create_sample_epub(title: &str, isbn: &str) -> NamedTempFile {

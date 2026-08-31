@@ -42,7 +42,8 @@ CREATE TABLE IF NOT EXISTS book_files (
     relative_path TEXT NOT NULL,
     file_size_bytes INTEGER NOT NULL,
     sha256_hash TEXT NOT NULL,
-    created_at TEXT NOT NULL
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    imported_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
 CREATE INDEX IF NOT EXISTS idx_book_files_book_id ON book_files(book_id);

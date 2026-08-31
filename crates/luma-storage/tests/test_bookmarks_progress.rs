@@ -1,15 +1,19 @@
 use luma_core::ids::{BookId, DeviceId};
+use luma_core::models::book::Book;
 use luma_core::models::reading::{Bookmark, ReadingProgress};
-use luma_storage::repos::{BookmarkRepository, ReadingProgressRepository};
+use luma_storage::repos::{BookRepository, BookmarkRepository, ReadingProgressRepository};
 use luma_storage::Database;
 
 #[test]
 fn test_bookmark_repository_crud() {
     let db = Database::open_in_memory().expect("in-memory db");
+    let book_repo = BookRepository::new(db.clone());
     let repo = BookmarkRepository::new(db.clone());
 
-    let book_id = BookId::new();
     let device_id = DeviceId::new();
+    let book = Book::new("Test Book", device_id);
+    let book_id = book.id;
+    book_repo.insert(&book).expect("insert test book");
 
     let mut bmk1 = Bookmark::new(book_id, "epubcfi(/6/2!/4/1:0)", device_id);
     bmk1.title = Some("Chapter 1 Bookmark".to_string());
@@ -33,10 +37,13 @@ fn test_bookmark_repository_crud() {
 #[test]
 fn test_reading_progress_save_and_restore() {
     let db = Database::open_in_memory().expect("in-memory db");
+    let book_repo = BookRepository::new(db.clone());
     let repo = ReadingProgressRepository::new(db.clone());
 
-    let book_id = BookId::new();
     let device_id = DeviceId::new();
+    let book = Book::new("Test Book Progress", device_id);
+    let book_id = book.id;
+    book_repo.insert(&book).expect("insert test book");
 
     let mut progress = ReadingProgress::new(book_id, "epubcfi(/6/4[ch2]!/4/10)", device_id);
     progress.progress_percentage = 0.45;

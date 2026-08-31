@@ -135,4 +135,26 @@ mod tests {
             other => panic!("Expected Failed, got {:?}", other),
         }
     }
+
+    #[test]
+    fn test_duplicate_phrase_without_context_returns_ambiguous() {
+        let target = "When network partitions occur, the application continues to operate without interruption.";
+        // No prefix or suffix provided for duplicate phrase
+        let anchor = TextQuoteAnchor::new(target, None, None);
+
+        let result = AnchorEngine::resolve_quote(&anchor, SAMPLE_CHAPTER);
+        match result {
+            ResolutionResult::Ambiguous {
+                candidates,
+                highest_score,
+            } => {
+                assert_eq!(candidates.len(), 2);
+                assert!(highest_score >= 0.85);
+            }
+            other => panic!(
+                "Expected Ambiguous result for duplicate phrase with no context, got {:?}",
+                other
+            ),
+        }
+    }
 }

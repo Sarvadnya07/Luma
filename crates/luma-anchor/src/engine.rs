@@ -1,7 +1,7 @@
 use crate::normalize::{normalize_text, similarity_ratio};
 use crate::types::{CompositeAnchor, MatchCandidate, ResolutionResult, TextQuoteAnchor};
 
-pub const HIGH_CONFIDENCE_THRESHOLD: f32 = 0.82;
+pub const HIGH_CONFIDENCE_THRESHOLD: f32 = 0.85;
 pub const MIN_ACCEPTABLE_THRESHOLD: f32 = 0.60;
 pub const AMBIGUITY_DELTA_THRESHOLD: f32 = 0.08;
 
@@ -90,8 +90,10 @@ impl AnchorEngine {
         if best.confidence_score >= HIGH_CONFIDENCE_THRESHOLD {
             ResolutionResult::HighConfidence(best)
         } else if best.confidence_score >= MIN_ACCEPTABLE_THRESHOLD {
-            // Moderately acceptable, but if only candidate, we return it with score warning
-            ResolutionResult::HighConfidence(best)
+            ResolutionResult::Ambiguous {
+                candidates: vec![best.clone()],
+                highest_score: best.confidence_score,
+            }
         } else {
             ResolutionResult::Failed {
                 best_candidate: Some(best),
@@ -113,34 +115,80 @@ impl AnchorEngine {
     ) -> MatchCandidate {
         let matched_text = doc[start_char..end_char].to_string();
 
-        let mut prefix_sim = 0.0;
-        let mut prefix_matched = false;
+        let mut prefix_sim = 1.0f32;
+        let mut prefix_matched = true;
         if let Some(prefix) = prefix_context {
-            let prefix_len = prefix.chars().count();
-            let doc_prefix_start = start_char.saturating_sub(prefix_len + 20);
-            let doc_prefix = &doc[doc_prefix_start..start_char];
-            prefix_sim = similarity_ratio(prefix, doc_prefix.trim());
-            prefix_matched = prefix_sim >= 0.70;
+            let norm_prefix = normalize_text(prefix);
+            if !norm_prefix.is_empty() {
+                let doc_before = doc[..start_char].trim_end();
+                if doc_before.ends_with(&norm_prefix) {
+                    prefix_sim = 1.0;
+                    prefix_matched = true;
+                } else {
+                    let p_len = norm_prefix.chars().count();
+                    let mut best_sim = 0.0f32;
+                    for delta in [-4isize, -2, -1, 0, 1, 2, 4] {
+                        let window_len = (p_len as isize + delta).max(1) as usize;
+                        if window_len <= doc_before.len() {
+                            let tail = &doc_before[doc_before.len() - window_len..];
+                            let sim = similarity_ratio(&norm_prefix, tail);
+                            if sim > best_sim {
+                                best_sim = sim;
+                            }
+                        }
+                    }
+                    let search_window_start = doc_before.len().saturating_sub(p_len + 30);
+                    let search_window = &doc_before[search_window_start..];
+                    if search_window.contains(&norm_prefix) {
+                        best_sim = best_sim.max(0.95);
+                    }
+                    prefix_sim = best_sim;
+                    prefix_matched = prefix_sim >= 0.70;
+                }
+            }
         }
 
-        let mut suffix_sim = 0.0;
-        let mut suffix_matched = false;
+        let mut suffix_sim = 1.0f32;
+        let mut suffix_matched = true;
         if let Some(suffix) = suffix_context {
-            let suffix_len = suffix.chars().count();
-            let doc_suffix_end = (end_char + suffix_len + 20).min(doc.len());
-            let doc_suffix = &doc[end_char..doc_suffix_end];
-            suffix_sim = similarity_ratio(suffix, doc_suffix.trim());
-            suffix_matched = suffix_sim >= 0.70;
+            let norm_suffix = normalize_text(suffix);
+            if !norm_suffix.is_empty() {
+                let doc_after = doc[end_char..].trim_start();
+                if doc_after.starts_with(&norm_suffix) {
+                    suffix_sim = 1.0;
+                    suffix_matched = true;
+                } else {
+                    let s_len = norm_suffix.chars().count();
+                    let mut best_sim = 0.0f32;
+                    for delta in [-4isize, -2, -1, 0, 1, 2, 4] {
+                        let window_len = (s_len as isize + delta).max(1) as usize;
+                        if window_len <= doc_after.len() {
+                            let head = &doc_after[..window_len];
+                            let sim = similarity_ratio(&norm_suffix, head);
+                            if sim > best_sim {
+                                best_sim = sim;
+                            }
+                        }
+                    }
+                    let search_window_end = (s_len + 30).min(doc_after.len());
+                    let search_window = &doc_after[..search_window_end];
+                    if search_window.contains(&norm_suffix) {
+                        best_sim = best_sim.max(0.95);
+                    }
+                    suffix_sim = best_sim;
+                    suffix_matched = suffix_sim >= 0.70;
+                }
+            }
         }
 
         // Compute weighted confidence
-        // Base text similarity: 50%
-        // Prefix context: 25% (or folded into base if no context provided)
-        // Suffix context: 25% (or folded into base if no context provided)
+        // Base text similarity: 60%
+        // Prefix context: 20%
+        // Suffix context: 20%
         let confidence_score = match (prefix_context.is_some(), suffix_context.is_some()) {
-            (true, true) => (fuzzy_sim * 0.50) + (prefix_sim * 0.25) + (suffix_sim * 0.25),
-            (true, false) => (fuzzy_sim * 0.65) + (prefix_sim * 0.35),
-            (false, true) => (fuzzy_sim * 0.65) + (suffix_sim * 0.35),
+            (true, true) => (fuzzy_sim * 0.60) + (prefix_sim * 0.20) + (suffix_sim * 0.20),
+            (true, false) => (fuzzy_sim * 0.75) + (prefix_sim * 0.25),
+            (false, true) => (fuzzy_sim * 0.75) + (suffix_sim * 0.25),
             (false, false) => fuzzy_sim,
         };
 

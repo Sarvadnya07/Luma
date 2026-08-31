@@ -1,8 +1,8 @@
 # Luma
 
-> **Read beautifully. Annotate reliably. Keep your knowledge. Own your data.**
+> Read beautifully. Annotate reliably. Keep your knowledge. Own your data.
 
-Luma is a modern, distraction-free, local-first reader application for **EPUB** and **PDF** with a core focus on **Annotation Integrity** — ensuring highlights, notes, and bookmarks survive layout changes, font resizing, reflow, and document revisions.
+Luma is a modern, distraction-free, local-first reader application for **EPUB** and **PDF** with a core focus on **Annotation Integrity**: ensuring highlights, notes, and bookmarks survive layout changes, font resizing, reflow, and document revisions.
 
 ---
 
@@ -10,35 +10,26 @@ Luma is a modern, distraction-free, local-first reader application for **EPUB** 
 
 ```text
 /
-├── apps/
-│   └── desktop/          # Tauri 2 + React 19 + TypeScript + Vite Desktop App
-├── crates/
-│   ├── luma-core/        # Domain entities, typed IDs, error definitions (WASM-compatible)
-│   ├── luma-anchor/      # Resilient fuzzy annotation anchoring engine (WASM-compatible)
-│   ├── luma-reader/      # Document reader contracts & format abstractions
-│   ├── luma-storage/     # SQLite persistence, migrations, and repositories
-│   ├── luma-search/      # Search abstractions & SQLite FTS5 integration
-│   ├── luma-sync/        # Sync domain models, change records, version tracking
-│   ├── luma-ai/          # AI provider abstractions (no premature implementation)
-│   └── luma-security/    # Path validation, hashing, untrusted content sanitization
-├── packages/
-│   ├── shared-types/     # Shared TypeScript domain types
-│   ├── ui/               # Reusable UI primitives
-│   ├── design-system/    # Theme tokens & typography
-│   ├── reader-ui/        # Reader UI component abstractions
-│   ├── library-ui/       # Library management UI abstractions
-│   └── annotation-ui/    # Annotation panel UI abstractions
-├── docs/
-│   ├── product/          # Product foundation specifications
-│   ├── architecture/     # System, core, data, and platform architecture
-│   ├── adr/              # Architecture Decision Records (ADR-0001 to ADR-0010)
-│   ├── spikes/           # Technical spike findings (EPUB, PDF, Anchoring, SQLite, Search)
-│   ├── security/         # Security threat model & untrusted content boundary
-│   └── testing/          # Testing strategy & corpus index
-└── tests/
-    ├── fixtures/         # Synthetic EPUB/PDF/text test fixtures
-    ├── integration/      # End-to-end and cross-crate integration suites
-    └── corpus/           # Reference document corpus metadata
+|-- apps/
+|   `-- desktop/          # Tauri 2 + React + TypeScript + Vite desktop app
+|-- crates/
+|   |-- luma-core/        # Domain entities, typed IDs, error definitions
+|   |-- luma-anchor/      # Resilient fuzzy annotation anchoring engine
+|   |-- luma-reader/      # Document reader contracts and extractors
+|   |-- luma-storage/     # SQLite persistence, migrations, and repositories
+|   |-- luma-search/      # Search abstractions and SQLite FTS5 integration
+|   |-- luma-sync/        # Sync domain models, change records, version tracking
+|   |-- luma-ai/          # AI provider abstractions
+|   `-- luma-security/    # Path validation, hashing, content sanitization
+|-- packages/
+|   |-- shared-types/     # Shared TypeScript domain types
+|   |-- ui/               # Reusable UI primitives
+|   |-- design-system/    # Theme tokens and typography
+|   |-- reader-ui/        # Reader UI component abstractions
+|   |-- library-ui/       # Library management UI abstractions
+|   `-- annotation-ui/    # Annotation panel UI abstractions
+|-- docs/                 # Product, architecture, ADR, spike, and test docs
+`-- tests/                # Fixtures, integration suites, and corpus metadata
 ```
 
 ---
@@ -46,27 +37,102 @@ Luma is a modern, distraction-free, local-first reader application for **EPUB** 
 ## Getting Started
 
 ### Prerequisites
-- **Rust** 1.80+ (with `wasm32-unknown-unknown` target if building for web)
-- **Node.js** 20+ and **pnpm** 9+
 
-### Build & Test
+- Rust 1.80+ and Cargo
+- Node.js 20+
+- pnpm 9+; this repository currently pins `pnpm@11.20.0`
+- Tauri 2 system dependencies for your OS
+  - Windows: Microsoft WebView2 Runtime and Visual Studio C++ Build Tools
+  - macOS/Linux: install the platform packages listed in the Tauri prerequisites
+
+### Install Dependencies
+
+Run this from the repository root:
 
 ```bash
-# Install dependencies
 pnpm install
+```
 
-# Run Rust tests
+### Run the App
+
+For frontend development in a browser:
+
+```bash
+pnpm dev
+```
+
+This starts the Vite dev server for `apps/desktop` at:
+
+```text
+http://localhost:1420
+```
+
+For the full desktop app with the Tauri shell:
+
+```bash
+pnpm --filter @luma/desktop exec tauri dev
+```
+
+### Build
+
+Build all TypeScript workspace packages:
+
+```bash
+pnpm build
+```
+
+Build the installable desktop app:
+
+```bash
+pnpm --filter @luma/desktop exec tauri build
+```
+
+Tauri build artifacts are written under:
+
+```text
+apps/desktop/src-tauri/target/release/bundle/
+```
+
+### Test and Quality Checks
+
+Run the Rust test suite:
+
+```bash
 cargo test --workspace
+```
 
-# Run Rust linter
+Run frontend tests:
+
+```bash
+pnpm test
+```
+
+Run TypeScript type checks:
+
+```bash
+pnpm typecheck
+```
+
+Run ESLint:
+
+```bash
+pnpm lint
+```
+
+Run Clippy:
+
+```bash
 cargo clippy --workspace -- -D warnings
+```
 
-# Build Desktop App
-pnpm --filter @luma/desktop build
+Format Rust code:
+
+```bash
+cargo fmt --all
 ```
 
 ---
 
 ## License
 
-MIT License (see [LICENSE](LICENSE)).
+MIT License. See [LICENSE](LICENSE).
