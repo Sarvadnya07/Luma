@@ -19,6 +19,7 @@ import {
   Puzzle,
 } from "lucide-react";
 import { Collection, Tag } from "@luma/shared-types";
+import { LumaLogo } from "@luma/ui";
 
 export type SidebarSection =
   | "library"
@@ -94,13 +95,16 @@ export const LibrarySidebar: React.FC<LibrarySidebarProps> = ({
     <aside className="w-60 border-r border-[#E5DFD3] bg-[#F3EFE6] px-4 py-5 flex flex-col justify-between select-none h-full overflow-y-auto flex-shrink-0">
       <div className="space-y-6">
         {/* Brand Header */}
-        <div className="px-2 pt-1 pb-2">
-          <h1 className="font-serif text-2xl font-bold text-[#1C1917] tracking-tight leading-none">
-            Luma
-          </h1>
-          <p className="text-[9px] font-semibold tracking-[0.2em] text-[#78716C] uppercase mt-1">
-            Digital Sanctuary
-          </p>
+        <div className="px-2 pt-1 pb-2 flex items-center gap-3">
+          <LumaLogo size={32} showWordmark={false} />
+          <div>
+            <h1 className="font-serif text-xl font-black text-[#1C1917] tracking-tight leading-none">
+              Luma
+            </h1>
+            <p className="text-[9px] font-semibold tracking-[0.2em] text-[#78716C] uppercase mt-0.5">
+              Digital Sanctuary
+            </p>
+          </div>
         </div>
 
         {/* Primary Views */}
