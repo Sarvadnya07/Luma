@@ -14,6 +14,7 @@ export const TypographySettingsDrawer: React.FC = () => {
     { id: "light" as const, label: "Light", bg: "bg-[#FFFFFF]", border: "border-[#DDD5C7]" },
     { id: "sepia" as const, label: "Sepia", bg: "bg-[#F5EFE6]", border: "border-[#D8C7A5]" },
     { id: "paper" as const, label: "Misty", bg: "bg-[#EAEFEF]", border: "border-[#CCD6D6]" },
+    { id: "eink" as const, label: "E-Ink", bg: "bg-[#FFFFFF]", border: "border-[#000000]" },
     { id: "dark" as const, label: "Dark", bg: "bg-[#18181B]", border: "border-[#27272A]" },
   ];
 

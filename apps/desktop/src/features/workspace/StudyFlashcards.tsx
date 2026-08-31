@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Clock, RotateCcw, Check, Sparkles } from "lucide-react";
+import { Clock, Sparkles } from "lucide-react";
 
 export const StudyFlashcards: React.FC = () => {
   const [isFlipped, setIsFlipped] = useState(false);
@@ -22,7 +22,7 @@ export const StudyFlashcards: React.FC = () => {
     },
   ];
 
-  const currentCard = cards[currentCardIndex % cards.length];
+  const currentCard = cards[currentCardIndex % cards.length]!;
 
   const handleNext = () => {
     setIsFlipped(false);

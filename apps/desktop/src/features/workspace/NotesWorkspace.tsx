@@ -5,12 +5,7 @@ import {
   List,
   Quote,
   Filter,
-  Search,
-  BookOpen,
   Share2,
-  ExternalLink,
-  Plus,
-  Edit3,
 } from "lucide-react";
 
 export interface NoteItem {
@@ -27,7 +22,6 @@ export interface NoteItem {
 
 export const NotesWorkspace: React.FC = () => {
   const [selectedNoteId, setSelectedNoteId] = useState<string>("note_1");
-  const [searchQuery, setSearchQuery] = useState("");
 
   const notes: NoteItem[] = [
     {
@@ -69,7 +63,7 @@ Need to cross-reference this with Epictetus's concept of prohairesis (moral purp
     },
   ];
 
-  const activeNote = notes.find((n) => n.id === selectedNoteId) || notes[0];
+  const activeNote = notes.find((n) => n.id === selectedNoteId) || notes[0]!;
 
   return (
     <div className="flex-1 flex h-full bg-[#FAF7F2] text-[#1C1917] overflow-hidden">

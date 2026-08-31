@@ -13,6 +13,14 @@ import { DropZoneOverlay } from "./DropZoneOverlay";
 import { LumaHomeView } from "./LumaHomeView";
 import { DuplicateReviewModal } from "./DuplicateReviewModal";
 import { GlobalAnnotationCenter } from "../annotations/GlobalAnnotationCenter";
+import { ReadingIntelligenceDashboard } from "../intelligence/ReadingIntelligenceDashboard";
+import { KnowledgeHome } from "../workspace/KnowledgeHome";
+import { NotesWorkspace } from "../workspace/NotesWorkspace";
+import { StudyFlashcards } from "../workspace/StudyFlashcards";
+import { ResearchProjectWorkspace } from "../workspace/ResearchProjectWorkspace";
+import { SyncDeviceCenter } from "../devices/SyncDeviceCenter";
+import { IntegrationsPluginsView } from "../plugins/IntegrationsPluginsView";
+import { CommandPaletteModal } from "../palette/CommandPaletteModal";
 import { BookOpen } from "lucide-react";
 
 const BOOK_AUTHORS_MAP: Record<string, string> = {
@@ -53,6 +61,18 @@ export const LibraryView: React.FC = () => {
   const [duplicateExistingBook, setDuplicateExistingBook] = useState<Book | null>(null);
   const [isCollectionModalOpen, setIsCollectionModalOpen] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setIsCommandPaletteOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   const setCurrentBook = useReaderStore((s) => s.setCurrentBook);
 
@@ -226,6 +246,30 @@ export const LibraryView: React.FC = () => {
             <div className="flex-1 flex items-center justify-center text-[#78716C] py-20 text-xs">
               Loading library collection...
             </div>
+          ) : currentSection === "history" ? (
+            <ReadingIntelligenceDashboard
+              onOpenBook={(bookId) => {
+                const b = books.find((x) => x.id === bookId);
+                if (b) setCurrentBook(b);
+              }}
+              onNavigateTab={(tab) => setCurrentSection(tab as SidebarSection)}
+            />
+          ) : currentSection === "atrium" ? (
+            <KnowledgeHome
+              onNavigateToNotes={() => setCurrentSection("notes")}
+              onNavigateToFlashcards={() => setCurrentSection("flashcards")}
+              onNavigateToProjects={() => setCurrentSection("projects")}
+            />
+          ) : currentSection === "notes" ? (
+            <NotesWorkspace />
+          ) : currentSection === "flashcards" ? (
+            <StudyFlashcards />
+          ) : currentSection === "projects" ? (
+            <ResearchProjectWorkspace />
+          ) : currentSection === "devices" ? (
+            <SyncDeviceCenter />
+          ) : currentSection === "plugins" ? (
+            <IntegrationsPluginsView />
           ) : currentSection === "annotations" ? (
             /* Screenshot 5: Global Annotation Center */
             <GlobalAnnotationCenter
@@ -402,6 +446,22 @@ export const LibraryView: React.FC = () => {
         onAddAsNewFormat={() => {
           setIsDuplicateModalOpen(false);
           loadData();
+        }}
+      />
+
+      {/* Command Palette (Ctrl+K) Modal */}
+      <CommandPaletteModal
+        isOpen={isCommandPaletteOpen}
+        onClose={() => setIsCommandPaletteOpen(false)}
+        onSelectAction={(actionId) => {
+          if (actionId === "open_meditations") {
+            const b = books.find((x) => x.id === "book_meditations") || books[0];
+            if (b) setCurrentBook(b);
+          } else if (actionId === "search_annotations") {
+            setCurrentSection("annotations");
+          } else if (actionId === "toggle_eink") {
+            setCurrentSection("all");
+          }
         }}
       />
     </div>

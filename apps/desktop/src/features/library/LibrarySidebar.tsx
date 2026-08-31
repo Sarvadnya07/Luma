@@ -15,6 +15,8 @@ import {
   HelpCircle,
   FolderKanban,
   BarChart2,
+  Smartphone,
+  Puzzle,
 } from "lucide-react";
 import { Collection, Tag } from "@luma/shared-types";
 
@@ -32,6 +34,8 @@ export type SidebarSection =
   | "notes"
   | "flashcards"
   | "projects"
+  | "devices"
+  | "plugins"
   | "archive"
   | "trash";
 
@@ -80,6 +84,8 @@ export const LibrarySidebar: React.FC<LibrarySidebarProps> = ({
     { id: "authors", label: "Authors", icon: Users },
     { id: "series", label: "Series", icon: Bookmark },
     { id: "annotations", label: "Annotations", icon: Edit3 },
+    { id: "devices", label: "Devices", icon: Smartphone },
+    { id: "plugins", label: "Plugins", icon: Puzzle },
     { id: "archive", label: "Archive", icon: Archive },
     { id: "trash", label: "Trash", icon: Trash2 },
   ];

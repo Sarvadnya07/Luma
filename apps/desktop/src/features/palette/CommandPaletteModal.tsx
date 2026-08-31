@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Search, BookOpen, Contrast, CloudSync, ArrowRight, CornerDownLeft, Sparkles } from "lucide-react";
+import { Search, BookOpen, Contrast, RefreshCw, CornerDownLeft } from "lucide-react";
 
 export interface CommandPaletteModalProps {
   isOpen: boolean;
@@ -55,7 +55,7 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
     {
       id: "start_backup",
       category: "SYSTEM",
-      icon: CloudSync,
+      icon: RefreshCw,
       label: "Start Backup",
     },
   ];

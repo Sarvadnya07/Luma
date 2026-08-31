@@ -1,13 +1,10 @@
 import React from "react";
 import {
-  BookOpen,
   FolderOpen,
-  HelpCircle,
   PlayCircle,
   CheckCircle2,
   ArrowRight,
   ExternalLink,
-  Plus,
 } from "lucide-react";
 
 export interface KnowledgeHomeProps {

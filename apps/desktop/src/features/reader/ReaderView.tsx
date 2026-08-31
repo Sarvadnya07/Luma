@@ -15,6 +15,7 @@ import { ReaderSidebar } from "./ReaderSidebar";
 import { TypographySettingsDrawer } from "./TypographySettingsDrawer";
 import { EpubReaderView } from "./EpubReaderView";
 import { PdfReaderView } from "./PdfReaderView";
+import { EInkReaderView } from "./EInkReaderView";
 
 export interface ReaderViewProps {
   book: Book;
@@ -32,6 +33,7 @@ export const ReaderView: React.FC<ReaderViewProps> = ({ book }) => {
   const statusMessage = useReaderStore((s) => s.statusMessage);
   const loadChapter = useReaderStore((s) => s.loadChapter);
   const currentSpineIndex = useReaderStore((s) => s.currentSpineIndex);
+  const settings = useReaderStore((s) => s.settings);
 
   const [isFullscreen, setIsFullscreen] = React.useState(false);
 
@@ -210,7 +212,13 @@ export const ReaderView: React.FC<ReaderViewProps> = ({ book }) => {
 
         {/* Document Engine Viewport */}
         <main className="flex-1 h-full overflow-hidden flex flex-col relative bg-[#FAF7F2]">
-          {isPdf ? <PdfReaderView /> : <EpubReaderView />}
+          {(settings.theme as any) === "eink" ? (
+            <EInkReaderView />
+          ) : isPdf ? (
+            <PdfReaderView />
+          ) : (
+            <EpubReaderView />
+          )}
         </main>
       </div>
     </div>

@@ -8,8 +8,6 @@ import {
   Plus,
   Filter,
   ExternalLink,
-  BookOpen,
-  Image as ImageIcon,
 } from "lucide-react";
 
 export const ResearchProjectWorkspace: React.FC = () => {

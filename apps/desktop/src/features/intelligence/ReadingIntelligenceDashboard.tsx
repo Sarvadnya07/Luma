@@ -1,16 +1,9 @@
 import React from "react";
 import {
-  BarChart3,
-  Calendar,
-  Clock,
-  CheckCircle2,
-  TrendingUp,
   BookOpen,
   User,
   Settings,
-  ArrowRight,
 } from "lucide-react";
-import { Book } from "@luma/shared-types";
 
 export interface ReadingIntelligenceDashboardProps {
   onOpenBook?: (bookId: string) => void;
