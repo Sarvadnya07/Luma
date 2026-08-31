@@ -166,6 +166,29 @@ export const LibraryView: React.FC = () => {
     };
   }, []);
 
+  // Listen to background domain events to auto-refresh library
+  useEffect(() => {
+    let unsubImported: (() => void) | undefined;
+    let unsubState: (() => void) | undefined;
+
+    LumaApi.onBookImported(() => {
+      loadData();
+    }).then((fn) => {
+      unsubImported = fn;
+    });
+
+    LumaApi.onDomainEvent("luma://library/state-changed", () => {
+      loadData();
+    }).then((fn) => {
+      unsubState = fn;
+    });
+
+    return () => {
+      if (unsubImported) unsubImported();
+      if (unsubState) unsubState();
+    };
+  }, []);
+
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(true);
@@ -179,50 +202,55 @@ export const LibraryView: React.FC = () => {
     e.preventDefault();
     setIsDragging(false);
     const files = Array.from(e.dataTransfer.files);
-    if (files.length > 0) {
-      const paths = files.map((f) => (f as File & { path?: string }).path || f.name);
-      await handleImportFiles(paths);
+    if (files.length === 0) return;
+
+    // Check if files have absolute filesystem paths (desktop environment)
+    const pathsWithFs = files
+      .map((f) => (f as File & { path?: string }).path)
+      .filter((p): p is string => Boolean(p && p.length > 0));
+
+    if (pathsWithFs.length === files.length) {
+      await handleImportFiles(pathsWithFs);
+    } else {
+      // Browser fallback using arrayBuffer
+      for (const file of files) {
+        const buf = await file.arrayBuffer();
+        const job = await LumaApi.importFileBytes(file.name, new Uint8Array(buf));
+        setActiveImportJob(job);
+        setIsImportModalOpen(true);
+      }
+      await loadData();
     }
   };
 
   const openImportPicker = async () => {
-    // If in Tauri desktop mode, attempt native dialog via invoke
     if (isTauri()) {
       try {
-        const { invoke } = await import("@tauri-apps/api/core");
-        const selected = await invoke<string[] | string | null>("plugin:dialog|open", {
-          options: {
-            multiple: true,
-            filters: [
-              {
-                name: "Digital Publications",
-                extensions: ["epub", "pdf", "cbz", "txt", "md"],
-              },
-            ],
-          },
-        }).catch(() => null);
-
-        if (selected) {
-          const paths = Array.isArray(selected) ? selected : [selected];
-          if (paths.length > 0) {
-            await handleImportFiles(paths);
-            return;
-          }
+        const paths = await LumaApi.pickImportFiles();
+        if (paths && paths.length > 0) {
+          await handleImportFiles(paths);
+          return;
         }
-      } catch {
-        // Fallback to DOM input below
+      } catch (err) {
+        console.error("Native file picker error:", err);
       }
     }
 
+    // Web fallback for browser environment
     const input = document.createElement("input");
     input.type = "file";
     input.multiple = true;
-    input.accept = ".epub,.pdf,.cbz,.txt,.md";
-    input.onchange = (e: Event) => {
+    input.accept = ".epub,.pdf,.cbz,.cbr,.txt,.md";
+    input.onchange = async (e: Event) => {
       const target = e.target as HTMLInputElement;
       const files = Array.from(target.files || []);
-      const paths = files.map((f) => (f as File & { path?: string }).path || f.name);
-      if (paths.length > 0) handleImportFiles(paths);
+      for (const file of files) {
+        const buf = await file.arrayBuffer();
+        const job = await LumaApi.importFileBytes(file.name, new Uint8Array(buf));
+        setActiveImportJob(job);
+        setIsImportModalOpen(true);
+      }
+      await loadData();
     };
     input.click();
   };
@@ -277,7 +305,7 @@ export const LibraryView: React.FC = () => {
           viewMode={viewMode}
           onViewModeChange={setViewMode}
           onImportClick={openImportPicker}
-          totalCount={242}
+          totalCount={books.length}
           loading={loading}
         />
 
@@ -324,7 +352,6 @@ export const LibraryView: React.FC = () => {
           ) : currentSection === "plugins" ? (
             <IntegrationsPluginsView />
           ) : currentSection === "annotations" ? (
-            /* Screenshot 5: Global Annotation Center */
             <GlobalAnnotationCenter
               onOpenBook={(bookId) => {
                 const b = books.find((x) => x.id === bookId);
@@ -332,8 +359,9 @@ export const LibraryView: React.FC = () => {
               }}
             />
           ) : currentSection === "library" && !searchQuery && formatFilter === "all" && statusFilter === "all" ? (
-            /* Screenshot 3: Luma Home View */
             <LumaHomeView
+              books={books}
+              authorMap={BOOK_AUTHORS_MAP}
               onSelectBook={(b) => handleOpenDetails(b.id)}
               onOpenReader={(b) => {
                 setCurrentBook(b);
@@ -378,7 +406,6 @@ export const LibraryView: React.FC = () => {
             </div>
           ) : (
             <div className="space-y-4 pt-1">
-              {/* Screenshot 2: Dense Library View */}
               <BookTable
                 books={books}
                 authorMap={BOOK_AUTHORS_MAP}
@@ -388,11 +415,11 @@ export const LibraryView: React.FC = () => {
               />
               <div className="flex items-center justify-between pt-2">
                 <span className="text-xs text-[#78716C]">
-                  Showing 1-{books.length} of 2,451 books
+                  Showing {books.length > 0 ? 1 : 0}-{books.length} of {books.length} book{books.length === 1 ? "" : "s"}
                 </span>
                 <Pagination
                   currentPage={currentPage}
-                  totalPages={12}
+                  totalPages={Math.max(1, Math.ceil(books.length / 20))}
                   onPageChange={setCurrentPage}
                 />
               </div>
@@ -402,6 +429,7 @@ export const LibraryView: React.FC = () => {
       </div>
 
       {/* Book Details Inspector Drawer (Screen 1) */}
+
       <BookDetailsDrawer
         data={selectedBookDetails}
         onClose={() => setSelectedBookDetails(null)}

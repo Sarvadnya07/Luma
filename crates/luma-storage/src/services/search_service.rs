@@ -52,22 +52,15 @@ impl SearchService {
         let hits = self
             .db
             .with_conn(move |conn| {
-                let mut sql = String::from(
-                    r#"
-                    SELECT book_id, snippet(books_fts, 1, '<b>', '</b>', '...', 15), rank
-                    FROM books_fts
-                    WHERE books_fts MATCH ?1
-                    "#,
-                );
-
-                if book_filter.is_some() {
-                    sql.push_str(" AND book_id = ?2");
-                }
-                sql.push_str(" ORDER BY rank LIMIT ?3");
-
                 let mut hits_vec = Vec::new();
                 if let Some(ref bid) = book_filter {
-                    let mut stmt = conn.prepare(&sql)?;
+                    let sql = r#"
+                        SELECT book_id, snippet(books_fts, 1, '<b>', '</b>', '...', 15), rank
+                        FROM books_fts
+                        WHERE books_fts MATCH ?1 AND book_id = ?2
+                        ORDER BY rank LIMIT ?3
+                    "#;
+                    let mut stmt = conn.prepare(sql)?;
                     let rows = stmt.query_map(params![fts_query, bid, max], |r| {
                         let id_str: String = r.get(0)?;
                         let snippet: String = r.get(1)?;
@@ -87,7 +80,13 @@ impl SearchService {
                         }
                     }
                 } else {
-                    let mut stmt = conn.prepare(&sql)?;
+                    let sql = r#"
+                        SELECT book_id, snippet(books_fts, 1, '<b>', '</b>', '...', 15), rank
+                        FROM books_fts
+                        WHERE books_fts MATCH ?1
+                        ORDER BY rank LIMIT ?2
+                    "#;
+                    let mut stmt = conn.prepare(sql)?;
                     let rows = stmt.query_map(params![fts_query, max], |r| {
                         let id_str: String = r.get(0)?;
                         let snippet: String = r.get(1)?;

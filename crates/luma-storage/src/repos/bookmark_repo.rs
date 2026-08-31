@@ -44,7 +44,7 @@ impl BookmarkRepository {
     }
 
     pub fn list_all(&self) -> StorageResult<Vec<Bookmark>> {
-        self.db.with_conn(|conn| {
+        self.db.with_read_conn(|conn| {
             let mut stmt = conn.prepare(
                 r#"
                 SELECT id, book_id, locator, title, chapter_title, page_number,
@@ -64,7 +64,7 @@ impl BookmarkRepository {
     }
 
     pub fn list_by_book_id(&self, book_id: &BookId) -> StorageResult<Vec<Bookmark>> {
-        self.db.with_conn(|conn| {
+        self.db.with_read_conn(|conn| {
             let mut stmt = conn.prepare(
                 r#"
                 SELECT id, book_id, locator, title, chapter_title, page_number,

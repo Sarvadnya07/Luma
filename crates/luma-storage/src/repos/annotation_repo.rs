@@ -76,7 +76,7 @@ impl AnnotationRepository {
     }
 
     pub fn list_all(&self) -> StorageResult<Vec<Annotation>> {
-        self.db.with_conn(|conn| {
+        self.db.with_read_conn(|conn| {
             let mut stmt = conn.prepare(
                 r#"
                 SELECT id, book_id, annotation_type, color_hex, quote, note,
@@ -154,7 +154,7 @@ impl AnnotationRepository {
     }
 
     pub fn list_by_book(&self, book_id: &BookId) -> StorageResult<Vec<Annotation>> {
-        self.db.with_conn(|conn| {
+        self.db.with_read_conn(|conn| {
             let mut stmt = conn.prepare(
                 r#"
                 SELECT id, book_id, annotation_type, color_hex, quote, note,

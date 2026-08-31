@@ -171,7 +171,7 @@ impl BookRepository {
     }
 
     pub fn get_by_id(&self, id: &BookId) -> StorageResult<Option<Book>> {
-        self.db.with_conn(|conn| {
+        self.db.with_read_conn(|conn| {
             let mut stmt = conn.prepare(
                 r#"
                 SELECT id, title, subtitle, series_id, series_index, description,
@@ -225,7 +225,7 @@ impl BookRepository {
         page: usize,
         page_size: usize,
     ) -> StorageResult<Vec<Book>> {
-        self.db.with_conn(|conn| {
+        self.db.with_read_conn(|conn| {
             let mut query = String::from(
                 r#"
                 SELECT DISTINCT b.id, b.title, b.subtitle, b.series_id, b.series_index, b.description,
@@ -359,7 +359,7 @@ impl BookRepository {
     }
 
     pub fn count(&self, filter: &LibraryFilterOptions) -> StorageResult<usize> {
-        self.db.with_conn(|conn| {
+        self.db.with_read_conn(|conn| {
             let state = filter.library_state.unwrap_or(LibraryState::Active);
             let count: i64 = conn.query_row(
                 "SELECT COUNT(DISTINCT id) FROM books WHERE is_deleted = 0 AND library_state = ?1",

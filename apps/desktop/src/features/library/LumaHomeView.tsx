@@ -19,48 +19,45 @@ export const LumaHomeView: React.FC<LumaHomeViewProps> = ({
 }) => {
   const inProgressBooks = books.filter((b) => b.reading_status === "reading");
   const unreadBooks = books.filter((b) => b.reading_status === "unread");
-  const heroBook: Book = inProgressBooks[0] || books[0] || {
-    id: "book_meditations",
-    title: "Meditations",
-    subtitle: "Book Two: On the Inner Life",
-    author_ids: [],
-    series_id: null,
-    series_index: null,
-    description: "Personal writings of Marcus Aurelius on Stoic philosophy, duty, and human nature.",
-    publisher: "Modern Library",
-    published_date: "180 AD",
-    language: "en",
-    isbn: "978-0812968255",
-    cover_image_id: null,
-    cover_image_path: null,
-    primary_file_id: "file_meditations",
-    reading_status: "reading",
-    library_state: "active",
-    trashed_at: null,
-    sync: {
-      version: 1,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      device_id: "dev_01",
-      is_deleted: false,
-    },
-  };
 
-  const heroAuthor = authorMap[heroBook.id] || "Marcus Aurelius";
+  if (books.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center text-[#78716C] border border-dashed border-[#DDD5C7] rounded-2xl p-16 my-8 bg-[#FFFFFF]/50">
+        <BookOpen className="w-12 h-12 text-[#A8A29E] mb-3" />
+        <h3 className="font-serif text-lg font-bold text-[#1C1917]">
+          Your Sanctuary Library is Empty
+        </h3>
+        <p className="text-xs text-[#78716C] mt-1 mb-5 text-center max-w-sm">
+          Import your first EPUB or PDF document to start reading and annotating.
+        </p>
+      </div>
+    );
+  }
 
-  const upNextList = unreadBooks.length > 0 
-    ? unreadBooks.slice(0, 3) 
-    : books.filter((b) => b.id !== heroBook.id).slice(0, 3);
+  const heroBook: Book = inProgressBooks[0] || books[0]!;
+  const heroAuthor = authorMap[heroBook.id] || "Unknown Author";
+
+  const upNextList =
+    unreadBooks.length > 0
+      ? unreadBooks.filter((b) => b.id !== heroBook.id).slice(0, 3)
+      : books.filter((b) => b.id !== heroBook.id).slice(0, 3);
 
   const recentlyAddedList = [...books]
-    .sort((a, b) => new Date(b.sync.created_at).getTime() - new Date(a.sync.created_at).getTime())
+    .sort(
+      (a, b) =>
+        new Date(b.sync.created_at).getTime() -
+        new Date(a.sync.created_at).getTime()
+    )
     .slice(0, 4);
 
-  const todayStr = new Date().toLocaleDateString("en-US", {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-  }).toUpperCase();
+  const todayStr = new Date()
+    .toLocaleDateString("en-US", {
+      weekday: "long",
+      month: "long",
+      day: "numeric",
+    })
+    .toUpperCase();
+
 
   return (
     <div className="space-y-8 pt-4 pb-12 animate-in fade-in duration-200">

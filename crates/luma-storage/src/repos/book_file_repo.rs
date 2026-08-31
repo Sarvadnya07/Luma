@@ -44,7 +44,7 @@ impl BookFileRepository {
     }
 
     pub fn get_by_id(&self, id: &FileId) -> StorageResult<Option<BookFile>> {
-        self.db.with_conn(|conn| {
+        self.db.with_read_conn(|conn| {
             let mut stmt = conn.prepare(
                 r#"
                 SELECT id, book_id, original_filename, relative_path, canonical_path,
@@ -65,7 +65,7 @@ impl BookFileRepository {
     }
 
     pub fn get_by_hash(&self, sha256_hash: &str) -> StorageResult<Option<BookFile>> {
-        self.db.with_conn(|conn| {
+        self.db.with_read_conn(|conn| {
             let mut stmt = conn.prepare(
                 r#"
                 SELECT id, book_id, original_filename, relative_path, canonical_path,
@@ -86,7 +86,7 @@ impl BookFileRepository {
     }
 
     pub fn list_by_book_id(&self, book_id: &BookId) -> StorageResult<Vec<BookFile>> {
-        self.db.with_conn(|conn| {
+        self.db.with_read_conn(|conn| {
             let mut stmt = conn.prepare(
                 r#"
                 SELECT id, book_id, original_filename, relative_path, canonical_path,
@@ -108,7 +108,7 @@ impl BookFileRepository {
     }
 
     pub fn list_all(&self) -> StorageResult<Vec<BookFile>> {
-        self.db.with_conn(|conn| {
+        self.db.with_read_conn(|conn| {
             let mut stmt = conn.prepare(
                 r#"
                 SELECT id, book_id, original_filename, relative_path, canonical_path,

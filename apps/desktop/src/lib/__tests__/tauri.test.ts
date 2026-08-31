@@ -92,5 +92,20 @@ describe("LumaApi client & mock storage", () => {
     expect(res.total).toBe(4);
     expect(res.successful).toBe(4);
   });
+
+  it("handles native file pickers and byte import", async () => {
+    const pickedFiles = await LumaApi.pickImportFiles();
+    expect(Array.isArray(pickedFiles)).toBe(true);
+
+    const pickedDir = await LumaApi.pickImportDirectory();
+    expect(pickedDir === null || typeof pickedDir === "string").toBe(true);
+
+    const dummyBytes = new Uint8Array([0x50, 0x4b, 0x03, 0x04]);
+    const job = await LumaApi.importFileBytes("test_manual.epub", dummyBytes);
+    expect(job.status).toBe("completed");
+    expect(job.items.length).toBe(1);
+    expect(job.items[0]!.original_filename).toBe("test_manual.epub");
+  });
 });
+
 

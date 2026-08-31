@@ -46,7 +46,7 @@ impl TagRepository {
     }
 
     pub fn list_all(&self) -> StorageResult<Vec<Tag>> {
-        self.db.with_conn(|conn| {
+        self.db.with_read_conn(|conn| {
             let mut stmt = conn.prepare("SELECT id, name, color_hex, version, created_at, updated_at, device_id, is_deleted, deleted_at FROM tags WHERE is_deleted = 0 ORDER BY name ASC")?;
             let rows = stmt.query_map([], Self::row_to_tag)?;
             let mut tags = Vec::new();
@@ -78,7 +78,7 @@ impl TagRepository {
     }
 
     pub fn get_tags_for_book(&self, book_id: &BookId) -> StorageResult<Vec<Tag>> {
-        self.db.with_conn(|conn| {
+        self.db.with_read_conn(|conn| {
             let mut stmt = conn.prepare(
                 r#"
                 SELECT t.id, t.name, t.color_hex, t.version, t.created_at, t.updated_at, t.device_id, t.is_deleted, t.deleted_at

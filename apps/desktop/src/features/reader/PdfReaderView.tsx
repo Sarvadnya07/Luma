@@ -13,7 +13,10 @@ import { useReaderStore } from "../../state/readerState";
 import { TextSelectionToolbar } from "./TextSelectionToolbar";
 
 export const PdfReaderView: React.FC = () => {
+  const currentBook = useReaderStore((s) => s.currentBook);
+  const documentData = useReaderStore((s) => s.documentData);
   const currentPdfPage = useReaderStore((s) => s.currentPdfPage);
+  const bookmarks = useReaderStore((s) => s.bookmarks);
   const loadPdfPage = useReaderStore((s) => s.loadPdfPage);
   const createHighlight = useReaderStore((s) => s.createHighlight);
   const toggleBookmark = useReaderStore((s) => s.toggleBookmark);
@@ -24,9 +27,9 @@ export const PdfReaderView: React.FC = () => {
   const [selectionPos, setSelectionPos] = useState<{ top: number; left: number } | null>(null);
   const [selectedText, setSelectedText] = useState<string>("");
 
-  const totalPages = 124;
-  const leftPageNum = currentPdfPage % 2 === 0 ? currentPdfPage : Math.max(2, currentPdfPage - 1);
-  const rightPageNum = leftPageNum + 1;
+  const totalPages = Math.max(1, documentData?.total_pages_or_spines || 1);
+  const leftPageNum = currentPdfPage % 2 === 0 ? currentPdfPage : Math.max(1, currentPdfPage - 1);
+  const rightPageNum = Math.min(totalPages, leftPageNum + 1);
 
   const handleMouseUp = () => {
     const selection = window.getSelection();
@@ -67,13 +70,15 @@ export const PdfReaderView: React.FC = () => {
         onClose={() => setSelectionPos(null)}
       />
 
-      {/* Left Thumbnail & TOC Sidebar matching Screenshot 4 */}
+      {/* Left Thumbnail & TOC Sidebar */}
       <aside className="w-64 border-r border-[#E5DFD3] bg-[#FAF7F2] flex flex-col z-20 flex-shrink-0 select-none">
         {/* Sidebar Header */}
         <div className="p-4 border-b border-[#E5DFD3]">
-          <h3 className="font-serif text-sm font-bold text-[#1C1917]">Table of Contents</h3>
+          <h3 className="font-serif text-sm font-bold text-[#1C1917]">
+            {currentBook?.title || "Document"}
+          </h3>
           <p className="text-[11px] text-[#78716C] truncate mt-0.5 font-serif">
-            Chapter 4: The Quiet Library
+            Page {currentPdfPage} of {totalPages}
           </p>
         </div>
 
@@ -114,39 +119,70 @@ export const PdfReaderView: React.FC = () => {
           </button>
         </div>
 
-        {/* Thumbnails Stream */}
-        <div className="flex-1 overflow-y-auto p-3 space-y-4">
-          {[
-            { page: 1, label: "1" },
-            { page: 2, label: "2-3", active: true },
-            { page: 4, label: "4-5" },
-            { page: 6, label: "6-7" },
-          ].map((thumb) => (
-            <div
-              key={thumb.label}
-              onClick={() => loadPdfPage(thumb.page)}
-              className="space-y-1 cursor-pointer group"
-            >
-              <div className="flex items-center justify-between text-[10px] text-[#78716C] px-1 font-mono">
-                <span>{thumb.label}</span>
-              </div>
+        {/* Tab Content Stream */}
+        <div className="flex-1 overflow-y-auto p-3 space-y-3">
+          {sidebarTab === "contents" ? (
+            documentData?.toc && documentData.toc.length > 0 ? (
+              documentData.toc.map((item, idx) => (
+                <div
+                  key={idx}
+                  onClick={() => {
+                    const match = item.locator.match(/page=(\d+)/);
+                    if (match && match[1]) loadPdfPage(parseInt(match[1], 10));
+                  }}
+                  className="p-2 rounded-lg hover:bg-[#EFEAE1] cursor-pointer text-xs font-serif text-[#292524] truncate"
+                >
+                  {item.title}
+                </div>
+              ))
+            ) : (
+              <div className="text-xs text-[#78716C] text-center py-6">No table of contents</div>
+            )
+          ) : sidebarTab === "bookmarks" ? (
+            bookmarks.length > 0 ? (
+              bookmarks.map((bmk) => (
+                <div
+                  key={bmk.id}
+                  onClick={() => {
+                    if (bmk.page_number) loadPdfPage(bmk.page_number);
+                  }}
+                  className="p-2 rounded-lg hover:bg-[#EFEAE1] cursor-pointer text-xs font-serif text-[#292524] truncate"
+                >
+                  {bmk.title || `Page ${bmk.page_number || 1}`}
+                </div>
+              ))
+            ) : (
+              <div className="text-xs text-[#78716C] text-center py-6">No bookmarks yet</div>
+            )
+          ) : (
+            Array.from({ length: Math.min(totalPages, 20) }, (_, i) => i + 1).map((pageNum) => (
               <div
-                className={`w-full aspect-[4/3] rounded-lg bg-white border p-2 flex items-center justify-center transition-all shadow-xs ${
-                  thumb.active
-                    ? "border-teal-700 ring-2 ring-teal-600/30"
-                    : "border-[#E5DFD3] group-hover:border-[#DDD5C7]"
-                }`}
+                key={pageNum}
+                onClick={() => loadPdfPage(pageNum)}
+                className="space-y-1 cursor-pointer group"
               >
-                <div className="w-full h-full border border-dashed border-[#E5DFD3] rounded flex items-center justify-center p-2 text-center">
-                  <span className="font-serif text-[9px] text-[#78716C]">
-                    {thumb.label === "2-3" ? "Spatial Dynamics" : "Document Page"}
-                  </span>
+                <div className="flex items-center justify-between text-[10px] text-[#78716C] px-1 font-mono">
+                  <span>Page {pageNum}</span>
+                </div>
+                <div
+                  className={`w-full aspect-[4/3] rounded-lg bg-white border p-2 flex items-center justify-center transition-all shadow-xs ${
+                    pageNum === currentPdfPage
+                      ? "border-teal-700 ring-2 ring-teal-600/30"
+                      : "border-[#E5DFD3] group-hover:border-[#DDD5C7]"
+                  }`}
+                >
+                  <div className="w-full h-full border border-dashed border-[#E5DFD3] rounded flex items-center justify-center p-2 text-center">
+                    <span className="font-serif text-[9px] text-[#78716C]">
+                      Page {pageNum}
+                    </span>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </aside>
+
 
       {/* Main Reading Viewport */}
       <div className="flex-1 flex flex-col overflow-hidden">

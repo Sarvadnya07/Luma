@@ -14,7 +14,7 @@ impl SettingsRepository {
     }
 
     pub fn get_setting(&self, key: &str) -> StorageResult<Option<Value>> {
-        self.db.with_conn(|conn| {
+        self.db.with_read_conn(|conn| {
             let mut stmt = conn.prepare("SELECT value_json FROM settings WHERE key = ?1")?;
             let mut rows = stmt.query([key])?;
             if let Some(row) = rows.next()? {
@@ -45,7 +45,7 @@ impl SettingsRepository {
     }
 
     pub fn get_all_settings(&self) -> StorageResult<std::collections::HashMap<String, Value>> {
-        self.db.with_conn(|conn| {
+        self.db.with_read_conn(|conn| {
             let mut stmt = conn.prepare("SELECT key, value_json FROM settings")?;
             let rows = stmt.query_map([], |r| {
                 let k: String = r.get(0)?;

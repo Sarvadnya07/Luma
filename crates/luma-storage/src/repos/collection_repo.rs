@@ -44,7 +44,7 @@ impl CollectionRepository {
     }
 
     pub fn list_all(&self) -> StorageResult<Vec<Collection>> {
-        self.db.with_conn(|conn| {
+        self.db.with_read_conn(|conn| {
             let mut stmt = conn.prepare("SELECT id, name, description, version, created_at, updated_at, device_id, is_deleted, deleted_at FROM collections WHERE is_deleted = 0 ORDER BY name ASC")?;
             let rows = stmt.query_map([], Self::row_to_collection)?;
             let mut collections = Vec::new();
@@ -99,7 +99,7 @@ impl CollectionRepository {
     }
 
     pub fn get_collections_for_book(&self, book_id: &BookId) -> StorageResult<Vec<Collection>> {
-        self.db.with_conn(|conn| {
+        self.db.with_read_conn(|conn| {
             let mut stmt = conn.prepare(
                 r#"
                 SELECT c.id, c.name, c.description, c.version, c.created_at, c.updated_at, c.device_id, c.is_deleted, c.deleted_at

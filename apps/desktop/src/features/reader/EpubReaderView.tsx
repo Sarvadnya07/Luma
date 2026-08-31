@@ -4,8 +4,8 @@ import { useReaderStore } from "../../state/readerState";
 import { TextSelectionToolbar } from "./TextSelectionToolbar";
 
 export const EpubReaderView: React.FC = () => {
-  const currentBook = useReaderStore((s) => s.currentBook);
   const currentChapter = useReaderStore((s) => s.currentChapter);
+
   const currentSpineIndex = useReaderStore((s) => s.currentSpineIndex);
   const documentData = useReaderStore((s) => s.documentData);
   const settings = useReaderStore((s) => s.settings);
@@ -87,20 +87,15 @@ export const EpubReaderView: React.FC = () => {
     mono: '"JetBrains Mono", Menlo, Monaco, Consolas, monospace',
   };
 
-  const getProgressPercent = () => {
-    if (currentBook?.id === "book_great_gatsby") return 66;
-    if (currentBook?.id === "book_meditations") return 15;
-    if (currentBook?.id === "book_arch_stillness") return 75;
-    return Math.round(((currentSpineIndex + 1) / totalSpines) * 100);
-  };
-
-  const progressPercent = getProgressPercent();
+  const progressPercent = Math.min(
+    100,
+    Math.max(0, Math.round(((currentSpineIndex + 1) / totalSpines) * 100))
+  );
 
   const getChapterProgressLabel = () => {
-    if (currentBook?.id === "book_meditations") return "Chapter Progress: Book Two";
-    if (currentBook?.id === "book_great_gatsby") return "Chapter 3";
-    return currentChapter?.title || "Chapter 1";
+    return currentChapter?.title || `Section ${currentSpineIndex + 1} of ${totalSpines}`;
   };
+
 
   return (
     <div

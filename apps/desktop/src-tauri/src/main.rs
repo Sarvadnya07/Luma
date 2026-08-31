@@ -46,9 +46,12 @@ fn main() {
             commands::trash_book,
             commands::restore_book,
             commands::delete_book_permanently,
-            // Import
+            // Import & File Picker
+            commands::pick_import_files,
+            commands::pick_import_directory,
             commands::import_files,
             commands::import_directory,
+            commands::import_file_bytes,
             commands::reconcile_library_files,
             // Collections, Tags, Authors, Series
             commands::list_collections,

@@ -56,7 +56,7 @@ impl ReadingProgressRepository {
     }
 
     pub fn get(&self, book_id: &BookId) -> StorageResult<Option<ReadingProgress>> {
-        self.db.with_conn(|conn| {
+        self.db.with_read_conn(|conn| {
             let mut stmt = conn.prepare(
                 r#"
                 SELECT book_id, progress_percentage, current_locator, current_chapter_title,

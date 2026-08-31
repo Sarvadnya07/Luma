@@ -45,7 +45,7 @@ impl AuthorRepository {
     }
 
     pub fn list_all(&self) -> StorageResult<Vec<Author>> {
-        self.db.with_conn(|conn| {
+        self.db.with_read_conn(|conn| {
             let mut stmt = conn.prepare("SELECT id, name, sort_name, version, created_at, updated_at, device_id, is_deleted, deleted_at FROM authors WHERE is_deleted = 0 ORDER BY name ASC")?;
             let rows = stmt.query_map([], Self::row_to_author)?;
             let mut authors = Vec::new();
@@ -57,7 +57,7 @@ impl AuthorRepository {
     }
 
     pub fn get_authors_for_book(&self, book_id: &BookId) -> StorageResult<Vec<Author>> {
-        self.db.with_conn(|conn| {
+        self.db.with_read_conn(|conn| {
             let mut stmt = conn.prepare(
                 r#"
                 SELECT a.id, a.name, a.sort_name, a.version, a.created_at, a.updated_at, a.device_id, a.is_deleted, a.deleted_at

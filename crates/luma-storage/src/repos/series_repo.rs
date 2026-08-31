@@ -49,7 +49,7 @@ impl SeriesRepository {
     }
 
     pub fn list_all(&self) -> StorageResult<Vec<Series>> {
-        self.db.with_conn(|conn| {
+        self.db.with_read_conn(|conn| {
             let mut stmt = conn.prepare("SELECT id, title, description, version, created_at, updated_at, device_id, is_deleted, deleted_at FROM series WHERE is_deleted = 0 ORDER BY title ASC")?;
             let rows = stmt.query_map([], Self::row_to_series)?;
             let mut series_list = Vec::new();
@@ -61,7 +61,7 @@ impl SeriesRepository {
     }
 
     pub fn get_by_id(&self, id: &SeriesId) -> StorageResult<Option<Series>> {
-        self.db.with_conn(|conn| {
+        self.db.with_read_conn(|conn| {
             let mut stmt = conn.prepare("SELECT id, title, description, version, created_at, updated_at, device_id, is_deleted, deleted_at FROM series WHERE id = ?1 AND is_deleted = 0")?;
             let mut rows = stmt.query(params![id.to_string()])?;
             if let Some(row) = rows.next()? {
