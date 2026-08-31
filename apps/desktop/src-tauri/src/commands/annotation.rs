@@ -1,12 +1,17 @@
-use tauri::State;
 use luma_anchor::{AnchorEngine, ResolutionResult, TextQuoteAnchor};
 use luma_core::models::annotation::Annotation;
-use luma_storage::Database;
 use luma_storage::repos::AnnotationRepository;
+use luma_storage::Database;
+use tauri::State;
 
 #[tauri::command]
-pub fn list_annotations(db: State<'_, Database>, book_id: String) -> Result<Vec<Annotation>, String> {
-    let parsed_id = book_id.parse().map_err(|e: luma_core::error::LumaError| e.to_string())?;
+pub fn list_annotations(
+    db: State<'_, Database>,
+    book_id: String,
+) -> Result<Vec<Annotation>, String> {
+    let parsed_id = book_id
+        .parse()
+        .map_err(|e: luma_core::error::LumaError| e.to_string())?;
     let repo = AnnotationRepository::new(db.inner().clone());
     repo.list_by_book(&parsed_id).map_err(|e| e.to_string())
 }

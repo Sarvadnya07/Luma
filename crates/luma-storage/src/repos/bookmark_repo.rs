@@ -1,7 +1,7 @@
-use rusqlite::params;
 use luma_core::ids::{BookId, BookmarkId, DeviceId};
 use luma_core::models::reading::Bookmark;
 use luma_core::version::{EntityVersion, SyncMetadata};
+use rusqlite::params;
 
 use crate::db::Database;
 use crate::error::StorageResult;

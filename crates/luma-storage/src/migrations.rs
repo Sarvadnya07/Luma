@@ -1,5 +1,5 @@
-use rusqlite::Connection;
 use crate::error::StorageResult;
+use rusqlite::Connection;
 
 pub const V1_INITIAL_SCHEMA: &str = r#"
 -- Schema version tracking
@@ -295,16 +295,31 @@ pub fn run_migrations(conn: &mut Connection) -> StorageResult<()> {
     if current_version < 2 {
         // Apply V2 migrations: columns on books and book_files
         let _ = tx.execute("ALTER TABLE books ADD COLUMN cover_image_id TEXT", []);
-        let _ = tx.execute("ALTER TABLE books ADD COLUMN reading_status TEXT NOT NULL DEFAULT 'unread'", []);
-        let _ = tx.execute("ALTER TABLE books ADD COLUMN library_state TEXT NOT NULL DEFAULT 'active'", []);
+        let _ = tx.execute(
+            "ALTER TABLE books ADD COLUMN reading_status TEXT NOT NULL DEFAULT 'unread'",
+            [],
+        );
+        let _ = tx.execute(
+            "ALTER TABLE books ADD COLUMN library_state TEXT NOT NULL DEFAULT 'active'",
+            [],
+        );
         let _ = tx.execute("ALTER TABLE books ADD COLUMN trashed_at TEXT", []);
 
-        let _ = tx.execute("ALTER TABLE book_files ADD COLUMN original_filename TEXT NOT NULL DEFAULT ''", []);
+        let _ = tx.execute(
+            "ALTER TABLE book_files ADD COLUMN original_filename TEXT NOT NULL DEFAULT ''",
+            [],
+        );
         let _ = tx.execute("ALTER TABLE book_files ADD COLUMN canonical_path TEXT", []);
         let _ = tx.execute("ALTER TABLE book_files ADD COLUMN mime_type TEXT", []);
-        let _ = tx.execute("ALTER TABLE book_files ADD COLUMN imported_at TEXT NOT NULL DEFAULT (datetime('now'))", []);
+        let _ = tx.execute(
+            "ALTER TABLE book_files ADD COLUMN imported_at TEXT NOT NULL DEFAULT (datetime('now'))",
+            [],
+        );
         let _ = tx.execute("ALTER TABLE book_files ADD COLUMN modified_at TEXT", []);
-        let _ = tx.execute("ALTER TABLE book_files ADD COLUMN availability TEXT NOT NULL DEFAULT 'available'", []);
+        let _ = tx.execute(
+            "ALTER TABLE book_files ADD COLUMN availability TEXT NOT NULL DEFAULT 'available'",
+            [],
+        );
 
         tx.execute_batch(V2_CORE_LIBRARY_SCHEMA)?;
 

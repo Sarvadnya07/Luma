@@ -81,7 +81,10 @@ impl FromStr for ReadingStatus {
             "reading" => Ok(ReadingStatus::Reading),
             "completed" => Ok(ReadingStatus::Completed),
             "archived" => Ok(ReadingStatus::Archived),
-            other => Err(LumaError::ValidationError(format!("Invalid reading status: {}", other))),
+            other => Err(LumaError::ValidationError(format!(
+                "Invalid reading status: {}",
+                other
+            ))),
         }
     }
 }
@@ -113,7 +116,10 @@ impl FromStr for LibraryState {
             "active" => Ok(LibraryState::Active),
             "archived" => Ok(LibraryState::Archived),
             "trashed" => Ok(LibraryState::Trashed),
-            other => Err(LumaError::ValidationError(format!("Invalid library state: {}", other))),
+            other => Err(LumaError::ValidationError(format!(
+                "Invalid library state: {}",
+                other
+            ))),
         }
     }
 }
@@ -148,7 +154,10 @@ impl FromStr for FileAvailability {
             "missing" => Ok(FileAvailability::Missing),
             "changed" => Ok(FileAvailability::Changed),
             "invalid" => Ok(FileAvailability::Invalid),
-            other => Err(LumaError::ValidationError(format!("Invalid file availability: {}", other))),
+            other => Err(LumaError::ValidationError(format!(
+                "Invalid file availability: {}",
+                other
+            ))),
         }
     }
 }

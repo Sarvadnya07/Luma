@@ -1,6 +1,6 @@
-use rusqlite::params;
 use luma_core::ids::{BookId, CoverImageId};
 use luma_core::models::ingest::CoverImage;
+use rusqlite::params;
 
 use crate::db::Database;
 use crate::error::StorageResult;

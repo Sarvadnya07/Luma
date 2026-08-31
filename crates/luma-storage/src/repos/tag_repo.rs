@@ -1,7 +1,7 @@
-use rusqlite::params;
 use luma_core::ids::{BookId, DeviceId, TagId};
 use luma_core::models::metadata::Tag;
 use luma_core::version::{EntityVersion, SyncMetadata};
+use rusqlite::params;
 
 use crate::db::Database;
 use crate::error::StorageResult;

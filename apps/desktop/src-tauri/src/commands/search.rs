@@ -1,6 +1,6 @@
-use tauri::State;
 use luma_search::{SearchEngine, SearchQuery, SearchResult, SqliteFtsSearchEngine};
 use luma_storage::Database;
+use tauri::State;
 
 #[tauri::command]
 pub async fn search_library(

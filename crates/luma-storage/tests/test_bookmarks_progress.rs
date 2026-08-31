@@ -18,7 +18,9 @@ fn test_bookmark_repository_crud() {
 
     repo.insert(&bmk1).expect("Insert bookmark failed");
 
-    let list = repo.list_by_book_id(&book_id).expect("List bookmarks failed");
+    let list = repo
+        .list_by_book_id(&book_id)
+        .expect("List bookmarks failed");
     assert_eq!(list.len(), 1);
     assert_eq!(list[0].id, bmk1.id);
     assert_eq!(list[0].title.as_deref(), Some("Chapter 1 Bookmark"));
@@ -44,7 +46,10 @@ fn test_reading_progress_save_and_restore() {
 
     repo.save(&progress).expect("Save reading progress");
 
-    let restored = repo.get(&book_id).expect("Get reading progress").expect("Progress exists");
+    let restored = repo
+        .get(&book_id)
+        .expect("Get reading progress")
+        .expect("Progress exists");
     assert_eq!(restored.book_id, book_id);
     assert_eq!(restored.current_locator, "epubcfi(/6/4[ch2]!/4/10)");
     assert_eq!(restored.progress_percentage, 0.45);

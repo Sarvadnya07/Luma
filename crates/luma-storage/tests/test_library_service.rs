@@ -7,7 +7,9 @@ use zip::ZipWriter;
 use luma_core::ids::DeviceId;
 use luma_core::models::book::{DocumentFormat, LibraryState, ReadingStatus};
 use luma_core::models::ingest::DuplicateMatchLevel;
-use luma_storage::repos::{BookRepository, LibraryFilterOptions, LibrarySortBy, LibrarySortOptions};
+use luma_storage::repos::{
+    BookRepository, LibraryFilterOptions, LibrarySortBy, LibrarySortOptions,
+};
 use luma_storage::{Database, LibraryService};
 
 fn create_sample_epub(title: &str, isbn: &str) -> NamedTempFile {
@@ -117,7 +119,9 @@ fn test_library_repository_filtering_sorting_and_trash() {
     assert_eq!(active_books.len(), 1);
 
     // Change Reading Status
-    book_repo.set_reading_status(&book.id, ReadingStatus::Reading).unwrap();
+    book_repo
+        .set_reading_status(&book.id, ReadingStatus::Reading)
+        .unwrap();
     let updated = book_repo.get_by_id(&book.id).unwrap().unwrap();
     assert_eq!(updated.reading_status, ReadingStatus::Reading);
 

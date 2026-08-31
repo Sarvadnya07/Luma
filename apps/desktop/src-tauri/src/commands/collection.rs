@@ -1,8 +1,10 @@
-use tauri::State;
 use luma_core::ids::{BookId, CollectionId, DeviceId, TagId};
 use luma_core::models::metadata::{Author, Collection, Series, Tag};
-use luma_storage::repos::{AuthorRepository, CollectionRepository, SeriesRepository, TagRepository};
+use luma_storage::repos::{
+    AuthorRepository, CollectionRepository, SeriesRepository, TagRepository,
+};
 use luma_storage::Database;
+use tauri::State;
 
 #[tauri::command]
 pub fn list_collections(db: State<'_, Database>) -> Result<Vec<Collection>, String> {
@@ -27,11 +29,14 @@ pub fn add_books_to_collection(
     collection_id: String,
     book_ids: Vec<String>,
 ) -> Result<(), String> {
-    let col_id = collection_id.parse::<CollectionId>().map_err(|e| e.to_string())?;
+    let col_id = collection_id
+        .parse::<CollectionId>()
+        .map_err(|e| e.to_string())?;
     let repo = CollectionRepository::new(db.inner().clone());
     for b in book_ids {
         if let Ok(bid) = b.parse::<BookId>() {
-            repo.add_book_to_collection(&col_id, &bid).map_err(|e| e.to_string())?;
+            repo.add_book_to_collection(&col_id, &bid)
+                .map_err(|e| e.to_string())?;
         }
     }
     Ok(())
@@ -51,8 +56,11 @@ pub fn add_tag_to_book(
 ) -> Result<Tag, String> {
     let bid = book_id.parse::<BookId>().map_err(|e| e.to_string())?;
     let repo = TagRepository::new(db.inner().clone());
-    let tag = repo.get_or_create_by_name(&tag_name, DeviceId::new()).map_err(|e| e.to_string())?;
-    repo.add_tag_to_book(&bid, &tag.id).map_err(|e| e.to_string())?;
+    let tag = repo
+        .get_or_create_by_name(&tag_name, DeviceId::new())
+        .map_err(|e| e.to_string())?;
+    repo.add_tag_to_book(&bid, &tag.id)
+        .map_err(|e| e.to_string())?;
     Ok(tag)
 }
 
@@ -65,7 +73,8 @@ pub fn remove_tag_from_book(
     let bid = book_id.parse::<BookId>().map_err(|e| e.to_string())?;
     let tid = tag_id.parse::<TagId>().map_err(|e| e.to_string())?;
     let repo = TagRepository::new(db.inner().clone());
-    repo.remove_tag_from_book(&bid, &tid).map_err(|e| e.to_string())
+    repo.remove_tag_from_book(&bid, &tid)
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]

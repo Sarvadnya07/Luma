@@ -1,10 +1,10 @@
-use rusqlite::params;
 use luma_core::ids::{AuthorId, BookId, CoverImageId, DeviceId, FileId, SeriesId};
 use luma_core::models::book::{Book, DocumentFormat, LibraryState, ReadingStatus};
 use luma_core::version::{EntityVersion, SyncMetadata};
+use rusqlite::params;
 
 use crate::db::Database;
-use crate::error::{StorageError, StorageResult};
+use crate::error::StorageResult;
 
 #[derive(Debug, Clone, Default)]
 pub struct LibraryFilterOptions {
@@ -155,7 +155,10 @@ impl BookRepository {
             )?;
 
             // Re-sync book authors
-            conn.execute("DELETE FROM book_authors WHERE book_id = ?1", params![book.id.to_string()])?;
+            conn.execute(
+                "DELETE FROM book_authors WHERE book_id = ?1",
+                params![book.id.to_string()],
+            )?;
             for (idx, auth_id) in book.author_ids.iter().enumerate() {
                 conn.execute(
                     "INSERT INTO book_authors (book_id, author_id, position) VALUES (?1, ?2, ?3)",
@@ -187,7 +190,9 @@ impl BookRepository {
                 drop(stmt);
 
                 // Fetch authors
-                let mut auth_stmt = conn.prepare("SELECT author_id FROM book_authors WHERE book_id = ?1 ORDER BY position ASC")?;
+                let mut auth_stmt = conn.prepare(
+                    "SELECT author_id FROM book_authors WHERE book_id = ?1 ORDER BY position ASC",
+                )?;
                 let auth_rows = auth_stmt.query_map(params![id.to_string()], |r| {
                     let aid_str: String = r.get(0)?;
                     Ok(aid_str.parse::<AuthorId>().unwrap_or_default())
@@ -204,7 +209,13 @@ impl BookRepository {
         })
     }
 
-    pub fn list(&self, filter: &LibraryFilterOptions, sort: &LibrarySortOptions, page: usize, page_size: usize) -> StorageResult<Vec<Book>> {
+    pub fn list(
+        &self,
+        filter: &LibraryFilterOptions,
+        sort: &LibrarySortOptions,
+        page: usize,
+        page_size: usize,
+    ) -> StorageResult<Vec<Book>> {
         self.db.with_conn(|conn| {
             let mut query = String::from(
                 r#"
@@ -330,7 +341,10 @@ impl BookRepository {
 
     pub fn delete_permanently(&self, book_id: &BookId) -> StorageResult<()> {
         self.db.with_conn(|conn| {
-            conn.execute("DELETE FROM books WHERE id = ?1", params![book_id.to_string()])?;
+            conn.execute(
+                "DELETE FROM books WHERE id = ?1",
+                params![book_id.to_string()],
+            )?;
             Ok(())
         })
     }

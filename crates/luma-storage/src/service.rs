@@ -1,11 +1,13 @@
+use rusqlite::params;
 use std::fs;
 use std::path::{Path, PathBuf};
-use rusqlite::params;
 
 use luma_core::error::{LumaError, Result};
-use luma_core::ids::{AuthorId, BookId, DeviceId, FileId, ImportJobId, SeriesId};
-use luma_core::models::book::{Book, BookFile, DocumentFormat, FileAvailability, LibraryState, ReadingStatus};
-use luma_core::models::ingest::{DuplicateAssessment, DuplicateMatchLevel, ImportJob, ImportJobItem, ImportJobStatus};
+use luma_core::ids::DeviceId;
+use luma_core::models::book::{Book, BookFile, DocumentFormat, FileAvailability};
+use luma_core::models::ingest::{
+    DuplicateAssessment, DuplicateMatchLevel, ImportJob, ImportJobItem,
+};
 use luma_reader::cover::CoverStore;
 use luma_reader::detector::FormatDetector;
 use luma_reader::extractors::{CbzExtractor, EpubExtractor, PdfExtractor, TextExtractor};
@@ -15,13 +17,14 @@ use crate::db::Database;
 use crate::duplicate::DuplicateDetector;
 use crate::error::StorageResult;
 use crate::repos::{
-    AuthorRepository, BookFileRepository, BookRepository, CollectionRepository,
-    CoverRepository, LibraryFilterOptions, LibrarySortOptions, SeriesRepository, TagRepository,
+    AuthorRepository, BookFileRepository, BookRepository, CoverRepository, SeriesRepository,
+    TagRepository,
 };
 
 pub struct LibraryService {
     db: Database,
     cover_store: CoverStore,
+    #[allow(dead_code)]
     library_dir: PathBuf,
 }
 
@@ -46,7 +49,10 @@ impl LibraryService {
     ) -> Result<(Book, BookFile, DuplicateAssessment)> {
         let path = file_path.as_ref();
         if !path.exists() {
-            return Err(LumaError::DocumentError(format!("File does not exist: {}", path.display())));
+            return Err(LumaError::DocumentError(format!(
+                "File does not exist: {}",
+                path.display()
+            )));
         }
 
         // 1. Detect format
@@ -66,10 +72,10 @@ impl LibraryService {
 
         // 3. Extract Metadata & Cover based on format
         let mut title = original_filename.clone();
-        let mut subtitle = None;
+        let subtitle = None;
         let mut authors = Vec::new();
         let mut publisher = None;
-        let mut published_date = None;
+        let published_date = None;
         let mut language = None;
         let mut description = None;
         let mut isbn = None;
@@ -181,7 +187,10 @@ impl LibraryService {
 
         // 6. Save and link Cover if extracted
         if let Some(cover) = cover_data {
-            if let Ok(saved_cover) = self.cover_store.save_cover(Some(book.id), &cover.data, &cover.mime_type) {
+            if let Ok(saved_cover) =
+                self.cover_store
+                    .save_cover(Some(book.id), &cover.data, &cover.mime_type)
+            {
                 let _ = cover_repo.insert(&saved_cover);
                 book.cover_image_id = Some(saved_cover.id);
                 book.cover_image_path = Some(saved_cover.relative_path);
@@ -203,8 +212,12 @@ impl LibraryService {
         book.primary_file_id = Some(book_file.id);
 
         // 8. Transactional persistence
-        book_repo.insert(&book).map_err(|e| LumaError::StorageError(e.to_string()))?;
-        file_repo.insert(&book_file).map_err(|e| LumaError::StorageError(e.to_string()))?;
+        book_repo
+            .insert(&book)
+            .map_err(|e| LumaError::StorageError(e.to_string()))?;
+        file_repo
+            .insert(&book_file)
+            .map_err(|e| LumaError::StorageError(e.to_string()))?;
 
         // Link Tags
         for sub in subjects {
@@ -287,8 +300,9 @@ impl LibraryService {
             return Ok(());
         }
 
-        let entries = fs::read_dir(dir)
-            .map_err(|e| LumaError::StorageError(format!("Failed to read directory {}: {}", dir.display(), e)))?;
+        let entries = fs::read_dir(dir).map_err(|e| {
+            LumaError::StorageError(format!("Failed to read directory {}: {}", dir.display(), e))
+        })?;
 
         for entry in entries.flatten() {
             let p = entry.path();
@@ -297,7 +311,10 @@ impl LibraryService {
             } else if p.is_file() {
                 if let Some(ext) = p.extension().and_then(|e| e.to_str()) {
                     let ext_lower = ext.to_lowercase();
-                    if matches!(ext_lower.as_str(), "epub" | "pdf" | "cbz" | "cbr" | "txt" | "md" | "html" | "htm") {
+                    if matches!(
+                        ext_lower.as_str(),
+                        "epub" | "pdf" | "cbz" | "cbr" | "txt" | "md" | "html" | "htm"
+                    ) {
                         out.push(p);
                     }
                 }
@@ -347,10 +364,8 @@ impl LibraryService {
             )?;
             let author_rows = authors_stmt.query_map([book.id.to_string()], |r| r.get::<_, String>(0))?;
             let mut authors_vec = Vec::new();
-            for a in author_rows {
-                if let Ok(name) = a {
-                    authors_vec.push(name);
-                }
+            for name in author_rows.flatten() {
+                authors_vec.push(name);
             }
             let authors_str = authors_vec.join(", ");
 
@@ -376,10 +391,8 @@ impl LibraryService {
             )?;
             let tag_rows = tags_stmt.query_map([book.id.to_string()], |r| r.get::<_, String>(0))?;
             let mut tags_vec = Vec::new();
-            for t in tag_rows {
-                if let Ok(tag_name) = t {
-                    tags_vec.push(tag_name);
-                }
+            for tag_name in tag_rows.flatten() {
+                tags_vec.push(tag_name);
             }
             let tags_str = tags_vec.join(", ");
 

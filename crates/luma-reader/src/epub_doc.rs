@@ -1,11 +1,11 @@
-use std::collections::HashMap;
-use std::fs::File;
-use std::io::Read;
-use std::path::{Path, PathBuf};
 use quick_xml::events::Event;
 use quick_xml::Reader;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::fs::File;
+use std::io::Read;
+use std::path::{Path, PathBuf};
 
 use luma_core::error::{LumaError, Result};
 use luma_security::sanitize_untrusted_html;
@@ -39,6 +39,7 @@ pub struct DocumentSearchMatch {
     pub match_char_offset: usize,
 }
 
+#[allow(dead_code)]
 pub struct EpubDocument {
     file_path: PathBuf,
     opf_path: String,
@@ -54,25 +55,37 @@ impl EpubDocument {
         let file = File::open(&p)
             .map_err(|e| LumaError::DocumentError(format!("Failed to open EPUB: {}", e)))?;
 
-        let mut archive = zip::ZipArchive::new(file)
-            .map_err(|e| LumaError::CorruptedDocument(format!("Invalid EPUB zip container: {}", e)))?;
+        let mut archive = zip::ZipArchive::new(file).map_err(|e| {
+            LumaError::CorruptedDocument(format!("Invalid EPUB zip container: {}", e))
+        })?;
 
         // 1. Find rootfile from container.xml
         let opf_path = Self::find_opf_path(&mut archive)?;
-        let opf_dir = Path::new(&opf_path).parent().unwrap_or(Path::new("")).to_path_buf();
+        let opf_dir = Path::new(&opf_path)
+            .parent()
+            .unwrap_or(Path::new(""))
+            .to_path_buf();
 
         // 2. Read and parse OPF package
         let mut opf_entry = archive
             .by_name(&opf_path)
             .map_err(|e| LumaError::CorruptedDocument(format!("OPF missing: {}", e)))?;
         let mut opf_xml = String::new();
-        opf_entry.read_to_string(&mut opf_xml).map_err(|e| LumaError::CorruptedDocument(e.to_string()))?;
+        opf_entry
+            .read_to_string(&mut opf_xml)
+            .map_err(|e| LumaError::CorruptedDocument(e.to_string()))?;
         drop(opf_entry);
 
         let (manifest, spine, nav_href, ncx_href) = Self::parse_opf_manifest_and_spine(&opf_xml)?;
 
         // 3. Parse TOC from Navigation Document (EPUB 3) or NCX (EPUB 2)
-        let toc = Self::parse_toc(&mut archive, &opf_dir, nav_href.as_deref(), ncx_href.as_deref(), &spine);
+        let toc = Self::parse_toc(
+            &mut archive,
+            &opf_dir,
+            nav_href.as_deref(),
+            ncx_href.as_deref(),
+            &spine,
+        );
 
         Ok(Self {
             file_path: p,
@@ -108,13 +121,16 @@ impl EpubDocument {
         let item = &self.spine[spine_index];
         let file = File::open(&self.file_path)
             .map_err(|e| LumaError::DocumentError(format!("Failed to open EPUB file: {}", e)))?;
-        let mut archive = zip::ZipArchive::new(file)
-            .map_err(|e| LumaError::CorruptedDocument(e.to_string()))?;
+        let mut archive =
+            zip::ZipArchive::new(file).map_err(|e| LumaError::CorruptedDocument(e.to_string()))?;
 
         let chapter_path = if self.opf_dir.as_os_str().is_empty() {
             item.href.replace('\\', "/")
         } else {
-            self.opf_dir.join(&item.href).to_string_lossy().replace('\\', "/")
+            self.opf_dir
+                .join(&item.href)
+                .to_string_lossy()
+                .replace('\\', "/")
         };
 
         let mut raw_html = String::new();
@@ -122,14 +138,14 @@ impl EpubDocument {
         let mut entry = if has_chapter {
             archive.by_name(&chapter_path).unwrap()
         } else {
-            archive
-                .by_name(&item.href)
-                .map_err(|e| LumaError::DocumentError(format!("Chapter file {} not found: {}", chapter_path, e)))?
+            archive.by_name(&item.href).map_err(|e| {
+                LumaError::DocumentError(format!("Chapter file {} not found: {}", chapter_path, e))
+            })?
         };
-        
-        entry
-            .read_to_string(&mut raw_html)
-            .map_err(|e| LumaError::DocumentError(format!("Failed to read chapter {}: {}", item.href, e)))?;
+
+        entry.read_to_string(&mut raw_html).map_err(|e| {
+            LumaError::DocumentError(format!("Failed to read chapter {}: {}", item.href, e))
+        })?;
 
         let sanitized_html = sanitize_untrusted_html(&raw_html);
         let text_content = Self::extract_plain_text(&sanitized_html);
@@ -162,10 +178,15 @@ impl EpubDocument {
                 while let Some(found_idx) = text_lower[start_search..].find(&clean_q) {
                     let absolute_char_idx = start_search + found_idx;
                     let snippet_start = absolute_char_idx.saturating_sub(40);
-                    let snippet_end = (absolute_char_idx + clean_q.len() + 40).min(chapter.text_content.len());
-                    let snippet = chapter.text_content[snippet_start..snippet_end].replace('\n', " ").trim().to_string();
+                    let snippet_end =
+                        (absolute_char_idx + clean_q.len() + 40).min(chapter.text_content.len());
+                    let snippet = chapter.text_content[snippet_start..snippet_end]
+                        .replace('\n', " ")
+                        .trim()
+                        .to_string();
 
-                    let locator = format!("epubcfi(/6/{}!/4/{}:0)", (idx + 1) * 2, absolute_char_idx);
+                    let locator =
+                        format!("epubcfi(/6/{}!/4/{}:0)", (idx + 1) * 2, absolute_char_idx);
 
                     matches.push(DocumentSearchMatch {
                         spine_index: idx,
@@ -192,7 +213,9 @@ impl EpubDocument {
             .map_err(|_| LumaError::CorruptedDocument("META-INF/container.xml missing".into()))?;
 
         let mut container_xml = String::new();
-        container_entry.read_to_string(&mut container_xml).map_err(|e| LumaError::CorruptedDocument(e.to_string()))?;
+        container_entry
+            .read_to_string(&mut container_xml)
+            .map_err(|e| LumaError::CorruptedDocument(e.to_string()))?;
 
         let mut reader = Reader::from_str(&container_xml);
         reader.config_mut().trim_text(true);
@@ -212,15 +235,23 @@ impl EpubDocument {
                     }
                 }
                 Ok(Event::Eof) => break,
-                Err(e) => return Err(LumaError::CorruptedDocument(format!("XML error in container.xml: {}", e))),
+                Err(e) => {
+                    return Err(LumaError::CorruptedDocument(format!(
+                        "XML error in container.xml: {}",
+                        e
+                    )))
+                }
                 _ => {}
             }
             buf.clear();
         }
 
-        Err(LumaError::CorruptedDocument("No rootfile in container.xml".into()))
+        Err(LumaError::CorruptedDocument(
+            "No rootfile in container.xml".into(),
+        ))
     }
 
+    #[allow(clippy::type_complexity)]
     fn parse_opf_manifest_and_spine(
         opf_xml: &str,
     ) -> Result<(
@@ -303,7 +334,12 @@ impl EpubDocument {
                     }
                 }
                 Ok(Event::Eof) => break,
-                Err(e) => return Err(LumaError::CorruptedDocument(format!("XML error in OPF: {}", e))),
+                Err(e) => {
+                    return Err(LumaError::CorruptedDocument(format!(
+                        "XML error in OPF: {}",
+                        e
+                    )))
+                }
                 _ => {}
             }
             buf.clear();
@@ -403,8 +439,14 @@ impl EpubDocument {
         let a_regex = Regex::new(r#"<a[^>]*href=["']([^"']+)["'][^>]*>([^<]+)</a>"#).unwrap();
 
         for (idx, caps) in a_regex.captures_iter(nav_html).enumerate() {
-            let href = caps.get(1).map(|m| m.as_str().trim().to_string()).unwrap_or_default();
-            let title = caps.get(2).map(|m| m.as_str().trim().to_string()).unwrap_or_default();
+            let href = caps
+                .get(1)
+                .map(|m| m.as_str().trim().to_string())
+                .unwrap_or_default();
+            let title = caps
+                .get(2)
+                .map(|m| m.as_str().trim().to_string())
+                .unwrap_or_default();
 
             if !href.is_empty() && !title.is_empty() {
                 items.push(TocItem {
@@ -451,18 +493,16 @@ impl EpubDocument {
                     in_text = false;
                 }
                 Ok(Event::End(e)) => {
-                    if e.local_name().as_ref() == b"navPoint" {
-                        if !current_title.is_empty() {
-                            let play_order = (items.len() + 1) as u32;
-                            items.push(TocItem {
-                                title: sanitize_untrusted_html(&current_title),
-                                locator: current_src.clone(),
-                                play_order: Some(play_order),
-                                children: Vec::new(),
-                            });
-                            current_title.clear();
-                            current_src.clear();
-                        }
+                    if e.local_name().as_ref() == b"navPoint" && !current_title.is_empty() {
+                        let play_order = (items.len() + 1) as u32;
+                        items.push(TocItem {
+                            title: sanitize_untrusted_html(&current_title),
+                            locator: current_src.clone(),
+                            play_order: Some(play_order),
+                            children: Vec::new(),
+                        });
+                        current_title.clear();
+                        current_src.clear();
                     }
                 }
                 Ok(Event::Eof) => break,
@@ -477,11 +517,19 @@ impl EpubDocument {
     fn extract_chapter_title(html: &str) -> Option<String> {
         let h_re = Regex::new(r"(?i)<(h1|h2|title)[^>]*>([^<]+)</(h1|h2|title)>").ok()?;
         let caps = h_re.captures(html)?;
-        caps.get(2).map(|m| sanitize_untrusted_html(m.as_str().trim()))
+        caps.get(2)
+            .map(|m| sanitize_untrusted_html(m.as_str().trim()))
     }
 
     fn extract_plain_text(html: &str) -> String {
         let tag_re = Regex::new(r"<[^>]+>").unwrap();
-        tag_re.replace_all(html, " ").replace("&nbsp;", " ").replace("&quot;", "\"").replace("&amp;", "&").split_whitespace().collect::<Vec<_>>().join(" ")
+        tag_re
+            .replace_all(html, " ")
+            .replace("&nbsp;", " ")
+            .replace("&quot;", "\"")
+            .replace("&amp;", "&")
+            .split_whitespace()
+            .collect::<Vec<_>>()
+            .join(" ")
     }
 }

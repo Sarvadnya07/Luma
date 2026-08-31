@@ -61,7 +61,8 @@ fn create_sample_epub() -> NamedTempFile {
 
     // 4. Dummy Cover Image
     zip.start_file("OEBPS/images/cover.jpg", options).unwrap();
-    zip.write_all(b"\xFF\xD8\xFF\xE0\x00\x10JFIF\x00\x01\x01\x01\x00`\x00`\x00\x00\xFF\xDB").unwrap();
+    zip.write_all(b"\xFF\xD8\xFF\xE0\x00\x10JFIF\x00\x01\x01\x01\x00`\x00`\x00\x00\xFF\xDB")
+        .unwrap();
 
     zip.finish().unwrap();
     file
@@ -70,14 +71,21 @@ fn create_sample_epub() -> NamedTempFile {
 #[test]
 fn test_epub_format_detection_and_extraction() {
     let epub_file = create_sample_epub();
-    let format = FormatDetector::detect_from_file(epub_file.path()).expect("format detection failed");
+    let format =
+        FormatDetector::detect_from_file(epub_file.path()).expect("format detection failed");
     assert_eq!(format, DocumentFormat::Epub);
 
     let pkg = EpubExtractor::extract(epub_file.path()).expect("EPUB extraction failed");
     assert_eq!(pkg.metadata.title, "The Principles of Quantum Computing");
-    assert_eq!(pkg.metadata.authors, vec!["Alice Quantum", "Bob Superposition"]);
+    assert_eq!(
+        pkg.metadata.authors,
+        vec!["Alice Quantum", "Bob Superposition"]
+    );
     assert_eq!(pkg.metadata.publisher, Some("Science Press".to_string()));
-    assert_eq!(pkg.metadata.isbn, Some("urn:isbn:9781234567890".to_string()));
+    assert_eq!(
+        pkg.metadata.isbn,
+        Some("urn:isbn:9781234567890".to_string())
+    );
     assert_eq!(pkg.series, Some("Quantum Computing Series".to_string()));
     assert_eq!(pkg.series_index, Some(1.0));
     assert!(pkg.subjects.contains(&"Physics".to_string()));
@@ -111,7 +119,8 @@ fn test_markdown_and_text_extraction() {
         )
         .unwrap();
 
-    let meta = TextExtractor::extract(md_file.path(), DocumentFormat::Md).expect("Markdown extract");
+    let meta =
+        TextExtractor::extract(md_file.path(), DocumentFormat::Md).expect("Markdown extract");
     assert_eq!(meta.title, "Architecture Notes");
     assert_eq!(meta.authors, vec!["Lead Architect".to_string()]);
     assert_eq!(meta.description, Some("System blueprint".to_string()));

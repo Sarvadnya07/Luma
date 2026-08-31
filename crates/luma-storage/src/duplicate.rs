@@ -1,5 +1,4 @@
-use luma_core::ids::{BookId, FileId};
-use luma_core::models::book::Book;
+use luma_core::ids::BookId;
 use luma_core::models::ingest::{DuplicateAssessment, DuplicateMatchLevel};
 use unicode_normalization::UnicodeNormalization;
 
@@ -22,10 +21,10 @@ impl DuplicateDetector {
         sha256_hash: &str,
         isbn: Option<&str>,
         title: &str,
-        author: Option<&str>,
+        _author: Option<&str>,
     ) -> StorageResult<DuplicateAssessment> {
         let file_repo = BookFileRepository::new(self.db.clone());
-        let book_repo = BookRepository::new(self.db.clone());
+        let _book_repo = BookRepository::new(self.db.clone());
 
         // LEVEL 1: Exact physical file hash (SHA-256)
         if let Some(existing_file) = file_repo.get_by_hash(sha256_hash)? {
@@ -34,7 +33,10 @@ impl DuplicateDetector {
                 existing_book_id: Some(existing_file.book_id),
                 existing_file_id: Some(existing_file.id),
                 confidence_score: 1.0,
-                reason: format!("Identical file with matching SHA-256 hash already exists (file {})", existing_file.id),
+                reason: format!(
+                    "Identical file with matching SHA-256 hash already exists (file {})",
+                    existing_file.id
+                ),
             });
         }
 
@@ -59,7 +61,10 @@ impl DuplicateDetector {
                         existing_book_id: Some(bid),
                         existing_file_id: None,
                         confidence_score: 0.95,
-                        reason: format!("Matching publication ISBN identifier ({}) with existing book {}", isbn_val, bid),
+                        reason: format!(
+                            "Matching publication ISBN identifier ({}) with existing book {}",
+                            isbn_val, bid
+                        ),
                     });
                 }
             }

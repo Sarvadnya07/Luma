@@ -10,7 +10,7 @@ use luma_storage::repos::{
     LibraryFilterOptions, LibrarySortBy, LibrarySortOptions, ReadingProgressRepository,
     SeriesRepository, TagRepository,
 };
-use luma_storage::{Database, LibraryService};
+use luma_storage::Database;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BookDetailViewData {
@@ -66,7 +66,9 @@ pub fn list_books(
         LibraryFilterOptions {
             search_query: f.search_query,
             format: f.format.and_then(|s| s.parse::<DocumentFormat>().ok()),
-            reading_status: f.reading_status.and_then(|s| s.parse::<ReadingStatus>().ok()),
+            reading_status: f
+                .reading_status
+                .and_then(|s| s.parse::<ReadingStatus>().ok()),
             library_state: f.library_state.and_then(|s| s.parse::<LibraryState>().ok()),
             author_id: f.author_id.and_then(|s| s.parse::<AuthorId>().ok()),
             series_id: f.series_id.and_then(|s| s.parse().ok()),
@@ -119,14 +121,18 @@ pub fn get_book_details(
 
     if let Some(book) = book_repo.get_by_id(&parsed_id).map_err(|e| e.to_string())? {
         let files = file_repo.list_by_book_id(&parsed_id).unwrap_or_default();
-        let authors = author_repo.get_authors_for_book(&parsed_id).unwrap_or_default();
+        let authors = author_repo
+            .get_authors_for_book(&parsed_id)
+            .unwrap_or_default();
         let series = if let Some(ref sid) = book.series_id {
             series_repo.get_by_id(sid).unwrap_or(None)
         } else {
             None
         };
         let tags = tag_repo.get_tags_for_book(&parsed_id).unwrap_or_default();
-        let collections = collection_repo.get_collections_for_book(&parsed_id).unwrap_or_default();
+        let collections = collection_repo
+            .get_collections_for_book(&parsed_id)
+            .unwrap_or_default();
         let reading_progress = prog_repo.get(&parsed_id).unwrap_or(None);
 
         Ok(Some(BookDetailViewData {
@@ -179,7 +185,8 @@ pub fn set_reading_status(
     let parsed_id = book_id.parse::<BookId>().map_err(|e| e.to_string())?;
     let parsed_status = status.parse::<ReadingStatus>().map_err(|e| e.to_string())?;
     let repo = BookRepository::new(db.inner().clone());
-    repo.set_reading_status(&parsed_id, parsed_status).map_err(|e| e.to_string())
+    repo.set_reading_status(&parsed_id, parsed_status)
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -193,7 +200,8 @@ pub fn trash_book(db: State<'_, Database>, book_id: String) -> Result<(), String
 pub fn restore_book(db: State<'_, Database>, book_id: String) -> Result<(), String> {
     let parsed_id = book_id.parse::<BookId>().map_err(|e| e.to_string())?;
     let repo = BookRepository::new(db.inner().clone());
-    repo.restore_from_trash(&parsed_id).map_err(|e| e.to_string())
+    repo.restore_from_trash(&parsed_id)
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -204,7 +212,8 @@ pub fn delete_book_permanently(
 ) -> Result<(), String> {
     let parsed_id = book_id.parse::<BookId>().map_err(|e| e.to_string())?;
     let repo = BookRepository::new(db.inner().clone());
-    repo.delete_permanently(&parsed_id).map_err(|e| e.to_string())
+    repo.delete_permanently(&parsed_id)
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]

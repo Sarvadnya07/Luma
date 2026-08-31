@@ -11,8 +11,9 @@ impl FormatDetector {
     /// Detect format from a file path using layered detection (magic bytes -> container inspection -> extension)
     pub fn detect_from_file<P: AsRef<Path>>(path: P) -> Result<DocumentFormat> {
         let path_ref = path.as_ref();
-        let mut file = File::open(path_ref)
-            .map_err(|e| LumaError::DocumentError(format!("Failed to open file for format detection: {}", e)))?;
+        let mut file = File::open(path_ref).map_err(|e| {
+            LumaError::DocumentError(format!("Failed to open file for format detection: {}", e))
+        })?;
 
         let mut header = [0u8; 1024];
         let bytes_read = file.read(&mut header).unwrap_or(0);
@@ -24,7 +25,9 @@ impl FormatDetector {
         }
 
         // 2. Check RAR/CBR Magic Header (Rar!\x1A\x07)
-        if header_slice.starts_with(b"Rar!\x1A\x07") || header_slice.starts_with(b"Rar!\x1A\x07\x01\x00") {
+        if header_slice.starts_with(b"Rar!\x1A\x07")
+            || header_slice.starts_with(b"Rar!\x1A\x07\x01\x00")
+        {
             return Ok(DocumentFormat::Cbr);
         }
 
@@ -115,7 +118,8 @@ mod tests {
     #[test]
     fn test_detect_pdf_signature() {
         let mut file = NamedTempFile::new().unwrap();
-        file.write_all(b"%PDF-1.7\n%\xE2\xE3\xCF\xD3\n1 0 obj\n<<>>\nendobj").unwrap();
+        file.write_all(b"%PDF-1.7\n%\xE2\xE3\xCF\xD3\n1 0 obj\n<<>>\nendobj")
+            .unwrap();
         let format = FormatDetector::detect_from_file(file.path()).unwrap();
         assert_eq!(format, DocumentFormat::Pdf);
     }
@@ -123,11 +127,21 @@ mod tests {
     #[test]
     fn test_detect_plain_text_and_markdown() {
         let mut txt_file = NamedTempFile::new().unwrap();
-        txt_file.write_all(b"Plain text content without markdown headers.").unwrap();
-        assert_eq!(FormatDetector::detect_from_file(txt_file.path()).unwrap(), DocumentFormat::Txt);
+        txt_file
+            .write_all(b"Plain text content without markdown headers.")
+            .unwrap();
+        assert_eq!(
+            FormatDetector::detect_from_file(txt_file.path()).unwrap(),
+            DocumentFormat::Txt
+        );
 
         let mut md_file = NamedTempFile::new().unwrap();
-        md_file.write_all(b"# Chapter 1: Introduction\n\nThis is markdown text.").unwrap();
-        assert_eq!(FormatDetector::detect_from_file(md_file.path()).unwrap(), DocumentFormat::Md);
+        md_file
+            .write_all(b"# Chapter 1: Introduction\n\nThis is markdown text.")
+            .unwrap();
+        assert_eq!(
+            FormatDetector::detect_from_file(md_file.path()).unwrap(),
+            DocumentFormat::Md
+        );
     }
 }

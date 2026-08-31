@@ -1,7 +1,7 @@
+use regex::Regex;
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
-use regex::Regex;
 
 use luma_core::error::{LumaError, Result};
 use luma_core::models::book::DocumentFormat;
@@ -33,24 +33,45 @@ impl TextExtractor {
 
         if format == DocumentFormat::Html {
             // Check <title>...</title>
-            if let Some(caps) = Regex::new(r"(?i)<title[^>]*>([^<]+)</title>").ok().and_then(|r| r.captures(&content_str)) {
+            if let Some(caps) = Regex::new(r"(?i)<title[^>]*>([^<]+)</title>")
+                .ok()
+                .and_then(|r| r.captures(&content_str))
+            {
                 if let Some(m) = caps.get(1) {
                     title = Some(m.as_str().trim().to_string());
                 }
             }
         } else if format == DocumentFormat::Md {
             // Check YAML Frontmatter
-            if content_str.starts_with("---") {
-                if let Some(end_idx) = content_str[3..].find("---") {
-                    let frontmatter = &content_str[3..3 + end_idx];
+            if let Some(stripped) = content_str.strip_prefix("---") {
+                if let Some(end_idx) = stripped.find("---") {
+                    let frontmatter = &stripped[..end_idx];
                     for line in frontmatter.lines() {
                         let trimmed = line.trim();
                         if let Some(stripped) = trimmed.strip_prefix("title:") {
-                            title = Some(stripped.trim().trim_matches('"').trim_matches('\'').to_string());
+                            title = Some(
+                                stripped
+                                    .trim()
+                                    .trim_matches('"')
+                                    .trim_matches('\'')
+                                    .to_string(),
+                            );
                         } else if let Some(stripped) = trimmed.strip_prefix("author:") {
-                            authors.push(stripped.trim().trim_matches('"').trim_matches('\'').to_string());
+                            authors.push(
+                                stripped
+                                    .trim()
+                                    .trim_matches('"')
+                                    .trim_matches('\'')
+                                    .to_string(),
+                            );
                         } else if let Some(stripped) = trimmed.strip_prefix("description:") {
-                            description = Some(stripped.trim().trim_matches('"').trim_matches('\'').to_string());
+                            description = Some(
+                                stripped
+                                    .trim()
+                                    .trim_matches('"')
+                                    .trim_matches('\'')
+                                    .to_string(),
+                            );
                         }
                     }
                 }

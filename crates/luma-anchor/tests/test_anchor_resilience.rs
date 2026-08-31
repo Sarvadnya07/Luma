@@ -14,7 +14,8 @@ fn test_anchor_resilience_across_typography_and_reflow_mutations() {
             exact: quote.to_string(),
             prefix: Some(prefix.to_string()),
             suffix: Some(suffix.to_string()),
-            normalized_exact: "annotation integrity is the cornerstone of any serious reading system".to_string(),
+            normalized_exact:
+                "annotation integrity is the cornerstone of any serious reading system".to_string(),
         },
         chapter_content_hash: None,
         document_checksum: None,
@@ -55,7 +56,10 @@ fn test_anchor_resilience_across_typography_and_reflow_mutations() {
     let res_fail = AnchorEngine::resolve(&bad_anchor, original_doc);
     match res_fail {
         ResolutionResult::Failed { reason, .. } => {
-            assert!(reason.contains("No matching candidate") || reason.contains("below acceptable threshold"));
+            assert!(
+                reason.contains("No matching candidate")
+                    || reason.contains("below acceptable threshold")
+            );
         }
         _ => panic!("Expected Failed for missing text"),
     }

@@ -1,10 +1,10 @@
-use rusqlite::params;
 use luma_core::ids::{AnnotationId, BookId, DeviceId};
 use luma_core::models::annotation::{Annotation, AnnotationType};
 use luma_core::version::{EntityVersion, SyncMetadata};
+use rusqlite::params;
 
 use crate::db::Database;
-use crate::error::{StorageError, StorageResult};
+use crate::error::StorageResult;
 
 pub struct AnnotationRepository {
     db: Database,

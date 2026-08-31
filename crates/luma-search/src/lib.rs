@@ -1,9 +1,9 @@
 pub mod sqlite_fts;
 
 use async_trait::async_trait;
-use serde::{Deserialize, Serialize};
 use luma_core::error::Result;
 use luma_core::ids::BookId;
+use serde::{Deserialize, Serialize};
 
 pub use sqlite_fts::SqliteFtsSearchEngine;
 

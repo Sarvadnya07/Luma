@@ -1,7 +1,5 @@
 use crate::normalize::{normalize_text, similarity_ratio};
-use crate::types::{
-    CompositeAnchor, MatchCandidate, ResolutionResult, TextQuoteAnchor,
-};
+use crate::types::{CompositeAnchor, MatchCandidate, ResolutionResult, TextQuoteAnchor};
 
 pub const HIGH_CONFIDENCE_THRESHOLD: f32 = 0.82;
 pub const MIN_ACCEPTABLE_THRESHOLD: f32 = 0.60;
@@ -67,14 +65,19 @@ impl AnchorEngine {
         }
 
         // Sort descending by confidence score
-        candidates.sort_by(|a, b| b.confidence_score.partial_cmp(&a.confidence_score).unwrap_or(std::cmp::Ordering::Equal));
+        candidates.sort_by(|a, b| {
+            b.confidence_score
+                .partial_cmp(&a.confidence_score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
 
         let best = candidates[0].clone();
 
         // Check if top candidates are ambiguous
         if candidates.len() > 1 {
             let runner_up = &candidates[1];
-            if (best.confidence_score - runner_up.confidence_score).abs() < AMBIGUITY_DELTA_THRESHOLD
+            if (best.confidence_score - runner_up.confidence_score).abs()
+                < AMBIGUITY_DELTA_THRESHOLD
                 && best.confidence_score >= MIN_ACCEPTABLE_THRESHOLD
             {
                 return ResolutionResult::Ambiguous {

@@ -108,13 +108,17 @@ pub fn sanitize_untrusted_html(input: &str) -> String {
     }
 
     // 2. Neutralize inline event handlers (e.g. `onload=`, `onerror=`, `onclick=`)
-    if let Ok(event_regex) = regex::Regex::new(r#"(?i)\s+on[a-z]+\s*=\s*(?:'[^']*'|"[^"]*"|[^\s>]+)"#) {
+    if let Ok(event_regex) =
+        regex::Regex::new(r#"(?i)\s+on[a-z]+\s*=\s*(?:'[^']*'|"[^"]*"|[^\s>]+)"#)
+    {
         cleaned = event_regex.replace_all(&cleaned, " ").to_string();
     }
 
     // 3. Neutralize `javascript:` pseudo-protocol URIs in attributes
     if let Ok(js_proto_regex) = regex::Regex::new(r#"(?i)javascript:\s*"#) {
-        cleaned = js_proto_regex.replace_all(&cleaned, "blocked-javascript:").to_string();
+        cleaned = js_proto_regex
+            .replace_all(&cleaned, "blocked-javascript:")
+            .to_string();
     }
 
     cleaned
@@ -161,7 +165,8 @@ mod tests {
 
     #[test]
     fn test_html_sanitizer_event_handler_stripping() {
-        let dirty_img = r#"<img src="valid.jpg" onerror="alert('pwned')" onload="steal()" alt="Cover" />"#;
+        let dirty_img =
+            r#"<img src="valid.jpg" onerror="alert('pwned')" onload="steal()" alt="Cover" />"#;
         let cleaned = sanitize_untrusted_html(dirty_img);
         assert!(!cleaned.contains("onerror"));
         assert!(!cleaned.contains("onload"));

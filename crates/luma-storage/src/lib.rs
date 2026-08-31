@@ -37,7 +37,17 @@ mod tests {
         let db = Database::open_in_memory().expect("in-memory database should initialize");
         let detector = DuplicateDetector::new(db.clone());
 
-        let assessment = detector.assess("abc123hash", Some("978-0131103627"), "The C Programming Language", Some("Kernighan")).expect("assessment should succeed");
-        assert_eq!(assessment.level, luma_core::models::ingest::DuplicateMatchLevel::Unrelated);
+        let assessment = detector
+            .assess(
+                "abc123hash",
+                Some("978-0131103627"),
+                "The C Programming Language",
+                Some("Kernighan"),
+            )
+            .expect("assessment should succeed");
+        assert_eq!(
+            assessment.level,
+            luma_core::models::ingest::DuplicateMatchLevel::Unrelated
+        );
     }
 }

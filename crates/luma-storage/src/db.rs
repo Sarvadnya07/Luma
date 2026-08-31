@@ -54,6 +54,6 @@ impl Database {
             .conn
             .lock()
             .map_err(|e| StorageError::LockError(e.to_string()))?;
-        f(&mut *lock)
+        f(&mut lock)
     }
 }

@@ -1,7 +1,7 @@
-use rusqlite::params;
 use luma_core::ids::{BookId, CollectionId, DeviceId};
 use luma_core::models::metadata::Collection;
 use luma_core::version::{EntityVersion, SyncMetadata};
+use rusqlite::params;
 
 use crate::db::Database;
 use crate::error::StorageResult;
@@ -15,7 +15,12 @@ impl CollectionRepository {
         Self { db }
     }
 
-    pub fn create(&self, name: &str, description: Option<&str>, device_id: DeviceId) -> StorageResult<Collection> {
+    pub fn create(
+        &self,
+        name: &str,
+        description: Option<&str>,
+        device_id: DeviceId,
+    ) -> StorageResult<Collection> {
         self.db.with_conn(|conn| {
             let mut collection = Collection::new(name, device_id);
             collection.description = description.map(|s| s.to_string());
@@ -60,7 +65,11 @@ impl CollectionRepository {
         })
     }
 
-    pub fn add_book_to_collection(&self, collection_id: &CollectionId, book_id: &BookId) -> StorageResult<()> {
+    pub fn add_book_to_collection(
+        &self,
+        collection_id: &CollectionId,
+        book_id: &BookId,
+    ) -> StorageResult<()> {
         self.db.with_conn(|conn| {
             let max_pos: i32 = conn.query_row(
                 "SELECT COALESCE(MAX(position), -1) + 1 FROM book_collections WHERE collection_id = ?1",
@@ -75,7 +84,11 @@ impl CollectionRepository {
         })
     }
 
-    pub fn remove_book_from_collection(&self, collection_id: &CollectionId, book_id: &BookId) -> StorageResult<()> {
+    pub fn remove_book_from_collection(
+        &self,
+        collection_id: &CollectionId,
+        book_id: &BookId,
+    ) -> StorageResult<()> {
         self.db.with_conn(|conn| {
             conn.execute(
                 "DELETE FROM book_collections WHERE collection_id = ?1 AND book_id = ?2",

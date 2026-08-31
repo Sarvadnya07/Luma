@@ -81,7 +81,8 @@ mod tests {
     #[test]
     fn test_reflow_and_whitespace_mutation_survival() {
         // Document with heavy reflow, altered line wraps and extra spaces
-        let reflowed_doc = "Annotation\n  integrity   is the\ncornerstone   of any serious   reading system.";
+        let reflowed_doc =
+            "Annotation\n  integrity   is the\ncornerstone   of any serious   reading system.";
         let anchor = TextQuoteAnchor::new(
             "Annotation integrity is the cornerstone of any serious reading system.",
             None,
@@ -111,7 +112,10 @@ mod tests {
             ResolutionResult::HighConfidence(cand) => {
                 assert!(cand.confidence_score >= 0.85);
             }
-            other => panic!("Expected HighConfidence with quote variation, got {:?}", other),
+            other => panic!(
+                "Expected HighConfidence with quote variation, got {:?}",
+                other
+            ),
         }
     }
 

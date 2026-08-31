@@ -7,7 +7,9 @@ use crate::error::LumaError;
 
 macro_rules! define_id {
     ($name:ident, $prefix:literal) => {
-        #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+        #[derive(
+            Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
+        )]
         #[serde(transparent)]
         pub struct $name(pub Uuid);
 
@@ -50,9 +52,13 @@ macro_rules! define_id {
                     s
                 };
 
-                Uuid::parse_str(trimmed)
-                    .map(Self)
-                    .map_err(|e| LumaError::InvalidId(format!("Invalid ID format for {}: {}", stringify!($name), e)))
+                Uuid::parse_str(trimmed).map(Self).map_err(|e| {
+                    LumaError::InvalidId(format!(
+                        "Invalid ID format for {}: {}",
+                        stringify!($name),
+                        e
+                    ))
+                })
             }
         }
 

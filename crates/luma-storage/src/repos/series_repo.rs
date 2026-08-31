@@ -1,7 +1,7 @@
-use rusqlite::params;
 use luma_core::ids::{DeviceId, SeriesId};
 use luma_core::models::metadata::Series;
 use luma_core::version::{EntityVersion, SyncMetadata};
+use rusqlite::params;
 
 use crate::db::Database;
 use crate::error::StorageResult;
@@ -15,7 +15,11 @@ impl SeriesRepository {
         Self { db }
     }
 
-    pub fn get_or_create_by_title(&self, title: &str, device_id: DeviceId) -> StorageResult<Series> {
+    pub fn get_or_create_by_title(
+        &self,
+        title: &str,
+        device_id: DeviceId,
+    ) -> StorageResult<Series> {
         self.db.with_conn(|conn| {
             let mut stmt = conn.prepare("SELECT id, title, description, version, created_at, updated_at, device_id, is_deleted, deleted_at FROM series WHERE title = ?1 AND is_deleted = 0")?;
             let mut rows = stmt.query(params![title])?;

@@ -18,18 +18,18 @@ fn main() {
     let data_dir = std::env::var("LUMA_DATA_DIR")
         .ok()
         .map(std::path::PathBuf::from)
-        .unwrap_or_else(|| {
-            std::env::current_dir()
-                .unwrap_or_default()
-                .join("data")
-        });
+        .unwrap_or_else(|| std::env::current_dir().unwrap_or_default().join("data"));
 
     let _ = std::fs::create_dir_all(&data_dir);
     let db_path = data_dir.join("luma.db");
-    
+
     tracing::info!("Opening persistent database at: {}", db_path.display());
     let db = Database::open(&db_path).unwrap_or_else(|e| {
-        tracing::warn!("Failed to open persistent SQLite at {}: {}. Falling back to in-memory.", db_path.display(), e);
+        tracing::warn!(
+            "Failed to open persistent SQLite at {}: {}. Falling back to in-memory.",
+            db_path.display(),
+            e
+        );
         Database::open_in_memory().expect("Failed to initialize fallback database")
     });
 

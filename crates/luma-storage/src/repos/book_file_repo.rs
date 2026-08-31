@@ -1,9 +1,9 @@
-use rusqlite::params;
 use luma_core::ids::{BookId, FileId};
 use luma_core::models::book::{BookFile, DocumentFormat, FileAvailability};
+use rusqlite::params;
 
 use crate::db::Database;
-use crate::error::{StorageError, StorageResult};
+use crate::error::StorageResult;
 
 pub struct BookFileRepository {
     db: Database,
@@ -127,7 +127,11 @@ impl BookFileRepository {
         })
     }
 
-    pub fn update_availability(&self, id: &FileId, availability: FileAvailability) -> StorageResult<()> {
+    pub fn update_availability(
+        &self,
+        id: &FileId,
+        availability: FileAvailability,
+    ) -> StorageResult<()> {
         self.db.with_conn(|conn| {
             conn.execute(
                 "UPDATE book_files SET availability = ?1, modified_at = datetime('now') WHERE id = ?2",

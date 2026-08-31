@@ -9,19 +9,12 @@ fn get_library_dir() -> PathBuf {
     std::env::var("LUMA_DATA_DIR")
         .ok()
         .map(PathBuf::from)
-        .unwrap_or_else(|| {
-            std::env::current_dir()
-                .unwrap_or_default()
-                .join("data")
-        })
+        .unwrap_or_else(|| std::env::current_dir().unwrap_or_default().join("data"))
         .join("library")
 }
 
 #[tauri::command]
-pub fn import_files(
-    db: State<'_, Database>,
-    file_paths: Vec<String>,
-) -> Result<ImportJob, String> {
+pub fn import_files(db: State<'_, Database>, file_paths: Vec<String>) -> Result<ImportJob, String> {
     let service = LibraryService::new(db.inner().clone(), get_library_dir());
     let device_id = DeviceId::new();
     let paths: Vec<PathBuf> = file_paths.into_iter().map(PathBuf::from).collect();

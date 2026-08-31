@@ -1,9 +1,9 @@
-use std::fs::File;
-use std::io::Read;
-use std::path::{Path, PathBuf};
 use quick_xml::events::Event;
 use quick_xml::Reader;
 use regex::Regex;
+use std::fs::File;
+use std::io::Read;
+use std::path::{Path, PathBuf};
 
 use luma_core::error::{LumaError, Result};
 use luma_core::models::book::DocumentFormat;
@@ -34,17 +34,21 @@ impl EpubExtractor {
         let file = File::open(path.as_ref())
             .map_err(|e| LumaError::DocumentError(format!("Failed to open EPUB: {}", e)))?;
 
-        let mut archive = zip::ZipArchive::new(file)
-            .map_err(|e| LumaError::CorruptedDocument(format!("Invalid EPUB zip archive: {}", e)))?;
+        let mut archive = zip::ZipArchive::new(file).map_err(|e| {
+            LumaError::CorruptedDocument(format!("Invalid EPUB zip archive: {}", e))
+        })?;
 
         // 1. Locate rootfile from META-INF/container.xml
         let opf_path = Self::find_opf_path(&mut archive)?;
-        let opf_dir = Path::new(&opf_path).parent().unwrap_or(Path::new("")).to_path_buf();
+        let opf_dir = Path::new(&opf_path)
+            .parent()
+            .unwrap_or(Path::new(""))
+            .to_path_buf();
 
         // 2. Read OPF content
-        let mut opf_entry = archive
-            .by_name(&opf_path)
-            .map_err(|e| LumaError::CorruptedDocument(format!("OPF file not found in EPUB: {}", e)))?;
+        let mut opf_entry = archive.by_name(&opf_path).map_err(|e| {
+            LumaError::CorruptedDocument(format!("OPF file not found in EPUB: {}", e))
+        })?;
 
         let mut opf_xml = String::new();
         opf_entry
@@ -53,7 +57,8 @@ impl EpubExtractor {
         drop(opf_entry);
 
         // 3. Parse OPF XML
-        let (metadata, cover_id_or_href, series, series_index, subjects) = Self::parse_opf(&opf_xml)?;
+        let (metadata, cover_id_or_href, series, series_index, subjects) =
+            Self::parse_opf(&opf_xml)?;
 
         // 4. Extract Cover image if referenced
         let mut cover = None;
@@ -71,14 +76,16 @@ impl EpubExtractor {
     }
 
     fn find_opf_path(archive: &mut zip::ZipArchive<File>) -> Result<String> {
-        let mut container_entry = archive
-            .by_name("META-INF/container.xml")
-            .map_err(|_| LumaError::CorruptedDocument("META-INF/container.xml missing in EPUB".into()))?;
+        let mut container_entry = archive.by_name("META-INF/container.xml").map_err(|_| {
+            LumaError::CorruptedDocument("META-INF/container.xml missing in EPUB".into())
+        })?;
 
         let mut container_xml = String::new();
         container_entry
             .read_to_string(&mut container_xml)
-            .map_err(|e| LumaError::CorruptedDocument(format!("Failed to read container.xml: {}", e)))?;
+            .map_err(|e| {
+                LumaError::CorruptedDocument(format!("Failed to read container.xml: {}", e))
+            })?;
 
         let mut reader = Reader::from_str(&container_xml);
         reader.config_mut().trim_text(true);
@@ -98,18 +105,32 @@ impl EpubExtractor {
                     }
                 }
                 Ok(Event::Eof) => break,
-                Err(e) => return Err(LumaError::CorruptedDocument(format!("Error in container.xml: {}", e))),
+                Err(e) => {
+                    return Err(LumaError::CorruptedDocument(format!(
+                        "Error in container.xml: {}",
+                        e
+                    )))
+                }
                 _ => {}
             }
             buf.clear();
         }
 
-        Err(LumaError::CorruptedDocument("No rootfile full-path found in container.xml".into()))
+        Err(LumaError::CorruptedDocument(
+            "No rootfile full-path found in container.xml".into(),
+        ))
     }
 
+    #[allow(clippy::type_complexity)]
     fn parse_opf(
         opf_xml: &str,
-    ) -> Result<(DocumentMetadata, Option<String>, Option<String>, Option<f32>, Vec<String>)> {
+    ) -> Result<(
+        DocumentMetadata,
+        Option<String>,
+        Option<String>,
+        Option<f32>,
+        Vec<String>,
+    )> {
         let mut title = String::new();
         let mut authors = Vec::new();
         let mut language = None;
@@ -210,7 +231,11 @@ impl EpubExtractor {
                                 description = Some(sanitize_untrusted_html(&text));
                             }
                             "identifier" => {
-                                if isbn.is_none() && (text.to_lowercase().contains("isbn") || text.chars().filter(|c| c.is_ascii_digit()).count() >= 10) {
+                                if isbn.is_none()
+                                    && (text.to_lowercase().contains("isbn")
+                                        || text.chars().filter(|c| c.is_ascii_digit()).count()
+                                            >= 10)
+                                {
                                     isbn = Some(text);
                                 }
                             }
@@ -228,7 +253,12 @@ impl EpubExtractor {
                     current_tag.clear();
                 }
                 Ok(Event::Eof) => break,
-                Err(e) => return Err(LumaError::CorruptedDocument(format!("XML parse error in OPF: {}", e))),
+                Err(e) => {
+                    return Err(LumaError::CorruptedDocument(format!(
+                        "XML parse error in OPF: {}",
+                        e
+                    )))
+                }
                 _ => {}
             }
             buf.clear();
@@ -264,7 +294,11 @@ impl EpubExtractor {
     ) -> Option<ExtractedCover> {
         // If cover_ref is an item ID, find corresponding href in manifest
         let mut target_href = cover_ref.to_string();
-        let item_regex = Regex::new(&format!(r#"<item[^>]*id=["']{}["'][^>]*href=["']([^"']+)["']"#, regex::escape(cover_ref))).ok()?;
+        let item_regex = Regex::new(&format!(
+            r#"<item[^>]*id=["']{}["'][^>]*href=["']([^"']+)["']"#,
+            regex::escape(cover_ref)
+        ))
+        .ok()?;
 
         if let Some(caps) = item_regex.captures(opf_xml) {
             if let Some(href_match) = caps.get(1) {

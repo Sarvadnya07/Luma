@@ -1,8 +1,8 @@
+use regex::Regex;
+use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::io::Read;
 use std::path::{Path, PathBuf};
-use regex::Regex;
-use serde::{Deserialize, Serialize};
 
 use luma_core::error::{LumaError, Result};
 use luma_security::sanitize_untrusted_html;
@@ -38,7 +38,11 @@ impl PdfDocument {
         // Extract approximate page count by searching for `/Type /Page` (excluding `/Pages`)
         let page_re = Regex::new(r"/Type\s*/Page\b").unwrap();
         let detected_pages = page_re.find_iter(&raw_str).count() as u32;
-        let page_count = if detected_pages > 0 { detected_pages } else { 1 };
+        let page_count = if detected_pages > 0 {
+            detected_pages
+        } else {
+            1
+        };
 
         // Extract Outlines/Bookmarks if present
         let mut toc = Vec::new();
@@ -196,7 +200,10 @@ impl PdfDocument {
                 if let Some(idx) = text_lower.find(&clean_q) {
                     let start_snippet = idx.saturating_sub(40);
                     let end_snippet = (idx + clean_q.len() + 40).min(page_data.text_content.len());
-                    let snippet = format!("...{}...", &page_data.text_content[start_snippet..end_snippet]);
+                    let snippet = format!(
+                        "...{}...",
+                        &page_data.text_content[start_snippet..end_snippet]
+                    );
 
                     matches.push(DocumentSearchMatch {
                         spine_index: (page - 1) as usize,

@@ -46,12 +46,17 @@ function Check {
 
     try {
         $global:LASTEXITCODE = 0
+        Push-Location $ProjectRoot
         & $Action
         if ($null -ne $LASTEXITCODE) { $code = [int]$LASTEXITCODE }
     }
     catch {
         $code = 1
         $exception = $_.Exception.Message
+    }
+    finally {
+        try { Pop-Location } catch {}
+        Set-Location $ProjectRoot
     }
 
     $duration = [math]::Round(((Get-Date) - $start).TotalSeconds, 2)
@@ -147,7 +152,7 @@ try {
     $null = Check 'node' { node --version }
     $null = Check 'pnpm' { pnpm --version }
 
-    $rustInfo = rustc -vV 2>&1
+    $rustInfo = rustc -vV 2>$null
     $rustInfo
 
     if ($rustInfo -match 'host:\s+x86_64-pc-windows-msvc') {
@@ -167,7 +172,7 @@ try {
     }
 
     Section '5. WASM'
-    $targets = rustup target list --installed 2>&1
+    $targets = rustup target list --installed 2>$null
     $targets
     if ($targets -contains 'wasm32-unknown-unknown') {
         Pass 'WASM target installed'
@@ -279,6 +284,11 @@ try {
         Fail 'LUMA VALIDATION STATUS: RED'
         exit 1
     }
+}
+catch {
+    Write-Host ''
+    Fail $_.Exception.Message
+    exit 1
 }
 finally {
     if ($transcript) {

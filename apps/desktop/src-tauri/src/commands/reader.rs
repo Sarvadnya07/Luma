@@ -1,5 +1,5 @@
-use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 use tauri::State;
 
 use luma_core::ids::{AnnotationId, BookId, BookmarkId, DeviceId, FileId};
@@ -48,7 +48,10 @@ pub fn open_reader_document(
         primary_id
     } else {
         let files = file_repo.list_by_book_id(&bid).map_err(|e| e.to_string())?;
-        files.first().map(|f| f.id).ok_or_else(|| "No files found for book".to_string())?
+        files
+            .first()
+            .map(|f| f.id)
+            .ok_or_else(|| "No files found for book".to_string())?
     };
 
     let file = file_repo
@@ -201,14 +204,18 @@ pub fn create_bookmark(
 
 #[tauri::command]
 pub fn delete_bookmark(db: State<'_, Database>, bookmark_id: String) -> Result<(), String> {
-    let bmid = bookmark_id.parse::<BookmarkId>().map_err(|e| e.to_string())?;
+    let bmid = bookmark_id
+        .parse::<BookmarkId>()
+        .map_err(|e| e.to_string())?;
     let repo = BookmarkRepository::new(db.inner().clone());
     repo.delete(&bmid).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub fn delete_annotation(db: State<'_, Database>, annotation_id: String) -> Result<(), String> {
-    let aid = annotation_id.parse::<AnnotationId>().map_err(|e| e.to_string())?;
+    let aid = annotation_id
+        .parse::<AnnotationId>()
+        .map_err(|e| e.to_string())?;
     let repo = AnnotationRepository::new(db.inner().clone());
     repo.delete(&aid).map_err(|e| e.to_string())
 }
@@ -219,7 +226,10 @@ pub fn update_annotation_note(
     annotation_id: String,
     note: Option<String>,
 ) -> Result<(), String> {
-    let aid = annotation_id.parse::<AnnotationId>().map_err(|e| e.to_string())?;
+    let aid = annotation_id
+        .parse::<AnnotationId>()
+        .map_err(|e| e.to_string())?;
     let repo = AnnotationRepository::new(db.inner().clone());
-    repo.update_note(&aid, note.as_deref()).map_err(|e| e.to_string())
+    repo.update_note(&aid, note.as_deref())
+        .map_err(|e| e.to_string())
 }

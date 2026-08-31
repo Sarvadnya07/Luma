@@ -6,8 +6,8 @@ use luma_core::error::{LumaError, Result};
 use luma_core::models::book::DocumentFormat;
 use luma_security::sanitize_untrusted_html;
 
-use crate::DocumentMetadata;
 use crate::extractors::epub::ExtractedCover;
+use crate::DocumentMetadata;
 
 #[derive(Debug, Clone, Default)]
 pub struct CbzPackageData {

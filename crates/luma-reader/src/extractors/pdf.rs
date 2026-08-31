@@ -1,7 +1,7 @@
+use regex::Regex;
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
-use regex::Regex;
 
 use luma_core::error::{LumaError, Result};
 use luma_core::models::book::DocumentFormat;
@@ -22,7 +22,8 @@ impl PdfExtractor {
         let mut buffer = Vec::new();
 
         if file_len < 100_000 {
-            file.read_to_end(&mut buffer).map_err(|e| LumaError::DocumentError(e.to_string()))?;
+            file.read_to_end(&mut buffer)
+                .map_err(|e| LumaError::DocumentError(e.to_string()))?;
         } else {
             let mut head = vec![0u8; 64 * 1024];
             let read_bytes = file.read(&mut head).unwrap_or(0);
@@ -37,7 +38,10 @@ impl PdfExtractor {
 
         if title.is_none() {
             // Fallback: Check XMP `<dc:title>`
-            if let Some(caps) = Regex::new(r"<dc:title>[^<]*<rdf:li[^>]*>([^<]+)</rdf:li>").ok().and_then(|r| r.captures(&raw_text)) {
+            if let Some(caps) = Regex::new(r"<dc:title>[^<]*<rdf:li[^>]*>([^<]+)</rdf:li>")
+                .ok()
+                .and_then(|r| r.captures(&raw_text))
+            {
                 if let Some(m) = caps.get(1) {
                     title = Some(m.as_str().to_string());
                 }

@@ -34,8 +34,9 @@ impl CoverStore {
         let filename = format!("{}.{}", hash, ext);
         let target_path = self.base_dir.join(&filename);
 
-        fs::write(&target_path, data)
-            .map_err(|e| LumaError::StorageError(format!("Failed to write cover image file: {}", e)))?;
+        fs::write(&target_path, data).map_err(|e| {
+            LumaError::StorageError(format!("Failed to write cover image file: {}", e))
+        })?;
 
         let relative_path = format!("covers/{}", filename);
 
@@ -53,9 +54,7 @@ impl CoverStore {
     }
 
     pub fn get_cover_path(&self, relative_path: &str) -> PathBuf {
-        let filename = Path::new(relative_path)
-            .file_name()
-            .unwrap_or_default();
+        let filename = Path::new(relative_path).file_name().unwrap_or_default();
         self.base_dir.join(filename)
     }
 }

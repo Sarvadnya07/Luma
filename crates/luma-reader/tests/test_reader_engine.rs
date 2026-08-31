@@ -9,7 +9,8 @@ use luma_reader::{EpubDocument, PdfDocument};
 fn create_test_epub() -> NamedTempFile {
     let file = NamedTempFile::new().unwrap();
     let mut zip = ZipWriter::new(File::create(file.path()).unwrap());
-    let options = zip::write::SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
+    let options =
+        zip::write::SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
 
     // 1. mimetype
     zip.start_file("mimetype", options).unwrap();
