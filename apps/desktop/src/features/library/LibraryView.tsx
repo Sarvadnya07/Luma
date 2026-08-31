@@ -35,7 +35,15 @@ const BOOK_AUTHORS_MAP: Record<string, string> = {
   book_poetics_of_space: "Gaston Bachelard",
 };
 
-export const LibraryView: React.FC = () => {
+export interface LibraryViewProps {
+  isDarkMode?: boolean;
+  onToggleDarkMode?: () => void;
+}
+
+export const LibraryView: React.FC<LibraryViewProps> = ({
+  isDarkMode = false,
+  onToggleDarkMode,
+}) => {
   const [books, setBooks] = useState<Book[]>([]);
   const [collections, setCollections] = useState<Collection[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
@@ -272,7 +280,7 @@ export const LibraryView: React.FC = () => {
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
-      className="flex-1 flex h-full overflow-hidden bg-[#FAF7F2] text-[#1C1917]"
+      className="flex-1 flex h-full overflow-hidden bg-[#FAF7F2] text-[#1C1917] transition-colors dark:bg-[#141312] dark:text-[#F5F1EA]"
     >
       <DropZoneOverlay isDragging={isDragging} />
 
@@ -285,10 +293,12 @@ export const LibraryView: React.FC = () => {
         selectedCollectionId={selectedCollectionId}
         selectedTagId={selectedTagId}
         onSelectCollection={setSelectedCollectionId}
-        onSelectTag={setSelectedTagId}
-        onCreateCollection={() => setIsCollectionModalOpen(true)}
-        onImportClick={openImportPicker}
-      />
+          onSelectTag={setSelectedTagId}
+          onCreateCollection={() => setIsCollectionModalOpen(true)}
+          onImportClick={openImportPicker}
+          isDarkMode={isDarkMode}
+          onToggleDarkMode={onToggleDarkMode}
+        />
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col px-8 py-6 overflow-y-auto w-full">
@@ -312,10 +322,10 @@ export const LibraryView: React.FC = () => {
         {/* Section Heading matching screenshots */}
         {currentSection !== "library" && (
           <div className="pt-6 pb-4">
-            <h2 className="font-serif text-2xl font-bold text-[#1C1917] tracking-tight">
+            <h2 className="font-serif text-2xl font-bold text-[#1C1917] tracking-tight dark:text-[#F5F1EA]">
               {getSectionTitle()}
             </h2>
-            <p className="text-xs text-[#78716C] mt-0.5">
+            <p className="text-xs text-[#78716C] mt-0.5 dark:text-[#B8AEA2]">
               {books.length} items • Sorted by {sortBy.replace("_", " ")}
             </p>
           </div>
@@ -324,7 +334,7 @@ export const LibraryView: React.FC = () => {
         {/* Books Viewport */}
         <div className="flex-1 pb-10">
           {loading ? (
-            <div className="flex-1 flex items-center justify-center text-[#78716C] py-20 text-xs">
+            <div className="flex-1 flex items-center justify-center text-[#78716C] py-20 text-xs dark:text-[#B8AEA2]">
               Loading library collection...
             </div>
           ) : currentSection === "history" ? (
@@ -369,17 +379,17 @@ export const LibraryView: React.FC = () => {
               onViewAll={() => setCurrentSection("all")}
             />
           ) : books.length === 0 ? (
-            <div className="flex flex-col items-center justify-center text-[#78716C] border border-dashed border-[#DDD5C7] rounded-2xl p-16 my-8 bg-[#FFFFFF]/50">
-              <BookOpen className="w-10 h-10 text-[#A8A29E] mb-3" />
-              <h3 className="text-sm font-semibold text-[#1C1917]">
+            <div className="flex flex-col items-center justify-center text-[#78716C] border border-dashed border-[#DDD5C7] rounded-2xl p-16 my-8 bg-[#FFFFFF]/50 dark:border-[#3B3630] dark:bg-[#201E1B]/70 dark:text-[#B8AEA2]">
+              <BookOpen className="w-10 h-10 text-[#A8A29E] mb-3 dark:text-[#8F8478]" />
+              <h3 className="text-sm font-semibold text-[#1C1917] dark:text-[#F5F1EA]">
                 {currentSection === "trash" ? "Trash is empty" : "No books match your current view"}
               </h3>
-              <p className="text-xs text-[#78716C] mt-1 mb-4 text-center max-w-sm">
+              <p className="text-xs text-[#78716C] mt-1 mb-4 text-center max-w-sm dark:text-[#B8AEA2]">
                 Import an EPUB, PDF, or document to build your sanctuary library.
               </p>
               <button
                 onClick={openImportPicker}
-                className="py-2 px-4 bg-[#18181B] hover:bg-[#27272A] text-white text-xs font-medium rounded-lg shadow-sm"
+                className="py-2 px-4 bg-[#18181B] hover:bg-[#27272A] text-white text-xs font-medium rounded-lg shadow-sm dark:bg-[#F2C14E] dark:text-[#141312] dark:hover:bg-[#FFD66E]"
               >
                 Select Document to Import
               </button>
@@ -414,7 +424,7 @@ export const LibraryView: React.FC = () => {
                 onOpenDetails={(book) => handleOpenDetails(book.id)}
               />
               <div className="flex items-center justify-between pt-2">
-                <span className="text-xs text-[#78716C]">
+                <span className="text-xs text-[#78716C] dark:text-[#B8AEA2]">
                   Showing {books.length > 0 ? 1 : 0}-{books.length} of {books.length} book{books.length === 1 ? "" : "s"}
                 </span>
                 <Pagination
@@ -554,4 +564,3 @@ export const LibraryView: React.FC = () => {
     </div>
   );
 };
-

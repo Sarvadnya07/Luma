@@ -1,0 +1,41 @@
+<svg width="512" height="512" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="200" height="200" rx="36" fill="#FAF7F2"/>
+  <defs>
+    <radialGradient id="glow" cx="50%" cy="70%" r="60%" fx="50%" fy="75%">
+      <stop offset="0%" stop-color="#F59E0B" stop-opacity="0.9"/>
+      <stop offset="45%" stop-color="#FCD34D" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="#FFFBEB" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="leftPage" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFFDF9"/>
+      <stop offset="60%" stop-color="#FDF4E3"/>
+      <stop offset="100%" stop-color="#FDE68A"/>
+    </linearGradient>
+    <linearGradient id="rightPage" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFFDF9"/>
+      <stop offset="60%" stop-color="#FDF4E3"/>
+      <stop offset="100%" stop-color="#FDE68A"/>
+    </linearGradient>
+    <linearGradient id="under" x1="50%" y1="0%" x2="50%" y2="100%">
+      <stop offset="0%" stop-color="#FBBF24"/>
+      <stop offset="100%" stop-color="#D97706"/>
+    </linearGradient>
+  </defs>
+  <path d="M100 14L182 96L100 178L18 96Z" stroke="#1C1917" stroke-width="10" stroke-linejoin="miter"/>
+  <path d="M100 142L100 178" stroke="#1C1917" stroke-width="6" stroke-linecap="round"/>
+  <path d="M68 126L100 142L132 126" stroke="#1C1917" stroke-width="5" stroke-linejoin="round"/>
+  <path d="M98 48C82 40 60 42 50 48V120C60 114 82 114 98 128Z" fill="url(#leftPage)"/>
+  <path d="M102 48C118 40 140 42 150 48V120C140 114 118 114 102 128Z" fill="url(#rightPage)"/>
+  <ellipse cx="100" cy="115" rx="45" ry="30" fill="url(#glow)"/>
+  <path d="M52 120C72 130 92 136 100 136C108 136 128 130 148 120C132 114 112 116 100 128C88 116 68 114 52 120Z" fill="url(#under)" opacity="0.9"/>
+  <g stroke="#F59E0B" stroke-width="2.5" stroke-linecap="round" opacity="0.85">
+    <line x1="90" y1="110" x2="68" y2="84"/>
+    <line x1="94" y1="104" x2="78" y2="70"/>
+    <line x1="98" y1="100" x2="92" y2="60"/>
+  </g>
+  <path d="M50 26H68V108L100 126V136L50 112Z" fill="#1C1917"/>
+  <path d="M100 48L94 40C97 60 97 85 100 102C103 85 103 60 106 40Z" fill="#1C1917"/>
+  <path d="M100 48C82 38 60 40 48 48V120C62 112 84 114 100 132" stroke="#1C1917" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M100 48C118 38 140 40 152 48V120C138 112 116 114 100 132" stroke="#1C1917" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M48 120C72 134 94 138 100 138C106 138 128 134 152 120" stroke="#1C1917" stroke-width="7" stroke-linecap="round"/>
+</svg>

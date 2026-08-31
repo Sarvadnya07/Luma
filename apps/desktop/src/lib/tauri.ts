@@ -35,6 +35,8 @@ import {
   mockCollections,
   mockTags,
   mockSettings,
+  deleteMockAnnotation,
+  deleteMockBookmark,
   BOOK_AUTHORS_MAP,
   GATSBY_CHAPTER_3_HTML,
   MEDITATIONS_BOOK_2_HTML,
@@ -947,4 +949,3 @@ export const LumaApi = {
     return this.onDomainEvent("luma://annotation/changed", callback);
   },
 };
-

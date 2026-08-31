@@ -6,11 +6,88 @@
   color-scheme: light;
 }
 
+.dark {
+  color-scheme: dark;
+}
+
 body {
   margin: 0;
   padding: 0;
   background-color: #FAF7F2;
   color: #1C1917;
+}
+
+.dark body {
+  background-color: #141312;
+  color: #F5F1EA;
+}
+
+.dark .bg-\[\#FAF7F2\],
+.dark .bg-\[\#F7F3EB\]\/90,
+.dark .bg-\[\#FBF6EE\] {
+  background-color: #141312;
+}
+
+.dark .bg-\[\#F3EFE6\],
+.dark .bg-\[\#F5EFE4\],
+.dark .hover\:bg-\[\#F3EFE6\]:hover,
+.dark .hover\:bg-\[\#FAF7F2\]:hover {
+  background-color: #1A1816;
+}
+
+.dark .bg-\[\#FFFFFF\],
+.dark .bg-\[\#FFFFFF\]\/50 {
+  background-color: #201E1B;
+}
+
+.dark .bg-\[\#EAE4DA\],
+.dark .bg-\[\#E4DED3\],
+.dark .bg-\[\#E5DFD3\],
+.dark .bg-\[\#EFEAE1\],
+.dark .hover\:bg-\[\#EFEAE1\]:hover,
+.dark .hover\:bg-\[\#EBE5DB\]:hover,
+.dark .hover\:bg-\[\#EAE4DA\]:hover,
+.dark .hover\:bg-\[\#FFFFFF\]:hover {
+  background-color: #2A2622;
+}
+
+.dark .border-\[\#E5DFD3\],
+.dark .border-\[\#DDD5C7\],
+.dark .border-\[\#EFEAE1\],
+.dark .border-\[\#F2ECE2\],
+.dark .border-\[\#E8DFC8\],
+.dark .hover\:border-\[\#DDD5C7\]:hover {
+  border-color: #3B3630;
+}
+
+.dark .text-\[\#1C1917\],
+.dark .text-\[\#18181B\],
+.dark .text-\[\#2E2924\],
+.dark .text-\[\#3D3833\],
+.dark .text-black,
+.dark .hover\:text-\[\#1C1917\]:hover,
+.dark .hover\:text-\[\#18181B\]:hover,
+.dark .group:hover .group-hover\:text-black {
+  color: #F5F1EA;
+}
+
+.dark .text-\[\#57534E\],
+.dark .text-\[\#6B6358\],
+.dark .text-\[\#78716C\],
+.dark .text-\[\#8C8275\],
+.dark .text-\[\#A8A29E\] {
+  color: #B8AEA2;
+}
+
+.dark .bg-gradient-to-b.from-\[\#F2ECE0\].to-\[\#E3DACB\],
+.dark .bg-gradient-to-b.from-\[\#F5EFE6\].to-\[\#EAE2D5\] {
+  background-image: linear-gradient(to bottom, #2A2622, #1D1B18);
+}
+
+.dark input,
+.dark textarea,
+.dark select {
+  color-scheme: dark;
 }
 
 /* Custom minimal parchment scrollbar */
@@ -30,6 +107,14 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
   background: #BAAF9F;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #4B443D;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #6E6258;
 }
 
 /* Reader Prose Styles */
@@ -93,4 +178,15 @@ body {
   padding-right: 8px;
   padding-bottom: 2px;
   color: #1C1917;
+}
+
+.dark .drop-cap,
+.dark .prose-reader h1,
+.dark .prose-reader h2 {
+  color: #F5F1EA;
+}
+
+.dark .prose-reader blockquote {
+  border-left-color: #4B443D;
+  color: #B8AEA2;
 }

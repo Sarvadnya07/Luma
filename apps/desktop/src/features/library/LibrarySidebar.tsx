@@ -17,6 +17,8 @@ import {
   BarChart2,
   Smartphone,
   Puzzle,
+  Moon,
+  Sun,
 } from "lucide-react";
 import { Collection, Tag } from "@luma/shared-types";
 import { LumaLogo } from "@luma/ui";
@@ -51,6 +53,8 @@ export interface LibrarySidebarProps {
   onSelectTag?: (id: string | null) => void;
   onCreateCollection?: () => void;
   onImportClick?: () => void;
+  isDarkMode?: boolean;
+  onToggleDarkMode?: () => void;
 }
 
 export const LibrarySidebar: React.FC<LibrarySidebarProps> = ({
@@ -64,6 +68,8 @@ export const LibrarySidebar: React.FC<LibrarySidebarProps> = ({
   onSelectTag,
   onCreateCollection: _onCreateCollection,
   onImportClick,
+  isDarkMode = false,
+  onToggleDarkMode,
 }) => {
   const navItems = [
     { id: "library", label: "Library", icon: Library },
@@ -92,19 +98,29 @@ export const LibrarySidebar: React.FC<LibrarySidebarProps> = ({
   ];
 
   return (
-    <aside className="w-60 border-r border-[#E5DFD3] bg-[#F3EFE6] px-4 py-5 flex flex-col justify-between select-none h-full overflow-y-auto flex-shrink-0">
+    <aside className="w-60 border-r border-[#E5DFD3] bg-[#F3EFE6] px-4 py-5 flex flex-col justify-between select-none h-full overflow-y-auto flex-shrink-0 transition-colors dark:border-[#302C27] dark:bg-[#1A1816]">
       <div className="space-y-6">
         {/* Brand Header */}
         <div className="px-2 pt-1 pb-2 flex items-center gap-3">
           <LumaLogo size={32} showWordmark={false} />
-          <div>
-            <h1 className="font-serif text-xl font-black text-[#1C1917] tracking-tight leading-none">
+          <div className="min-w-0 flex-1">
+            <h1 className="font-serif text-xl font-black text-[#1C1917] tracking-tight leading-none dark:text-[#F5F1EA]">
               Luma
             </h1>
-            <p className="text-[9px] font-semibold tracking-[0.2em] text-[#78716C] uppercase mt-0.5">
+            <p className="text-[9px] font-semibold tracking-[0.2em] text-[#78716C] uppercase mt-0.5 dark:text-[#B8AEA2]">
               Digital Sanctuary
             </p>
           </div>
+          <button
+            type="button"
+            onClick={onToggleDarkMode}
+            className="grid h-8 w-8 flex-shrink-0 place-items-center rounded-lg border border-[#DDD5C7] bg-[#FAF7F2] text-[#57534E] shadow-2xs transition-colors hover:bg-[#FFFFFF] hover:text-[#18181B] dark:border-[#3B3630] dark:bg-[#24211E] dark:text-[#F2C14E] dark:hover:bg-[#2D2925]"
+            title={isDarkMode ? "Switch to light mode" : "Switch to dark mode"}
+            aria-label={isDarkMode ? "Switch to light mode" : "Switch to dark mode"}
+            aria-pressed={isDarkMode}
+          >
+            {isDarkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          </button>
         </div>
 
         {/* Primary Views */}
@@ -205,4 +221,3 @@ export const LibrarySidebar: React.FC<LibrarySidebarProps> = ({
     </aside>
   );
 };
-
