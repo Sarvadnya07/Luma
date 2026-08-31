@@ -5,7 +5,6 @@ import {
   Highlighter,
   Bookmark as BookmarkIcon,
   Search,
-  Type,
   Maximize,
   Minimize,
   CheckCircle2,
@@ -24,7 +23,6 @@ export interface ReaderViewProps {
 export const ReaderView: React.FC<ReaderViewProps> = ({ book }) => {
   const closeReader = useReaderStore((s) => s.closeReader);
   const documentData = useReaderStore((s) => s.documentData);
-  const currentChapter = useReaderStore((s) => s.currentChapter);
   const readingProgress = useReaderStore((s) => s.readingProgress);
   const bookmarks = useReaderStore((s) => s.bookmarks);
   const sidebarTab = useReaderStore((s) => s.sidebarTab);
@@ -43,7 +41,6 @@ export const ReaderView: React.FC<ReaderViewProps> = ({ book }) => {
   // Keyboard navigation shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Don't trigger shortcuts if typing inside input / textarea
       if (["INPUT", "TEXTAREA"].includes((e.target as HTMLElement)?.tagName)) {
         return;
       }
@@ -93,112 +90,109 @@ export const ReaderView: React.FC<ReaderViewProps> = ({ book }) => {
   const isPdf = documentData?.file.format === "pdf";
 
   return (
-    <div className="relative w-full h-full flex flex-col bg-slate-950 text-slate-100 overflow-hidden select-none">
+    <div className="relative w-full h-full flex flex-col bg-[#FAF7F2] text-[#1C1917] overflow-hidden select-none">
       {/* Status Toast Notification */}
       {statusMessage && (
-        <div className="fixed top-16 left-1/2 transform -translate-x-1/2 z-50 bg-slate-900/95 border border-slate-700/80 text-sky-400 text-xs px-4 py-2 rounded-full shadow-2xl flex items-center gap-2 animate-in fade-in slide-in-from-top-2 duration-150 backdrop-blur-md font-medium">
+        <div className="fixed top-16 left-1/2 transform -translate-x-1/2 z-50 bg-[#18181B] text-white text-xs px-4 py-2 rounded-full shadow-2xl flex items-center gap-2 animate-in fade-in slide-in-from-top-2 duration-150 font-medium">
           <CheckCircle2 className="w-4 h-4 text-emerald-400" />
           {statusMessage}
         </div>
       )}
 
-      {/* Top Reader Navigation Bar */}
-      <header className="h-14 border-b border-slate-800 bg-slate-900/80 backdrop-blur-md px-4 flex items-center justify-between z-30 flex-shrink-0">
-        {/* Left: Back & Title */}
+      {/* Top Reader Navigation Bar matching Screen 3 & Screen 5 */}
+      <header className="h-12 border-b border-[#E5DFD3] bg-[#FAF7F2] px-6 flex items-center justify-between z-30 flex-shrink-0">
+        {/* Left: Back to Library or Back to Reader */}
         <div className="flex items-center gap-3 min-w-0">
           <button
-            onClick={closeReader}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-slate-100 hover:bg-slate-800 transition-colors"
+            onClick={() => {
+              if (sidebarTab) {
+                setSidebarTab(null);
+              } else {
+                closeReader();
+              }
+            }}
+            className="flex items-center gap-1.5 py-1 text-xs font-medium text-[#78716C] hover:text-[#18181B] transition-colors"
             title="Return to Library (Esc)"
           >
-            <ArrowLeft className="w-4 h-4" />
-            <span className="hidden sm:inline">Library</span>
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>{sidebarTab ? "Reader" : "Library"}</span>
           </button>
-          <div className="w-[1px] h-4 bg-slate-800 hidden sm:block" />
-          <div className="min-w-0">
-            <h1 className="text-xs font-semibold text-slate-100 truncate max-w-sm sm:max-w-md">
-              {book.title}
-            </h1>
-            {currentChapter?.title && (
-              <p className="text-[10px] text-slate-400 truncate hidden md:block">
-                {currentChapter.title}
-              </p>
-            )}
-          </div>
         </div>
 
-        {/* Right: Reader Action Controls */}
+        {/* Center: Book Title in editorial serif */}
+        <div className="absolute left-1/2 -translate-x-1/2 pointer-events-none text-center">
+          <h1 className="font-serif text-sm font-bold text-[#1C1917] tracking-tight truncate max-w-sm sm:max-w-md">
+            {book.title}
+          </h1>
+        </div>
+
+        {/* Right: Reader Action Controls (Search, Typography, Annotations, Bookmark) */}
         <div className="flex items-center gap-1">
+          {/* Typography Settings (TT icon) */}
+          <button
+            onClick={toggleTypography}
+            className="p-1.5 rounded-md text-[#78716C] hover:text-[#18181B] hover:bg-[#EFEAE1] transition-colors font-serif font-bold text-xs"
+            title="Reading Settings & Themes"
+          >
+            <span className="text-xs tracking-tighter">TT</span>
+          </button>
+
           {/* Table of Contents */}
           <button
             onClick={() => setSidebarTab(sidebarTab === "toc" ? null : "toc")}
-            className={`p-2 rounded-lg transition-colors ${
-              sidebarTab === "toc" ? "bg-slate-800 text-sky-400" : "text-slate-400 hover:text-slate-200 hover:bg-slate-800"
+            className={`p-1.5 rounded-md transition-colors ${
+              sidebarTab === "toc"
+                ? "bg-[#E4DED3] text-[#18181B]"
+                : "text-[#78716C] hover:text-[#18181B] hover:bg-[#EFEAE1]"
             }`}
             title="Table of Contents (T)"
           >
             <ListTree className="w-4 h-4" />
           </button>
 
-          {/* Annotations */}
+          {/* Annotations & Notes */}
           <button
             onClick={() => setSidebarTab(sidebarTab === "annotations" ? null : "annotations")}
-            className={`p-2 rounded-lg transition-colors ${
-              sidebarTab === "annotations" ? "bg-slate-800 text-sky-400" : "text-slate-400 hover:text-slate-200 hover:bg-slate-800"
+            className={`p-1.5 rounded-md transition-colors ${
+              sidebarTab === "annotations"
+                ? "bg-[#E4DED3] text-[#18181B]"
+                : "text-[#78716C] hover:text-[#18181B] hover:bg-[#EFEAE1]"
             }`}
-            title="Annotations (A)"
+            title="Annotations & Notes (A)"
           >
             <Highlighter className="w-4 h-4" />
-          </button>
-
-          {/* Bookmarks */}
-          <button
-            onClick={() => setSidebarTab(sidebarTab === "bookmarks" ? null : "bookmarks")}
-            className={`p-2 rounded-lg transition-colors ${
-              sidebarTab === "bookmarks" ? "bg-slate-800 text-sky-400" : "text-slate-400 hover:text-slate-200 hover:bg-slate-800"
-            }`}
-            title="Bookmarks Panel"
-          >
-            <BookmarkIcon className="w-4 h-4" />
           </button>
 
           {/* In-Doc Search */}
           <button
             onClick={() => setSidebarTab(sidebarTab === "search" ? null : "search")}
-            className={`p-2 rounded-lg transition-colors ${
-              sidebarTab === "search" ? "bg-slate-800 text-sky-400" : "text-slate-400 hover:text-slate-200 hover:bg-slate-800"
+            className={`p-1.5 rounded-md transition-colors ${
+              sidebarTab === "search"
+                ? "bg-[#E4DED3] text-[#18181B]"
+                : "text-[#78716C] hover:text-[#18181B] hover:bg-[#EFEAE1]"
             }`}
             title="Search in Document (F)"
           >
             <Search className="w-4 h-4" />
           </button>
 
-          {/* Toggle Bookmark Current Page */}
+          {/* Bookmark Current Page */}
           <button
             onClick={toggleBookmark}
-            className={`p-2 rounded-lg transition-colors ${
-              isCurrentBookmarked ? "text-amber-400 hover:bg-amber-500/10" : "text-slate-400 hover:text-slate-200 hover:bg-slate-800"
+            className={`p-1.5 rounded-md transition-colors ${
+              isCurrentBookmarked
+                ? "text-amber-500 hover:bg-amber-100/50"
+                : "text-[#78716C] hover:text-[#18181B] hover:bg-[#EFEAE1]"
             }`}
             title={isCurrentBookmarked ? "Remove bookmark" : "Bookmark this location (B)"}
           >
-            <BookmarkIcon className={`w-4 h-4 ${isCurrentBookmarked ? "fill-amber-400" : ""}`} />
+            <BookmarkIcon className={`w-4 h-4 ${isCurrentBookmarked ? "fill-amber-500" : ""}`} />
           </button>
 
-          <div className="w-[1px] h-4 bg-slate-800 mx-1" />
-
-          {/* Typography Settings */}
-          <button
-            onClick={toggleTypography}
-            className="p-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors"
-            title="Reading Settings & Themes"
-          >
-            <Type className="w-4 h-4" />
-          </button>
-
-          {/* Fullscreen */}
+          {/* Fullscreen Toggle */}
           <button
             onClick={toggleFullscreen}
-            className="p-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors hidden sm:block"
+            className="p-1.5 rounded-md text-[#78716C] hover:text-[#18181B] hover:bg-[#EFEAE1] transition-colors hidden sm:block"
             title="Toggle Fullscreen"
           >
             {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
@@ -208,17 +202,18 @@ export const ReaderView: React.FC<ReaderViewProps> = ({ book }) => {
 
       {/* Main Workspace Body */}
       <div className="flex-1 flex overflow-hidden relative">
-        {/* Collapsible Tabbed Sidebar */}
+        {/* Collapsible Tabbed Sidebar (Screen 5) */}
         <ReaderSidebar />
 
         {/* Floating Typography Settings Drawer */}
         <TypographySettingsDrawer />
 
         {/* Document Engine Viewport */}
-        <main className="flex-1 h-full overflow-hidden flex flex-col relative">
+        <main className="flex-1 h-full overflow-hidden flex flex-col relative bg-[#FAF7F2]">
           {isPdf ? <PdfReaderView /> : <EpubReaderView />}
         </main>
       </div>
     </div>
   );
 };
+

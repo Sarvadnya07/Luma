@@ -43,10 +43,10 @@ export const TextSelectionToolbar: React.FC<TextSelectionToolbarProps> = ({
         top: `${Math.max(10, position.top - 50)}px`,
         left: `${Math.max(10, position.left)}px`,
       }}
-      className="fixed z-50 transform -translate-x-1/2 bg-slate-900/95 backdrop-blur-md border border-slate-700/80 rounded-full shadow-2xl p-1.5 flex items-center gap-1.5 text-slate-200 animate-in fade-in zoom-in-95 duration-150"
+      className="fixed z-50 transform -translate-x-1/2 bg-[#FAF7F2] border border-[#E5DFD3] rounded-full shadow-xl p-1.5 flex items-center gap-1.5 text-[#1C1917] animate-in fade-in zoom-in-95 duration-150 select-none"
     >
       {/* Color Pills for Instant Highlight */}
-      <div className="flex items-center gap-1 px-1 border-r border-slate-700/80">
+      <div className="flex items-center gap-1.5 px-1.5 border-r border-[#E5DFD3]">
         {ANNOTATION_HIGHLIGHT_COLORS.map((c) => (
           <button
             key={c.hex}
@@ -55,7 +55,7 @@ export const TextSelectionToolbar: React.FC<TextSelectionToolbarProps> = ({
               onHighlight(c.hex);
               onClose();
             }}
-            className="w-5 h-5 rounded-full border border-slate-800 hover:scale-125 transition-transform shadow-sm"
+            className="w-4 h-4 rounded-full border border-[#D6CEC2] hover:scale-125 transition-transform shadow-xs"
             style={{ backgroundColor: c.hex }}
             title={`Highlight ${c.name}`}
           />
@@ -65,21 +65,21 @@ export const TextSelectionToolbar: React.FC<TextSelectionToolbarProps> = ({
       {/* Add Note Button */}
       <button
         onClick={() => setIsNoteInputOpen(!isNoteInputOpen)}
-        className={`p-1.5 rounded-full hover:bg-slate-800 transition-colors ${
-          isNoteInputOpen ? "text-sky-400 bg-slate-800" : "text-slate-300"
+        className={`p-1.5 rounded-full hover:bg-[#EFEAE1] transition-colors ${
+          isNoteInputOpen ? "text-[#18181B] bg-[#EFEAE1]" : "text-[#78716C]"
         }`}
         title="Add Note"
       >
-        <MessageSquare className="w-4 h-4" />
+        <MessageSquare className="w-3.5 h-3.5" />
       </button>
 
       {/* Copy Button */}
       <button
         onClick={handleCopy}
-        className="p-1.5 rounded-full hover:bg-slate-800 text-slate-300 transition-colors"
+        className="p-1.5 rounded-full hover:bg-[#EFEAE1] text-[#78716C] transition-colors"
         title="Copy text"
       >
-        {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+        {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
       </button>
 
       {/* Bookmark Action */}
@@ -89,23 +89,23 @@ export const TextSelectionToolbar: React.FC<TextSelectionToolbarProps> = ({
             onBookmark();
             onClose();
           }}
-          className="p-1.5 rounded-full hover:bg-slate-800 text-slate-300 transition-colors"
+          className="p-1.5 rounded-full hover:bg-[#EFEAE1] text-[#78716C] transition-colors"
           title="Add bookmark here"
         >
-          <Bookmark className="w-4 h-4" />
+          <Bookmark className="w-3.5 h-3.5" />
         </button>
       )}
 
       {/* Note Input Popover */}
       {isNoteInputOpen && (
-        <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 w-72 bg-slate-900 border border-slate-700 rounded-xl p-3 shadow-2xl z-50 text-xs">
+        <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 w-72 bg-[#FAF7F2] border border-[#E5DFD3] rounded-xl p-3 shadow-2xl z-50 text-xs">
           <textarea
             autoFocus
             rows={3}
             value={noteText}
             onChange={(e) => setNoteText(e.target.value)}
             placeholder="Write your note or insight..."
-            className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-sky-500"
+            className="w-full bg-[#FFFFFF] border border-[#E5DFD3] rounded-lg p-2 text-[#1C1917] placeholder-[#A8A29E] focus:outline-none focus:border-[#18181B]"
           />
           <div className="flex justify-between items-center mt-2">
             <div className="flex gap-1">
@@ -114,7 +114,7 @@ export const TextSelectionToolbar: React.FC<TextSelectionToolbarProps> = ({
                   key={c.hex}
                   onClick={() => setSelectedColor(c.hex)}
                   className={`w-3.5 h-3.5 rounded-full ${
-                    selectedColor === c.hex ? "ring-2 ring-white" : ""
+                    selectedColor === c.hex ? "ring-2 ring-[#18181B]" : ""
                   }`}
                   style={{ backgroundColor: c.hex }}
                 />
@@ -122,7 +122,7 @@ export const TextSelectionToolbar: React.FC<TextSelectionToolbarProps> = ({
             </div>
             <button
               onClick={handleSaveNote}
-              className="px-3 py-1 bg-sky-600 hover:bg-sky-500 text-white rounded-lg font-medium transition-colors"
+              className="px-3 py-1 bg-[#18181B] hover:bg-[#27272A] text-white rounded-lg font-medium transition-colors text-xs"
             >
               Save Note
             </button>
@@ -132,3 +132,4 @@ export const TextSelectionToolbar: React.FC<TextSelectionToolbarProps> = ({
     </div>
   );
 };
+

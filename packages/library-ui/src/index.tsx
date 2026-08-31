@@ -1,6 +1,5 @@
 import React from "react";
 import { Book } from "@luma/shared-types";
-import { Badge } from "@luma/ui";
 import { BookOpen, MoreVertical, ChevronLeft, ChevronRight } from "lucide-react";
 
 export interface BookCardProps {
@@ -87,7 +86,7 @@ export const BookTable: React.FC<BookTableProps> = ({
   authorMap = {},
   selectedBookId,
   onSelectBook,
-  onOpenDetails,
+  onOpenDetails: _onOpenDetails,
 }) => {
   const getProgressLabel = (book: Book) => {
     if (book.reading_status === "completed") return "Read";

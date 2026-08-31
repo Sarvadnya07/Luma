@@ -16,6 +16,7 @@ import {
   PdfPageData,
   DocumentSearchMatch,
   Bookmark,
+  TocItem,
 } from "@luma/shared-types";
 
 // In-memory mock store when Tauri IPC is not available in browser dev environment
@@ -313,6 +314,87 @@ const MEDITATIONS_BOOK_2_HTML = `
 </div>
 `;
 
+let mockAnnotations: Annotation[] = [
+  {
+    id: "ann_01",
+    book_id: "book_meditations",
+    annotation_type: "highlight",
+    color_hex: "#FDE68A",
+    quote: "The third then is the ruling part: consider thus: Thou art an old",
+    note: "Key Stoic reflection on the ruling center of consciousness.",
+    anchor_payload_json: JSON.stringify({
+      exact: "The third then is the ruling part: consider thus: Thou art an old",
+      prefix: "sent out and again sucked in. ",
+      suffix: " man; no longer let this be a slave",
+      normalized_exact: "the third then is the ruling part consider thus thou art an old",
+      spine_index: 1,
+    }),
+    sync: { version: 1, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), device_id: "dev_01", is_deleted: false },
+  },
+];
+
+let mockBookmarks: Bookmark[] = [
+  {
+    id: "bmk_01",
+    book_id: "book_meditations",
+    locator: "epubcfi(/6/4!/4/6:0)",
+    title: "Book Two: Section 3",
+    chapter_title: "Book Two",
+    page_number: 2,
+    sync: { version: 1, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), device_id: "dev_01", is_deleted: false },
+  },
+];
+
+const mockCollections: Collection[] = [
+  {
+    id: "col_01",
+    name: "Modernist Classics",
+    description: "20th century literature and architectural philosophy",
+    book_ids: ["book_arch_stillness", "book_great_gatsby", "book_poetics_of_space"],
+    sync: {
+      version: 1,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      device_id: "dev_01",
+      is_deleted: false,
+    },
+  },
+  {
+    id: "col_02",
+    name: "Philosophy & Mind",
+    description: "Stoicism, psychology, and cognitive science",
+    book_ids: ["book_meditations", "book_thinking_fast", "book_design_everyday"],
+    sync: {
+      version: 1,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      device_id: "dev_01",
+      is_deleted: false,
+    },
+  },
+];
+
+const mockTags: Tag[] = [
+  {
+    id: "tag_01",
+    name: "Philosophy",
+    color_hex: "#FDE68A",
+    sync: { version: 1, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), device_id: "dev_01", is_deleted: false },
+  },
+  {
+    id: "tag_02",
+    name: "Classics",
+    color_hex: "#BAE6FD",
+    sync: { version: 1, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), device_id: "dev_01", is_deleted: false },
+  },
+  {
+    id: "tag_03",
+    name: "Design",
+    color_hex: "#A7F3D0",
+    sync: { version: 1, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), device_id: "dev_01", is_deleted: false },
+  },
+];
+
 const isTauri = () => typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
 export const LumaApi = {
@@ -392,10 +474,29 @@ export const LumaApi = {
       const { invoke } = await import("@tauri-apps/api/core");
       return invoke<OpenDocumentResult>("open_reader_document", { bookId, fileId });
     }
-    const book = mockBooks.find((b) => b.id === bookId) || mockBooks[0]!;
+    const book = mockBooks.find((b) => b.id === bookId) || {
+      id: bookId,
+      title: bookId.startsWith("book_01918") ? "The Rust Programming Language" : mockBooks[0]!.title,
+      subtitle: null,
+      author_ids: [],
+      series_id: null,
+      series_index: null,
+      description: "Document reader content",
+      publisher: null,
+      published_date: null,
+      language: "en",
+      isbn: null,
+      cover_image_id: null,
+      cover_image_path: null,
+      primary_file_id: fileId ?? "file_01",
+      reading_status: "reading" as const,
+      library_state: "active" as const,
+      trashed_at: null,
+      sync: { version: 1, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), device_id: "dev_01", is_deleted: false },
+    };
     const authorName = BOOK_AUTHORS_MAP[book.id] || "Unknown Author";
 
-    let toc = [
+    let toc: TocItem[] = [
       { title: "Chapter 1: The Principle of Architecture", locator: "epubcfi(/6/2!/4/1:0)", play_order: 1, children: [] },
       { title: "Chapter 2: Data Autonomy & Sync", locator: "epubcfi(/6/4!/4/1:0)", play_order: 2, children: [] },
       { title: "Chapter 3: Resilient Annotation Anchoring", locator: "epubcfi(/6/6!/4/1:0)", play_order: 3, children: [] },

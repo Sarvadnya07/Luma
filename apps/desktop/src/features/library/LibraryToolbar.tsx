@@ -83,7 +83,8 @@ export const LibraryToolbar: React.FC<LibraryToolbarProps> = ({
                 author: "created_at",
                 created_at: "last_read_at",
                 last_read_at: "published_date",
-                published_date: "title",
+                published_date: "file_size",
+                file_size: "title",
               };
               onSortByChange(nextSort[sortBy] || "title");
             }}

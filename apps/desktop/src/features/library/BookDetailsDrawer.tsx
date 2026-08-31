@@ -26,11 +26,11 @@ export const BookDetailsDrawer: React.FC<BookDetailsDrawerProps> = ({
   onClose,
   onOpenReader,
   onEditMetadata,
-  onStatusChange,
-  onTrash,
+  onStatusChange: _onStatusChange,
+  onTrash: _onTrash,
   onRestore,
   onPermanentDelete,
-  onAddTag,
+  onAddTag: _onAddTag,
 }) => {
   if (!data) return null;
   const { book, authors, reading_progress } = data;

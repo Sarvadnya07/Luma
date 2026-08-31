@@ -40,13 +40,13 @@ export interface LibrarySidebarProps {
 export const LibrarySidebar: React.FC<LibrarySidebarProps> = ({
   currentSection,
   onSelectSection,
-  collections = [],
-  tags = [],
-  selectedCollectionId,
-  selectedTagId,
+  collections: _collections = [],
+  tags: _tags = [],
+  selectedCollectionId: _selectedCollectionId,
+  selectedTagId: _selectedTagId,
   onSelectCollection,
   onSelectTag,
-  onCreateCollection,
+  onCreateCollection: _onCreateCollection,
   onImportClick,
 }) => {
   const navItems = [

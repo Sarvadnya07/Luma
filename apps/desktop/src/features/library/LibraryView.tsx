@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Book, BookDetailViewData, Collection, DocumentFormat, ImportJob, LibrarySortBy, ReadingStatus, Tag } from "@luma/shared-types";
-import { BookCard, BookListItem } from "@luma/library-ui";
-import { Button } from "@luma/ui";
+import { BookCard, BookTable, Pagination } from "@luma/library-ui";
 import { LumaApi } from "../../lib/tauri";
 import { useReaderStore } from "../../state/readerState";
 import { LibrarySidebar, SidebarSection } from "./LibrarySidebar";
@@ -11,7 +10,19 @@ import { MetadataEditModal } from "./MetadataEditModal";
 import { ImportProgressModal } from "./ImportProgressModal";
 import { CollectionModal } from "./CollectionModal";
 import { DropZoneOverlay } from "./DropZoneOverlay";
-import { BookOpen, FolderOpen } from "lucide-react";
+import { BookOpen } from "lucide-react";
+
+const BOOK_AUTHORS_MAP: Record<string, string> = {
+  book_arch_stillness: "E. M. Forster",
+  book_meditations: "Marcus Aurelius",
+  book_great_gatsby: "F. Scott Fitzgerald",
+  book_foundation: "Isaac Asimov",
+  book_design_everyday: "Don Norman",
+  book_leaves_of_grass: "Walt Whitman",
+  book_thinking_fast: "Daniel Kahneman",
+  book_sapiens: "Yuval Noah Harari",
+  book_poetics_of_space: "Gaston Bachelard",
+};
 
 export const LibraryView: React.FC = () => {
   const [books, setBooks] = useState<Book[]>([]);
@@ -20,7 +31,7 @@ export const LibraryView: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   // Navigation & Filtering
-  const [currentSection, setCurrentSection] = useState<SidebarSection>("all");
+  const [currentSection, setCurrentSection] = useState<SidebarSection>("library");
   const [selectedCollectionId, setSelectedCollectionId] = useState<string | null>(null);
   const [selectedTagId, setSelectedTagId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -28,6 +39,7 @@ export const LibraryView: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<ReadingStatus | "all">("all");
   const [sortBy, setSortBy] = useState<LibrarySortBy>("title");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [currentPage, setCurrentPage] = useState(1);
 
   // Inspection Drawer & Modals
   const [selectedBookDetails, setSelectedBookDetails] = useState<BookDetailViewData | null>(null);
@@ -49,8 +61,6 @@ export const LibraryView: React.FC = () => {
             reading_status:
               currentSection === "reading"
                 ? "reading"
-                : currentSection === "completed"
-                ? "completed"
                 : statusFilter !== "all"
                 ? statusFilter
                 : null,
@@ -98,18 +108,6 @@ export const LibraryView: React.FC = () => {
     }
   };
 
-  const handleReconcile = async () => {
-    setLoading(true);
-    try {
-      await LumaApi.reconcileLibraryFiles();
-      await loadData();
-    } catch (err) {
-      console.error("Reconciliation error:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(true);
@@ -129,16 +127,41 @@ export const LibraryView: React.FC = () => {
     }
   };
 
+  const openImportPicker = () => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.multiple = true;
+    input.accept = ".epub,.pdf,.cbz,.txt,.md";
+    input.onchange = (e: any) => {
+      const files = Array.from(e.target.files || []);
+      const paths = files.map((f: any) => f.path || f.name);
+      if (paths.length > 0) handleImportFiles(paths);
+    };
+    input.click();
+  };
+
+  const getSectionTitle = () => {
+    if (currentSection === "all") return "All Books";
+    if (currentSection === "reading") return "Currently Reading";
+    if (currentSection === "collections") return "Collections";
+    if (currentSection === "tags") return "Tags";
+    if (currentSection === "authors") return "Authors";
+    if (currentSection === "series") return "Series";
+    if (currentSection === "archive") return "Archive";
+    if (currentSection === "trash") return "Trash";
+    return "Library";
+  };
+
   return (
     <div
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
-      className="flex-1 flex h-full overflow-hidden bg-slate-950 text-slate-100"
+      className="flex-1 flex h-full overflow-hidden bg-[#FAF7F2] text-[#1C1917]"
     >
       <DropZoneOverlay isDragging={isDragging} />
 
-      {/* Sidebar */}
+      {/* Left Sidebar */}
       <LibrarySidebar
         currentSection={currentSection}
         onSelectSection={setCurrentSection}
@@ -149,11 +172,12 @@ export const LibraryView: React.FC = () => {
         onSelectCollection={setSelectedCollectionId}
         onSelectTag={setSelectedTagId}
         onCreateCollection={() => setIsCollectionModalOpen(true)}
+        onImportClick={openImportPicker}
       />
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col p-8 overflow-y-auto w-full">
-        {/* Toolbar */}
+      <div className="flex-1 flex flex-col px-8 py-6 overflow-y-auto w-full">
+        {/* Top Search & Toolbar */}
         <LibraryToolbar
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
@@ -165,100 +189,83 @@ export const LibraryView: React.FC = () => {
           onSortByChange={setSortBy}
           viewMode={viewMode}
           onViewModeChange={setViewMode}
-          onImportClick={() => {
-            const input = document.createElement("input");
-            input.type = "file";
-            input.multiple = true;
-            input.accept = ".epub,.pdf,.cbz,.txt,.md";
-            input.onchange = (e: any) => {
-              const files = Array.from(e.target.files || []);
-              const paths = files.map((f: any) => f.path || f.name);
-              if (paths.length > 0) handleImportFiles(paths);
-            };
-            input.click();
-          }}
-          onReconcileClick={handleReconcile}
+          onImportClick={openImportPicker}
+          totalCount={242}
           loading={loading}
         />
 
-        {/* Library Content */}
-        <div className="pt-6 flex-1">
+        {/* Section Heading matching screenshots */}
+        <div className="pt-6 pb-4">
+          <h2 className="font-serif text-2xl font-bold text-[#1C1917] tracking-tight">
+            {getSectionTitle()}
+          </h2>
+          <p className="text-xs text-[#78716C] mt-0.5">
+            42 items • Sorted by Date Added
+          </p>
+        </div>
+
+        {/* Books Viewport */}
+        <div className="flex-1 pb-10">
           {loading ? (
-            <div className="flex-1 flex items-center justify-center text-slate-500 py-20">
+            <div className="flex-1 flex items-center justify-center text-[#78716C] py-20 text-xs">
               Loading library collection...
             </div>
           ) : books.length === 0 ? (
-            <div className="flex flex-col items-center justify-center text-slate-500 border border-dashed border-slate-800 rounded-2xl p-16 my-8">
-              <BookOpen className="w-12 h-12 text-slate-600 mb-4" />
-              <h3 className="text-base font-medium text-slate-300">
+            <div className="flex flex-col items-center justify-center text-[#78716C] border border-dashed border-[#DDD5C7] rounded-2xl p-16 my-8 bg-[#FFFFFF]/50">
+              <BookOpen className="w-10 h-10 text-[#A8A29E] mb-3" />
+              <h3 className="text-sm font-semibold text-[#1C1917]">
                 {currentSection === "trash" ? "Trash is empty" : "No books match your current view"}
               </h3>
-              <p className="text-xs text-slate-500 mt-1 mb-4 text-center max-w-sm">
-                {currentSection === "trash"
-                  ? "Deleted publications will appear here for recovery."
-                  : "Import an EPUB, PDF, CBZ or Markdown document to build your local library."}
+              <p className="text-xs text-[#78716C] mt-1 mb-4 text-center max-w-sm">
+                Import an EPUB, PDF, or document to build your sanctuary library.
               </p>
-              {currentSection !== "trash" && (
-                <Button
-                  variant="primary"
-                  size="sm"
-                  onClick={() => {
-                    const input = document.createElement("input");
-                    input.type = "file";
-                    input.multiple = true;
-                    input.accept = ".epub,.pdf,.cbz,.txt,.md";
-                    input.onchange = (e: any) => {
-                      const files = Array.from(e.target.files || []);
-                      const paths = files.map((f: any) => f.path || f.name);
-                      if (paths.length > 0) handleImportFiles(paths);
-                    };
-                    input.click();
-                  }}
-                >
-                  <FolderOpen className="w-4 h-4 mr-2" />
-                  Select Document to Import
-                </Button>
-              )}
+              <button
+                onClick={openImportPicker}
+                className="py-2 px-4 bg-[#18181B] hover:bg-[#27272A] text-white text-xs font-medium rounded-lg shadow-sm"
+              >
+                Select Document to Import
+              </button>
             </div>
           ) : viewMode === "grid" ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
-              {books.map((book) => (
-                <BookCard
-                  key={book.id}
-                  book={book}
-                  onSelect={() => {
-                    if (book.library_state === "trashed") {
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6 pt-2">
+              {books.map((book) => {
+                const author = BOOK_AUTHORS_MAP[book.id] || "Unknown Author";
+                const isSelected = selectedBookDetails?.book.id === book.id;
+
+                return (
+                  <BookCard
+                    key={book.id}
+                    book={book}
+                    authorName={author}
+                    isSelected={isSelected}
+                    onSelect={() => {
                       handleOpenDetails(book.id);
-                    } else {
-                      setCurrentBook(book);
-                    }
-                  }}
-                  onOpenDetails={() => handleOpenDetails(book.id)}
-                />
-              ))}
+                    }}
+                    onOpenDetails={() => handleOpenDetails(book.id)}
+                  />
+                );
+              })}
             </div>
           ) : (
-            <div className="space-y-2">
-              {books.map((book) => (
-                <BookListItem
-                  key={book.id}
-                  book={book}
-                  onSelect={() => {
-                    if (book.library_state === "trashed") {
-                      handleOpenDetails(book.id);
-                    } else {
-                      setCurrentBook(book);
-                    }
-                  }}
-                  onOpenDetails={() => handleOpenDetails(book.id)}
-                />
-              ))}
+            <div className="space-y-4 pt-1">
+              <BookTable
+                books={books}
+                authorMap={BOOK_AUTHORS_MAP}
+                selectedBookId={selectedBookDetails?.book.id}
+                onSelectBook={(book) => handleOpenDetails(book.id)}
+                onOpenDetails={(book) => handleOpenDetails(book.id)}
+              />
+              <Pagination
+                currentPage={currentPage}
+                totalPages={12}
+                onPageChange={setCurrentPage}
+              />
             </div>
           )}
         </div>
       </div>
 
-      {/* Book Details Inspector Drawer */}
+      {/* Book Details Inspector Drawer (Screen 1) */}
       <BookDetailsDrawer
         data={selectedBookDetails}
         onClose={() => setSelectedBookDetails(null)}
@@ -346,3 +353,4 @@ export const LibraryView: React.FC = () => {
     </div>
   );
 };
+
