@@ -8,14 +8,15 @@ use luma_core::ids::DeviceId;
 use luma_core::models::book::{DocumentFormat, LibraryState, ReadingStatus};
 use luma_core::models::ingest::DuplicateMatchLevel;
 use luma_storage::repos::{
-    BookRepository, LibraryFilterOptions, LibrarySortBy, LibrarySortOptions,
+    BookRepository, LibraryFilterOptions, LibrarySortOptions,
 };
 use luma_storage::{Database, LibraryService};
 
 fn create_sample_epub(title: &str, isbn: &str) -> NamedTempFile {
     let file = NamedTempFile::new().unwrap();
     let mut zip = ZipWriter::new(File::create(file.path()).unwrap());
-    let options = FileOptions::default().compression_method(zip::CompressionMethod::Stored);
+    let options: zip::write::FileOptions<()> =
+        FileOptions::default().compression_method(zip::CompressionMethod::Stored);
 
     zip.start_file("mimetype", options).unwrap();
     zip.write_all(b"application/epub+zip").unwrap();

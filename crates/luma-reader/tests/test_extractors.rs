@@ -12,7 +12,9 @@ fn create_sample_epub() -> NamedTempFile {
     let file = NamedTempFile::new().unwrap();
     let mut zip = ZipWriter::new(File::create(file.path()).unwrap());
 
-    let options = FileOptions::default().compression_method(zip::CompressionMethod::Stored);
+    let options: FileOptions<'_> = FileOptions::default()
+        .compression_method(zip::CompressionMethod::Stored)
+        .unix_permissions(0o644);
 
     // 1. mimetype
     zip.start_file("mimetype", options).unwrap();

@@ -1,7 +1,6 @@
 use std::fs::File;
 use std::io::Write;
 use tempfile::NamedTempFile;
-use zip::write::FileOptions;
 use zip::ZipWriter;
 
 use luma_reader::{EpubDocument, PdfDocument};
