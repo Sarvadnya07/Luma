@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Book, BookDetailViewData, Collection, DocumentFormat, ImportJob, LibrarySortBy, ReadingStatus, Tag } from "@luma/shared-types";
 import { BookCard, BookTable, Pagination } from "@luma/library-ui";
-import { LumaApi } from "../../lib/tauri";
+import { LumaApi, isTauri } from "../../lib/tauri";
 import { useReaderStore } from "../../state/readerState";
 import { LibrarySidebar, SidebarSection } from "./LibrarySidebar";
 import { LibraryToolbar } from "./LibraryToolbar";
@@ -142,6 +142,30 @@ export const LibraryView: React.FC = () => {
     }
   };
 
+  // Register Tauri native drag-and-drop listener to capture full absolute paths
+  useEffect(() => {
+    let unlistenFn: (() => void) | undefined;
+    if (isTauri()) {
+      import("@tauri-apps/api/event")
+        .then(({ listen }) => {
+          listen<{ paths?: string[] }>("tauri://drag-drop", (event) => {
+            if (event.payload?.paths && event.payload.paths.length > 0) {
+              handleImportFiles(event.payload.paths);
+            }
+          })
+            .then((unsub) => {
+              unlistenFn = unsub;
+            })
+            .catch(() => {});
+        })
+        .catch(() => {});
+    }
+
+    return () => {
+      if (unlistenFn) unlistenFn();
+    };
+  }, []);
+
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(true);
@@ -161,7 +185,35 @@ export const LibraryView: React.FC = () => {
     }
   };
 
-  const openImportPicker = () => {
+  const openImportPicker = async () => {
+    // If in Tauri desktop mode, attempt native dialog via invoke
+    if (isTauri()) {
+      try {
+        const { invoke } = await import("@tauri-apps/api/core");
+        const selected = await invoke<string[] | string | null>("plugin:dialog|open", {
+          options: {
+            multiple: true,
+            filters: [
+              {
+                name: "Digital Publications",
+                extensions: ["epub", "pdf", "cbz", "txt", "md"],
+              },
+            ],
+          },
+        }).catch(() => null);
+
+        if (selected) {
+          const paths = Array.isArray(selected) ? selected : [selected];
+          if (paths.length > 0) {
+            await handleImportFiles(paths);
+            return;
+          }
+        }
+      } catch {
+        // Fallback to DOM input below
+      }
+    }
+
     const input = document.createElement("input");
     input.type = "file";
     input.multiple = true;
@@ -455,11 +507,17 @@ export const LibraryView: React.FC = () => {
         isOpen={isCommandPaletteOpen}
         onClose={() => setIsCommandPaletteOpen(false)}
         onSelectAction={(actionId) => {
-          if (actionId === "open_meditations") {
+          if (actionId.startsWith("open_book_")) {
+            const id = actionId.replace("open_book_", "");
+            const b = books.find((x) => x.id === id) || books[0];
+            if (b) setCurrentBook(b);
+          } else if (actionId === "open_meditations") {
             const b = books.find((x) => x.id === "book_meditations") || books[0];
             if (b) setCurrentBook(b);
           } else if (actionId === "search_annotations") {
             setCurrentSection("annotations");
+          } else if (actionId === "start_backup") {
+            setCurrentSection("devices");
           } else if (actionId === "toggle_eink") {
             setCurrentSection("all");
           }

@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { Search, BookOpen, Contrast, RefreshCw, CornerDownLeft } from "lucide-react";
 
+import { LumaApi } from "../../lib/tauri";
+import { Book } from "@luma/shared-types";
+
 export interface CommandPaletteModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -14,6 +17,15 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
 }) => {
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [books, setBooks] = useState<Book[]>([]);
+
+  useEffect(() => {
+    if (isOpen) {
+      LumaApi.listBooks()
+        .then((b) => setBooks(b))
+        .catch(() => {});
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -33,16 +45,17 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
 
   if (!isOpen) return null;
 
-  const items = [
-    {
-      id: "open_meditations",
-      category: "RECENT",
-      icon: BookOpen,
-      label: "Open Book: Meditations",
-    },
+  const bookItems = books.slice(0, 5).map((b) => ({
+    id: `open_book_${b.id}`,
+    category: "LIBRARY",
+    icon: BookOpen,
+    label: `Open Book: ${b.title}`,
+  }));
+
+  const systemItems = [
     {
       id: "search_annotations",
-      category: "LIBRARY",
+      category: "SYSTEM",
       icon: Search,
       label: "Search Annotations...",
     },
@@ -56,9 +69,11 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
       id: "start_backup",
       category: "SYSTEM",
       icon: RefreshCw,
-      label: "Start Backup",
+      label: "Sync / Backup Library",
     },
   ];
+
+  const items = [...bookItems, ...systemItems];
 
   const filteredItems = items.filter((item) =>
     item.label.toLowerCase().includes(query.toLowerCase())

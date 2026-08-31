@@ -47,11 +47,37 @@ impl LibraryService {
         file_path: P,
         device_id: DeviceId,
     ) -> Result<(Book, BookFile, DuplicateAssessment)> {
-        let path = file_path.as_ref();
+        let mut resolved_path = file_path.as_ref().to_path_buf();
+        if !resolved_path.exists() {
+            // Check common locations if relative filename was supplied
+            if let Some(filename) = resolved_path.file_name() {
+                let home = std::env::var("USERPROFILE")
+                    .or_else(|_| std::env::var("HOME"))
+                    .ok()
+                    .map(PathBuf::from);
+
+                let candidates = [
+                    self.library_dir.join(filename),
+                    std::env::current_dir().unwrap_or_default().join(filename),
+                    home.as_ref().map(|h| h.join("Downloads").join(filename)).unwrap_or_default(),
+                    home.as_ref().map(|h| h.join("Desktop").join(filename)).unwrap_or_default(),
+                    home.as_ref().map(|h| h.join("Documents").join(filename)).unwrap_or_default(),
+                ];
+
+                for candidate in candidates {
+                    if !candidate.as_os_str().is_empty() && candidate.exists() {
+                        resolved_path = candidate;
+                        break;
+                    }
+                }
+            }
+        }
+
+        let path = &resolved_path;
         if !path.exists() {
             return Err(LumaError::DocumentError(format!(
                 "File does not exist: {}",
-                path.display()
+                file_path.as_ref().display()
             )));
         }
 

@@ -19,8 +19,8 @@ impl FormatDetector {
         let bytes_read = file.read(&mut header).unwrap_or(0);
         let header_slice = &header[..bytes_read];
 
-        // 1. Check PDF Magic Header (%PDF-)
-        if header_slice.starts_with(b"%PDF-") {
+        // 1. Check PDF Magic Header (%PDF- anywhere in first 1024 bytes per ISO 32000-1)
+        if header_slice.windows(5).any(|w| w == b"%PDF-") {
             return Ok(DocumentFormat::Pdf);
         }
 

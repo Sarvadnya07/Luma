@@ -403,7 +403,9 @@ const mockTags: Tag[] = [
   },
 ];
 
-const isTauri = () => typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+export const isTauri = () =>
+  typeof window !== "undefined" &&
+  ("__TAURI_INTERNALS__" in window || "__TAURI__" in window);
 
 export const LumaApi = {
   async listBooks(filter?: LibraryFilterOptions, sort?: LibrarySortOptions, page?: number, pageSize?: number): Promise<Book[]> {
