@@ -9,7 +9,8 @@ authors.workspace = true
 tauri-build = { workspace = true }
 
 [dependencies]
-tauri = { workspace = true }
+tauri = { workspace = true, default-features = true }
+chrono = { workspace = true }
 luma-core = { workspace = true }
 luma-anchor = { workspace = true }
 luma-reader = { workspace = true }

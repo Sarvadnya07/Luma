@@ -21,3 +21,4 @@ unicode-normalization = { workspace = true }
 [dev-dependencies]
 tokio = { workspace = true }
 tempfile = "3.12"
+zip = { workspace = true }

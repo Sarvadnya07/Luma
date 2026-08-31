@@ -97,6 +97,7 @@ impl AnchorEngine {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn evaluate_candidate(
         doc: &str,
         start_char: usize,

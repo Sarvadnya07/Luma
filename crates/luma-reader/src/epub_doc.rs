@@ -117,14 +117,16 @@ impl EpubDocument {
             self.opf_dir.join(&item.href).to_string_lossy().replace('\\', "/")
         };
 
-        let mut entry = match archive.by_name(&chapter_path) {
-            Ok(e) => e,
-            Err(_) => archive
-                .by_name(&item.href)
-                .map_err(|e| LumaError::DocumentError(format!("Chapter file {} not found: {}", chapter_path, e)))?,
-        };
-
         let mut raw_html = String::new();
+        let has_chapter = archive.by_name(&chapter_path).is_ok();
+        let mut entry = if has_chapter {
+            archive.by_name(&chapter_path).unwrap()
+        } else {
+            archive
+                .by_name(&item.href)
+                .map_err(|e| LumaError::DocumentError(format!("Chapter file {} not found: {}", chapter_path, e)))?
+        };
+        
         entry
             .read_to_string(&mut raw_html)
             .map_err(|e| LumaError::DocumentError(format!("Failed to read chapter {}: {}", item.href, e)))?;

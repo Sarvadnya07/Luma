@@ -42,6 +42,7 @@ pub fn normalize_text(input: &str) -> String {
 }
 
 /// Compute Levenshtein edit distance between two strings
+#[allow(clippy::needless_range_loop)]
 pub fn levenshtein_distance(a: &str, b: &str) -> usize {
     let a_chars: Vec<char> = a.chars().collect();
     let b_chars: Vec<char> = b.chars().collect();
