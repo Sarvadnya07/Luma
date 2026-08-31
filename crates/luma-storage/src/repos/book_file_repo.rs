@@ -21,8 +21,8 @@ impl BookFileRepository {
                 INSERT INTO book_files (
                     id, book_id, original_filename, relative_path, canonical_path,
                     format, mime_type, file_size_bytes, sha256_hash, imported_at,
-                    modified_at, availability
-                ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)
+                    created_at, modified_at, availability
+                ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?10, ?11, ?12)
                 "#,
                 params![
                     file.id.to_string(),

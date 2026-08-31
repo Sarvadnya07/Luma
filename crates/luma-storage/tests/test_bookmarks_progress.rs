@@ -1,4 +1,4 @@
-use luma_core::ids::{BookId, DeviceId};
+use luma_core::ids::DeviceId;
 use luma_core::models::book::Book;
 use luma_core::models::reading::{Bookmark, ReadingProgress};
 use luma_storage::repos::{BookRepository, BookmarkRepository, ReadingProgressRepository};
