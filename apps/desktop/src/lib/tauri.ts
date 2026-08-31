@@ -17,6 +17,7 @@ import {
   DocumentSearchMatch,
   Bookmark,
   TocItem,
+  ReadingStatus,
 } from "@luma/shared-types";
 
 // In-memory mock store when Tauri IPC is not available in browser dev environment
@@ -767,14 +768,14 @@ export const LumaApi = {
     }
   },
 
-  async setReadingStatus(bookId: string, status: string): Promise<void> {
+  async setReadingStatus(bookId: string, status: ReadingStatus): Promise<void> {
     if (isTauri()) {
       const { invoke } = await import("@tauri-apps/api/core");
       return invoke("set_reading_status", { bookId, status });
     }
     const idx = mockBooks.findIndex((b) => b.id === bookId);
     if (idx !== -1 && mockBooks[idx]) {
-      mockBooks[idx]!.reading_status = status as any;
+      mockBooks[idx]!.reading_status = status;
     }
   },
 

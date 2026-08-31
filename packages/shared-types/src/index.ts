@@ -10,7 +10,7 @@ export type DuplicateMatchLevel = "exact_duplicate" | "likely_duplicate" | "poss
 
 export type ImportJobStatus = "queued" | "processing" | "completed" | "partial_success" | "failed" | "cancelled";
 
-export type ReaderTheme = "dark" | "light" | "sepia" | "eink";
+export type ReaderTheme = "dark" | "light" | "sepia" | "eink" | "paper";
 
 export type ReaderLayoutMode = "paginated" | "scroll";
 

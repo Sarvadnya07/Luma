@@ -43,6 +43,13 @@ export const READER_THEME_STYLES: Record<
     border: "border-black",
     paperBg: "#f4f4f4",
   },
+  paper: {
+    bg: "bg-[#EAEFEF]",
+    text: "text-[#1C1917]",
+    link: "text-teal-700",
+    border: "border-[#CCD6D6]",
+    paperBg: "#EAEFEF",
+  },
 };
 
 export interface ReaderProps {

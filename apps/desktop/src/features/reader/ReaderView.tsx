@@ -212,7 +212,7 @@ export const ReaderView: React.FC<ReaderViewProps> = ({ book }) => {
 
         {/* Document Engine Viewport */}
         <main className="flex-1 h-full overflow-hidden flex flex-col relative bg-[#FAF7F2]">
-          {(settings.theme as any) === "eink" ? (
+          {settings.theme === "eink" ? (
             <EInkReaderView />
           ) : isPdf ? (
             <PdfReaderView />

@@ -159,16 +159,12 @@ export const TypographySettingsDrawer: React.FC = () => {
         </span>
         <div className="grid grid-cols-4 gap-2">
           {themes.map((t) => {
-            const isSelected =
-              (t.id === "light" && settings.theme === "light") ||
-              (t.id === "sepia" && settings.theme === "sepia") ||
-              (t.id === "paper" && (settings.theme === ("paper" as any) || settings.theme === "light")) ||
-              (t.id === "dark" && settings.theme === "dark");
+            const isSelected = settings.theme === t.id;
 
             return (
               <button
                 key={t.id}
-                onClick={() => updateSettings({ theme: t.id as any })}
+                onClick={() => updateSettings({ theme: t.id })}
                 className="flex flex-col items-center gap-1 group"
               >
                 <div

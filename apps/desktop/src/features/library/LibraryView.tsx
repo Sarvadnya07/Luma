@@ -156,7 +156,7 @@ export const LibraryView: React.FC = () => {
     setIsDragging(false);
     const files = Array.from(e.dataTransfer.files);
     if (files.length > 0) {
-      const paths = files.map((f) => (f as any).path || f.name);
+      const paths = files.map((f) => (f as File & { path?: string }).path || f.name);
       await handleImportFiles(paths);
     }
   };
@@ -166,9 +166,10 @@ export const LibraryView: React.FC = () => {
     input.type = "file";
     input.multiple = true;
     input.accept = ".epub,.pdf,.cbz,.txt,.md";
-    input.onchange = (e: any) => {
-      const files = Array.from(e.target.files || []);
-      const paths = files.map((f: any) => f.path || f.name);
+    input.onchange = (e: Event) => {
+      const target = e.target as HTMLInputElement;
+      const files = Array.from(target.files || []);
+      const paths = files.map((f) => (f as File & { path?: string }).path || f.name);
       if (paths.length > 0) handleImportFiles(paths);
     };
     input.click();
