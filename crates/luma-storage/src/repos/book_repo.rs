@@ -209,6 +209,15 @@ impl BookRepository {
         })
     }
 
+    pub fn list_all(&self) -> StorageResult<Vec<Book>> {
+        self.list(
+            &LibraryFilterOptions::default(),
+            &LibrarySortOptions::default(),
+            0,
+            100_000,
+        )
+    }
+
     pub fn list(
         &self,
         filter: &LibraryFilterOptions,

@@ -18,7 +18,15 @@ import {
   Bookmark,
   TocItem,
   ReadingStatus,
+  BackupManifest,
+  BackupPreview,
+  BackupRecord,
+  BulkOperationResult,
+  DiagnosticsReport,
+  JobProgress,
+  MaintenanceResult,
 } from "@luma/shared-types";
+
 
 // In-memory mock store when Tauri IPC is not available in browser dev environment
 const mockBooks: Book[] = [
@@ -403,11 +411,14 @@ const mockTags: Tag[] = [
   },
 ];
 
+const mockSettings: Record<string, unknown> = {};
+
 export const isTauri = () =>
   typeof window !== "undefined" &&
   ("__TAURI_INTERNALS__" in window || "__TAURI__" in window);
 
 export const LumaApi = {
+
   async listBooks(filter?: LibraryFilterOptions, sort?: LibrarySortOptions, page?: number, pageSize?: number): Promise<Book[]> {
     if (isTauri()) {
       const { invoke } = await import("@tauri-apps/api/core");
@@ -1031,4 +1042,255 @@ export const LumaApi = {
       },
     };
   },
+
+  // Bulk Operations
+  async bulkAddTags(bookIds: string[], tagNames: string[]): Promise<BulkOperationResult> {
+    if (isTauri()) {
+      const { invoke } = await import("@tauri-apps/api/core");
+      return invoke<BulkOperationResult>("bulk_add_tags", { payload: { book_ids: bookIds, tag_names: tagNames } });
+    }
+    const count = bookIds.length * tagNames.length;
+    return { total: count, successful: count, failed: 0 };
+  },
+
+  async bulkAddToCollection(collectionId: string, bookIds: string[]): Promise<BulkOperationResult> {
+    if (isTauri()) {
+      const { invoke } = await import("@tauri-apps/api/core");
+      return invoke<BulkOperationResult>("bulk_add_to_collection", { payload: { collection_id: collectionId, book_ids: bookIds } });
+    }
+    return { total: bookIds.length, successful: bookIds.length, failed: 0 };
+  },
+
+  async bulkTrashBooks(bookIds: string[]): Promise<BulkOperationResult> {
+    if (isTauri()) {
+      const { invoke } = await import("@tauri-apps/api/core");
+      return invoke<BulkOperationResult>("bulk_trash_books", { bookIds });
+    }
+    return { total: bookIds.length, successful: bookIds.length, failed: 0 };
+  },
+
+  async bulkSetReadingStatus(bookIds: string[], status: ReadingStatus): Promise<BulkOperationResult> {
+    if (isTauri()) {
+      const { invoke } = await import("@tauri-apps/api/core");
+      return invoke<BulkOperationResult>("bulk_set_reading_status", { payload: { book_ids: bookIds, status } });
+    }
+    return { total: bookIds.length, successful: bookIds.length, failed: 0 };
+  },
+
+  // Search
+  async searchLibrary(query: string, bookIdFilter?: string | null, maxResults?: number): Promise<{ hits: DocumentSearchMatch[]; total_count: number; query_duration_ms: number }> {
+    if (isTauri()) {
+      const { invoke } = await import("@tauri-apps/api/core");
+      return invoke("search_library", { query, bookIdFilter, maxResults });
+    }
+    return { hits: [], total_count: 0, query_duration_ms: 0 };
+  },
+
+  // Settings
+  async getSetting<T = unknown>(key: string): Promise<T | null> {
+    if (isTauri()) {
+      const { invoke } = await import("@tauri-apps/api/core");
+      return invoke<T | null>("get_setting", { key });
+    }
+    try {
+      if (typeof localStorage !== "undefined") {
+        const val = localStorage.getItem(`luma_setting_${key}`);
+        if (val) return JSON.parse(val);
+      }
+    } catch {
+      // ignore
+    }
+    return (mockSettings[key] as T) ?? null;
+  },
+
+  async setSetting(key: string, value: unknown): Promise<void> {
+    if (isTauri()) {
+      const { invoke } = await import("@tauri-apps/api/core");
+      return invoke("set_setting", { key, value });
+    }
+    try {
+      if (typeof localStorage !== "undefined") {
+        localStorage.setItem(`luma_setting_${key}`, JSON.stringify(value));
+      }
+    } catch {
+      // ignore
+    }
+    mockSettings[key] = value;
+  },
+
+  async getAllSettings(): Promise<Record<string, unknown>> {
+    if (isTauri()) {
+      const { invoke } = await import("@tauri-apps/api/core");
+      return invoke<Record<string, unknown>>("get_all_settings");
+    }
+    return { ...mockSettings };
+  },
+
+  // Backup & Restore
+  async createBackup(prefix?: string): Promise<BackupRecord> {
+    if (isTauri()) {
+      const { invoke } = await import("@tauri-apps/api/core");
+      return invoke<BackupRecord>("create_backup", { prefix });
+    }
+    const pfx = prefix || "luma_backup";
+    return {
+      id: `backup_${Date.now()}`,
+      backup_name: `${pfx}_${Date.now()}.luma-backup`,
+      file_path: `/data/backups/${pfx}_${Date.now()}.luma-backup`,
+      file_size_bytes: 1048576,
+      sha256_hash: "mockhash",
+      books_count: mockBooks.length,
+      annotations_count: mockAnnotations.length,
+      bookmarks_count: mockBookmarks.length,
+      created_at: new Date().toISOString(),
+    };
+  },
+
+
+  async listBackups(): Promise<BackupRecord[]> {
+    if (isTauri()) {
+      const { invoke } = await import("@tauri-apps/api/core");
+      return invoke<BackupRecord[]>("list_backups");
+    }
+    return [];
+  },
+
+  async inspectBackup(backupPath: string): Promise<BackupPreview> {
+    if (isTauri()) {
+      const { invoke } = await import("@tauri-apps/api/core");
+      return invoke<BackupPreview>("inspect_backup", { backupPath });
+    }
+    return {
+      manifest: {
+        version: 1,
+        created_at: new Date().toISOString(),
+        books_count: 5,
+        annotations_count: 10,
+        bookmarks_count: 3,
+        settings_count: 2,
+      },
+      file_size_bytes: 1048576,
+      sha256_hash: "mockhash",
+    };
+  },
+
+  async restoreBackup(backupPath: string): Promise<BackupManifest> {
+    if (isTauri()) {
+      const { invoke } = await import("@tauri-apps/api/core");
+      return invoke<BackupManifest>("restore_backup", { backupPath });
+    }
+    return {
+      version: 1,
+      created_at: new Date().toISOString(),
+      books_count: 5,
+      annotations_count: 10,
+      bookmarks_count: 3,
+      settings_count: 2,
+    };
+  },
+
+  // Maintenance
+  async reconcileFiles(): Promise<MaintenanceResult> {
+    if (isTauri()) {
+      const { invoke } = await import("@tauri-apps/api/core");
+      return invoke<MaintenanceResult>("maintenance_reconcile_files");
+    }
+    return { operation: "reconcile_files", items_processed: 0, duration_ms: 5, message: "OK" };
+  },
+
+  async rebuildSearchIndex(): Promise<MaintenanceResult> {
+    if (isTauri()) {
+      const { invoke } = await import("@tauri-apps/api/core");
+      return invoke<MaintenanceResult>("maintenance_rebuild_search_index");
+    }
+    return { operation: "rebuild_search_index", items_processed: mockBooks.length, duration_ms: 10, message: "OK" };
+  },
+
+  async cleanupCaches(): Promise<MaintenanceResult> {
+    if (isTauri()) {
+      const { invoke } = await import("@tauri-apps/api/core");
+      return invoke<MaintenanceResult>("maintenance_cleanup_caches");
+    }
+    return { operation: "cleanup_caches", items_processed: 0, duration_ms: 2, message: "OK" };
+  },
+
+  async vacuumDatabase(): Promise<MaintenanceResult> {
+    if (isTauri()) {
+      const { invoke } = await import("@tauri-apps/api/core");
+      return invoke<MaintenanceResult>("maintenance_vacuum_database");
+    }
+    return { operation: "vacuum_database", items_processed: 1, duration_ms: 15, message: "OK" };
+  },
+
+  // Diagnostics
+  async runDiagnostics(): Promise<DiagnosticsReport> {
+    if (isTauri()) {
+      const { invoke } = await import("@tauri-apps/api/core");
+      return invoke<DiagnosticsReport>("run_diagnostics");
+    }
+    return {
+      overall_status: "healthy",
+      timestamp: new Date().toISOString(),
+      subsystems: [
+        { name: "Database", status: "healthy", details: "Mock in-memory database" },
+        { name: "Filesystem", status: "healthy", details: "Mock storage" },
+        { name: "Search", status: "healthy", details: "Mock FTS5" },
+        { name: "Cache", status: "healthy", details: "Mock cache" },
+        { name: "Jobs", status: "healthy", details: "0 active" },
+      ],
+      metrics: { total_books: mockBooks.length },
+    };
+  },
+
+  // Jobs
+  async getJobProgress(jobId: string): Promise<JobProgress | null> {
+    if (isTauri()) {
+      const { invoke } = await import("@tauri-apps/api/core");
+      return invoke<JobProgress | null>("get_job_progress", { jobId });
+    }
+    return null;
+  },
+
+  async cancelJob(jobId: string): Promise<boolean> {
+    if (isTauri()) {
+      const { invoke } = await import("@tauri-apps/api/core");
+      return invoke<boolean>("cancel_job", { jobId });
+    }
+    return true;
+  },
+
+  async listRecentJobs(limit?: number): Promise<JobProgress[]> {
+    if (isTauri()) {
+      const { invoke } = await import("@tauri-apps/api/core");
+      return invoke<JobProgress[]>("list_recent_jobs", { limit });
+    }
+    return [];
+  },
+
+  // Event Listeners
+  async onDomainEvent<T = unknown>(event: string, callback: (payload: T) => void): Promise<() => void> {
+    if (isTauri()) {
+      const { listen } = await import("@tauri-apps/api/event");
+      const unlisten = await listen<T>(event, (e) => callback(e.payload));
+      return unlisten;
+    }
+    return () => {};
+  },
+
+  async onJobProgress(callback: (progress: JobProgress) => void): Promise<() => void> {
+    return this.onDomainEvent("luma://job/progress", callback);
+  },
+
+  async onBookImported(callback: (event: unknown) => void): Promise<() => void> {
+    return this.onDomainEvent("luma://library/book-imported", callback);
+  },
+
+  async onReadingProgressChanged(callback: (event: unknown) => void): Promise<() => void> {
+    return this.onDomainEvent("luma://reading/progress-changed", callback);
+  },
+
+  async onAnnotationChanged(callback: (event: unknown) => void): Promise<() => void> {
+    return this.onDomainEvent("luma://annotation/changed", callback);
+  },
 };
+

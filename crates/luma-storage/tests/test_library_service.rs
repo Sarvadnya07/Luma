@@ -1,20 +1,26 @@
 use std::fs::File;
 use std::io::Write;
 use tempfile::{tempdir, NamedTempFile};
-use zip::write::FileOptions;
+use zip::write::SimpleFileOptions;
 use zip::ZipWriter;
 
 use luma_core::ids::DeviceId;
 use luma_core::models::book::{DocumentFormat, LibraryState, ReadingStatus};
 use luma_core::models::ingest::DuplicateMatchLevel;
-use luma_storage::repos::{BookRepository, LibraryFilterOptions, LibrarySortOptions};
-use luma_storage::{Database, LibraryService};
+use luma_storage::cache::CacheManager;
+use luma_storage::events::EventBus;
+use luma_storage::files::FileService;
+use luma_storage::jobs::JobManager;
+use luma_storage::repos::{
+    BookRepository, JobRepository, LibraryFilterOptions, LibrarySortOptions,
+};
+use luma_storage::services::ImportService;
+use luma_storage::Database;
 
 fn create_sample_epub(title: &str, isbn: &str) -> NamedTempFile {
     let file = NamedTempFile::new().unwrap();
     let mut zip = ZipWriter::new(File::create(file.path()).unwrap());
-    let options: zip::write::FileOptions<()> =
-        FileOptions::default().compression_method(zip::CompressionMethod::Stored);
+    let options = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
 
     zip.start_file("mimetype", options).unwrap();
     zip.write_all(b"application/epub+zip").unwrap();
@@ -56,18 +62,24 @@ fn create_sample_epub(title: &str, isbn: &str) -> NamedTempFile {
     file
 }
 
-#[test]
-fn test_library_ingestion_and_duplicate_detection() {
+#[tokio::test]
+async fn test_library_ingestion_and_duplicate_detection() {
     let db = Database::open_in_memory().expect("in-memory db");
     let temp_lib = tempdir().unwrap();
-    let service = LibraryService::new(db.clone(), temp_lib.path());
+    let file_service = FileService::new(temp_lib.path());
+    let event_bus = EventBus::default();
+    let job_repo = JobRepository::new(db.clone());
+    let job_manager = JobManager::new(job_repo, event_bus.clone());
+    let cache = CacheManager::new();
+
+    let service = ImportService::new(db.clone(), file_service, event_bus, job_manager, cache);
     let device_id = DeviceId::new();
 
     let epub1 = create_sample_epub("Database Internals", "978-1492040347");
 
     // 1. Initial Import
     let (book1, file1, assessment1) = service
-        .import_file(epub1.path(), device_id)
+        .import_single_file(epub1.path(), device_id)
         .expect("import file 1");
 
     assert_eq!(book1.title, "Database Internals");
@@ -76,7 +88,7 @@ fn test_library_ingestion_and_duplicate_detection() {
 
     // 2. Re-importing the exact same file (Level 1: Exact Hash Duplicate)
     let (dup_book, dup_file, assessment2) = service
-        .import_file(epub1.path(), device_id)
+        .import_single_file(epub1.path(), device_id)
         .expect("re-import file 1");
 
     assert_eq!(dup_book.id, book1.id);
@@ -86,22 +98,28 @@ fn test_library_ingestion_and_duplicate_detection() {
     // 3. Importing another file with the same ISBN (Level 2: Likely Duplicate)
     let epub2_same_isbn = create_sample_epub("Database Internals Second Edition", "978-1492040347");
     let (_book2, _file2, assessment3) = service
-        .import_file(epub2_same_isbn.path(), device_id)
+        .import_single_file(epub2_same_isbn.path(), device_id)
         .expect("import file 2");
 
     assert_eq!(assessment3.level, DuplicateMatchLevel::LikelyDuplicate);
 }
 
-#[test]
-fn test_library_repository_filtering_sorting_and_trash() {
+#[tokio::test]
+async fn test_library_repository_filtering_sorting_and_trash() {
     let db = Database::open_in_memory().expect("in-memory db");
     let temp_lib = tempdir().unwrap();
-    let service = LibraryService::new(db.clone(), temp_lib.path());
+    let file_service = FileService::new(temp_lib.path());
+    let event_bus = EventBus::default();
+    let job_repo = JobRepository::new(db.clone());
+    let job_manager = JobManager::new(job_repo, event_bus.clone());
+    let cache = CacheManager::new();
+
+    let service = ImportService::new(db.clone(), file_service, event_bus, job_manager, cache);
     let book_repo = BookRepository::new(db.clone());
     let device_id = DeviceId::new();
 
     let epub = create_sample_epub("Distributed Algorithms", "978-1558603486");
-    let (book, _, _) = service.import_file(epub.path(), device_id).unwrap();
+    let (book, _, _) = service.import_single_file(epub.path(), device_id).unwrap();
 
     // Verify Active list
     let active_books = book_repo

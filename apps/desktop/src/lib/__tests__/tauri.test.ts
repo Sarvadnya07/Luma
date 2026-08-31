@@ -53,4 +53,44 @@ describe("LumaApi client & mock storage", () => {
     const res = await LumaApi.resolveAnchor(exact, null, null, docText);
     expect(res.status).toBe("failed");
   });
+
+  it("handles settings CRUD operations", async () => {
+    await LumaApi.setSetting("reader_test", { fontSize: 18, theme: "dark" });
+    const val = await LumaApi.getSetting<{ fontSize: number; theme: string }>("reader_test");
+    expect(val).toEqual({ fontSize: 18, theme: "dark" });
+  });
+
+  it("runs subsystem diagnostics report", async () => {
+    const report = await LumaApi.runDiagnostics();
+    expect(report.overall_status).toBe("healthy");
+    expect(report.subsystems.length).toBeGreaterThan(0);
+    expect(report.timestamp).toBeDefined();
+  });
+
+  it("creates and inspects backups", async () => {
+    const backup = await LumaApi.createBackup("test_backup");
+    expect(backup.id).toBeDefined();
+    expect(backup.backup_name).toContain("test_backup");
+
+    const preview = await LumaApi.inspectBackup(backup.file_path);
+    expect(preview.manifest.version).toBe(1);
+  });
+
+  it("executes maintenance operations", async () => {
+    const reconcile = await LumaApi.reconcileFiles();
+    expect(reconcile.operation).toBe("reconcile_files");
+
+    const cacheRes = await LumaApi.cleanupCaches();
+    expect(cacheRes.operation).toBe("cleanup_caches");
+
+    const vacuumRes = await LumaApi.vacuumDatabase();
+    expect(vacuumRes.operation).toBe("vacuum_database");
+  });
+
+  it("executes bulk operations", async () => {
+    const res = await LumaApi.bulkAddTags(["book_01", "book_02"], ["Philosophy", "Classics"]);
+    expect(res.total).toBe(4);
+    expect(res.successful).toBe(4);
+  });
 });
+

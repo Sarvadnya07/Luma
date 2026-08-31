@@ -43,6 +43,26 @@ impl BookmarkRepository {
         })
     }
 
+    pub fn list_all(&self) -> StorageResult<Vec<Bookmark>> {
+        self.db.with_conn(|conn| {
+            let mut stmt = conn.prepare(
+                r#"
+                SELECT id, book_id, locator, title, chapter_title, page_number,
+                       version, created_at, updated_at, device_id, is_deleted, deleted_at
+                FROM bookmarks
+                WHERE is_deleted = 0
+                ORDER BY created_at DESC
+                "#,
+            )?;
+            let rows = stmt.query_map([], Self::row_to_bookmark)?;
+            let mut list = Vec::new();
+            for r in rows {
+                list.push(r?);
+            }
+            Ok(list)
+        })
+    }
+
     pub fn list_by_book_id(&self, book_id: &BookId) -> StorageResult<Vec<Bookmark>> {
         self.db.with_conn(|conn| {
             let mut stmt = conn.prepare(

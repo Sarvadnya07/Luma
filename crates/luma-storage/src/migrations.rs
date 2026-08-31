@@ -265,6 +265,47 @@ CREATE VIRTUAL TABLE IF NOT EXISTS books_fts USING fts5(
 );
 "#;
 
+pub const V3_BACKEND_SCHEMA: &str = r#"
+-- Settings table for categorized local preferences
+CREATE TABLE IF NOT EXISTS settings (
+    key TEXT PRIMARY KEY,
+    value_json TEXT NOT NULL,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Backup records table
+CREATE TABLE IF NOT EXISTS backup_records (
+    id TEXT PRIMARY KEY,
+    backup_name TEXT NOT NULL,
+    file_path TEXT NOT NULL,
+    file_size_bytes INTEGER NOT NULL,
+    sha256_hash TEXT NOT NULL,
+    books_count INTEGER NOT NULL DEFAULT 0,
+    annotations_count INTEGER NOT NULL DEFAULT 0,
+    bookmarks_count INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_backup_records_created ON backup_records(created_at);
+
+-- Background jobs table for persistent lifecycle & history
+CREATE TABLE IF NOT EXISTS background_jobs (
+    id TEXT PRIMARY KEY,
+    job_type TEXT NOT NULL,
+    status TEXT NOT NULL,
+    total_units INTEGER NOT NULL DEFAULT 0,
+    completed_units INTEGER NOT NULL DEFAULT 0,
+    failed_units INTEGER NOT NULL DEFAULT 0,
+    message TEXT,
+    error_details TEXT,
+    payload_json TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    ended_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_background_jobs_status ON background_jobs(status);
+CREATE INDEX IF NOT EXISTS idx_background_jobs_created ON background_jobs(created_at);
+"#;
+
 pub fn run_migrations(conn: &mut Connection) -> StorageResult<()> {
     let tx = conn.transaction()?;
 
@@ -336,6 +377,14 @@ pub fn run_migrations(conn: &mut Connection) -> StorageResult<()> {
 
         tx.execute(
             "INSERT INTO schema_migrations (version, applied_at) VALUES (2, datetime('now'))",
+            [],
+        )?;
+    }
+
+    if current_version < 3 {
+        tx.execute_batch(V3_BACKEND_SCHEMA)?;
+        tx.execute(
+            "INSERT INTO schema_migrations (version, applied_at) VALUES (3, datetime('now'))",
             [],
         )?;
     }

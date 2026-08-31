@@ -6,6 +6,7 @@ use luma_core::ids::{BookId, CoverImageId};
 use luma_core::models::ingest::CoverImage;
 use luma_security::compute_sha256;
 
+#[derive(Clone, Debug)]
 pub struct CoverStore {
     base_dir: PathBuf,
 }

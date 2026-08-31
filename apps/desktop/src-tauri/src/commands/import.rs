@@ -1,43 +1,44 @@
 use std::path::PathBuf;
 use tauri::State;
 
+use luma_core::error::BackendError;
 use luma_core::ids::DeviceId;
 use luma_core::models::ingest::ImportJob;
-use luma_storage::{Database, LibraryService};
 
-fn get_library_dir() -> PathBuf {
-    std::env::var("LUMA_DATA_DIR")
-        .ok()
-        .map(PathBuf::from)
-        .unwrap_or_else(|| std::env::current_dir().unwrap_or_default().join("data"))
-        .join("library")
-}
+use crate::context::LumaAppContext;
 
 #[tauri::command]
-pub fn import_files(db: State<'_, Database>, file_paths: Vec<String>) -> Result<ImportJob, String> {
-    let service = LibraryService::new(db.inner().clone(), get_library_dir());
+pub async fn import_files(
+    ctx: State<'_, LumaAppContext>,
+    file_paths: Vec<String>,
+) -> Result<ImportJob, BackendError> {
     let device_id = DeviceId::new();
     let paths: Vec<PathBuf> = file_paths.into_iter().map(PathBuf::from).collect();
-    service
+
+    ctx.import_service
         .import_files(&paths, device_id)
-        .map_err(|e| e.to_string())
+        .await
+        .map_err(BackendError::from)
 }
 
 #[tauri::command]
-pub fn import_directory(
-    db: State<'_, Database>,
+pub async fn import_directory(
+    ctx: State<'_, LumaAppContext>,
     dir_path: String,
     recursive: bool,
-) -> Result<ImportJob, String> {
-    let service = LibraryService::new(db.inner().clone(), get_library_dir());
+) -> Result<ImportJob, BackendError> {
     let device_id = DeviceId::new();
-    service
+
+    ctx.import_service
         .scan_directory(PathBuf::from(dir_path), recursive, device_id)
-        .map_err(|e| e.to_string())
+        .await
+        .map_err(BackendError::from)
 }
 
 #[tauri::command]
-pub fn reconcile_library_files(db: State<'_, Database>) -> Result<usize, String> {
-    let service = LibraryService::new(db.inner().clone(), get_library_dir());
-    service.reconcile_files().map_err(|e| e.to_string())
+pub fn reconcile_library_files(ctx: State<'_, LumaAppContext>) -> Result<usize, BackendError> {
+    ctx.maintenance_service
+        .reconcile_files()
+        .map(|res| res.items_processed)
+        .map_err(BackendError::from)
 }

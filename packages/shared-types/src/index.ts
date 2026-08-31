@@ -321,3 +321,80 @@ export type ResolutionResult =
   | { status: "highconfidence"; data: MatchCandidate }
   | { status: "ambiguous"; data: { candidates: MatchCandidate[]; highest_score: number } }
   | { status: "failed"; data: { best_candidate?: MatchCandidate | null; reason: string } };
+
+export interface BackendError {
+  code: string;
+  category: string;
+  message: string;
+  retryable: boolean;
+  details?: string | null;
+}
+
+export interface BulkOperationResult {
+  total: number;
+  successful: number;
+  failed: number;
+}
+
+export type JobStatus = "queued" | "running" | "paused" | "completed" | "failed" | "cancelled";
+
+export interface JobProgress {
+  job_id: string;
+  job_type: string;
+  stage: string;
+  current: number;
+  total: number;
+  percent: number;
+  message?: string | null;
+  status: JobStatus;
+}
+
+export interface BackupRecord {
+  id: string;
+  backup_name: string;
+  file_path: string;
+  file_size_bytes: number;
+  sha256_hash: string;
+  books_count: number;
+  annotations_count: number;
+  bookmarks_count: number;
+  created_at: string;
+}
+
+export interface BackupManifest {
+  version: number;
+  created_at: string;
+  books_count: number;
+  annotations_count: number;
+  bookmarks_count: number;
+  settings_count: number;
+}
+
+export interface BackupPreview {
+  manifest: BackupManifest;
+  file_size_bytes: number;
+  sha256_hash: string;
+}
+
+export interface MaintenanceResult {
+  operation: string;
+  items_processed: number;
+  duration_ms: number;
+  message: string;
+}
+
+export type HealthStatus = "healthy" | "degraded" | "failed" | "unavailable";
+
+export interface SubsystemHealth {
+  name: string;
+  status: HealthStatus;
+  details?: string | null;
+}
+
+export interface DiagnosticsReport {
+  overall_status: HealthStatus;
+  timestamp: string;
+  subsystems: SubsystemHealth[];
+  metrics: Record<string, unknown>;
+}
+

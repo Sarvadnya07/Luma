@@ -1,27 +1,13 @@
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use tauri::State;
 
-use luma_core::ids::{AuthorId, BookId};
-use luma_core::models::book::{Book, BookFile, DocumentFormat, LibraryState, ReadingStatus};
-use luma_core::models::metadata::{Author, Collection, Series, Tag};
-use luma_core::models::reading::ReadingProgress;
-use luma_storage::repos::{
-    AuthorRepository, BookFileRepository, BookRepository, CollectionRepository,
-    LibraryFilterOptions, LibrarySortBy, LibrarySortOptions, ReadingProgressRepository,
-    SeriesRepository, TagRepository,
-};
-use luma_storage::Database;
+use luma_core::error::BackendError;
+use luma_core::ids::{AuthorId, BookId, CollectionId, DeviceId};
+use luma_core::models::book::{Book, DocumentFormat, LibraryState, ReadingStatus};
+use luma_storage::repos::{LibraryFilterOptions, LibrarySortBy, LibrarySortOptions};
+use luma_storage::services::{BookDetailViewData, BulkOperationResult};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BookDetailViewData {
-    pub book: Book,
-    pub files: Vec<BookFile>,
-    pub authors: Vec<Author>,
-    pub series: Option<Series>,
-    pub tags: Vec<Tag>,
-    pub collections: Vec<Collection>,
-    pub reading_progress: Option<ReadingProgress>,
-}
+use crate::context::LumaAppContext;
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct LibraryFilterPayload {
@@ -42,26 +28,31 @@ pub struct LibrarySortPayload {
 }
 
 #[derive(Debug, Clone, Deserialize)]
-pub struct UpdateBookMetadataPayload {
-    pub title: String,
-    pub subtitle: Option<String>,
-    pub description: Option<String>,
-    pub publisher: Option<String>,
-    pub published_date: Option<String>,
-    pub language: Option<String>,
-    pub isbn: Option<String>,
+pub struct BulkTagPayload {
+    pub book_ids: Vec<String>,
+    pub tag_names: Vec<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct BulkCollectionPayload {
+    pub collection_id: String,
+    pub book_ids: Vec<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct BulkStatusPayload {
+    pub book_ids: Vec<String>,
+    pub status: String,
 }
 
 #[tauri::command]
 pub fn list_books(
-    db: State<'_, Database>,
+    ctx: State<'_, LumaAppContext>,
     filter: Option<LibraryFilterPayload>,
     sort: Option<LibrarySortPayload>,
     page: Option<usize>,
     page_size: Option<usize>,
-) -> Result<Vec<Book>, String> {
-    let repo = BookRepository::new(db.inner().clone());
-
+) -> Result<Vec<Book>, BackendError> {
     let filter_opts = if let Some(f) = filter {
         LibraryFilterOptions {
             search_query: f.search_query,
@@ -96,141 +87,99 @@ pub fn list_books(
         LibrarySortOptions::default()
     };
 
-    repo.list(
-        &filter_opts,
-        &sort_opts,
-        page.unwrap_or(0),
-        page_size.unwrap_or(100),
-    )
-    .map_err(|e| e.to_string())
+    ctx.library_service
+        .list_books(
+            &filter_opts,
+            &sort_opts,
+            page.unwrap_or(0),
+            page_size.unwrap_or(100),
+        )
+        .map_err(BackendError::from)
 }
 
 #[tauri::command]
 pub fn get_book_details(
-    db: State<'_, Database>,
+    ctx: State<'_, LumaAppContext>,
     book_id: String,
-) -> Result<Option<BookDetailViewData>, String> {
-    let parsed_id = book_id.parse::<BookId>().map_err(|e| e.to_string())?;
-    let book_repo = BookRepository::new(db.inner().clone());
-    let file_repo = BookFileRepository::new(db.inner().clone());
-    let author_repo = AuthorRepository::new(db.inner().clone());
-    let series_repo = SeriesRepository::new(db.inner().clone());
-    let tag_repo = TagRepository::new(db.inner().clone());
-    let collection_repo = CollectionRepository::new(db.inner().clone());
-    let prog_repo = ReadingProgressRepository::new(db.inner().clone());
+) -> Result<Option<BookDetailViewData>, BackendError> {
+    let parsed_id = book_id
+        .parse::<BookId>()
+        .map_err(|_| BackendError::validation("Invalid book_id format"))?;
 
-    if let Some(book) = book_repo.get_by_id(&parsed_id).map_err(|e| e.to_string())? {
-        let files = file_repo.list_by_book_id(&parsed_id).unwrap_or_default();
-        let authors = author_repo
-            .get_authors_for_book(&parsed_id)
-            .unwrap_or_default();
-        let series = if let Some(ref sid) = book.series_id {
-            series_repo.get_by_id(sid).unwrap_or(None)
-        } else {
-            None
-        };
-        let tags = tag_repo.get_tags_for_book(&parsed_id).unwrap_or_default();
-        let collections = collection_repo
-            .get_collections_for_book(&parsed_id)
-            .unwrap_or_default();
-        let reading_progress = prog_repo.get(&parsed_id).unwrap_or(None);
-
-        Ok(Some(BookDetailViewData {
-            book,
-            files,
-            authors,
-            series,
-            tags,
-            collections,
-            reading_progress,
-        }))
-    } else {
-        Ok(None)
-    }
+    ctx.library_service
+        .get_book_details(&parsed_id)
+        .map_err(BackendError::from)
 }
 
 #[tauri::command]
-pub fn update_book_metadata(
-    db: State<'_, Database>,
-    book_id: String,
-    metadata: UpdateBookMetadataPayload,
-) -> Result<(), String> {
-    let parsed_id = book_id.parse::<BookId>().map_err(|e| e.to_string())?;
-    let repo = BookRepository::new(db.inner().clone());
+pub fn bulk_add_tags(
+    ctx: State<'_, LumaAppContext>,
+    payload: BulkTagPayload,
+) -> Result<BulkOperationResult, BackendError> {
+    let book_ids: Vec<BookId> = payload
+        .book_ids
+        .into_iter()
+        .filter_map(|s| s.parse().ok())
+        .collect();
 
-    if let Some(mut book) = repo.get_by_id(&parsed_id).map_err(|e| e.to_string())? {
-        book.title = metadata.title;
-        book.subtitle = metadata.subtitle;
-        book.description = metadata.description;
-        book.publisher = metadata.publisher;
-        book.published_date = metadata.published_date;
-        book.language = metadata.language;
-        book.isbn = metadata.isbn;
-        book.sync.version.0 += 1;
-        book.sync.updated_at = chrono::Utc::now();
-
-        repo.update(&book).map_err(|e| e.to_string())?;
-        Ok(())
-    } else {
-        Err("Book not found".to_string())
-    }
+    ctx.library_service
+        .bulk_add_tags(&book_ids, &payload.tag_names, DeviceId::new())
+        .map_err(BackendError::from)
 }
 
 #[tauri::command]
-pub fn set_reading_status(
-    db: State<'_, Database>,
-    book_id: String,
-    status: String,
-) -> Result<(), String> {
-    let parsed_id = book_id.parse::<BookId>().map_err(|e| e.to_string())?;
-    let parsed_status = status.parse::<ReadingStatus>().map_err(|e| e.to_string())?;
-    let repo = BookRepository::new(db.inner().clone());
-    repo.set_reading_status(&parsed_id, parsed_status)
-        .map_err(|e| e.to_string())
+pub fn bulk_add_to_collection(
+    ctx: State<'_, LumaAppContext>,
+    payload: BulkCollectionPayload,
+) -> Result<BulkOperationResult, BackendError> {
+    let col_id = payload
+        .collection_id
+        .parse::<CollectionId>()
+        .map_err(|_| BackendError::validation("Invalid collection_id"))?;
+
+    let book_ids: Vec<BookId> = payload
+        .book_ids
+        .into_iter()
+        .filter_map(|s| s.parse().ok())
+        .collect();
+
+    ctx.library_service
+        .bulk_add_to_collection(&col_id, &book_ids)
+        .map_err(BackendError::from)
 }
 
 #[tauri::command]
-pub fn trash_book(db: State<'_, Database>, book_id: String) -> Result<(), String> {
-    let parsed_id = book_id.parse::<BookId>().map_err(|e| e.to_string())?;
-    let repo = BookRepository::new(db.inner().clone());
-    repo.move_to_trash(&parsed_id).map_err(|e| e.to_string())
+pub fn bulk_trash_books(
+    ctx: State<'_, LumaAppContext>,
+    book_ids: Vec<String>,
+) -> Result<BulkOperationResult, BackendError> {
+    let parsed_ids: Vec<BookId> = book_ids
+        .into_iter()
+        .filter_map(|s| s.parse().ok())
+        .collect();
+
+    ctx.library_service
+        .bulk_trash(&parsed_ids)
+        .map_err(BackendError::from)
 }
 
 #[tauri::command]
-pub fn restore_book(db: State<'_, Database>, book_id: String) -> Result<(), String> {
-    let parsed_id = book_id.parse::<BookId>().map_err(|e| e.to_string())?;
-    let repo = BookRepository::new(db.inner().clone());
-    repo.restore_from_trash(&parsed_id)
-        .map_err(|e| e.to_string())
-}
+pub fn bulk_set_reading_status(
+    ctx: State<'_, LumaAppContext>,
+    payload: BulkStatusPayload,
+) -> Result<BulkOperationResult, BackendError> {
+    let status = payload
+        .status
+        .parse::<ReadingStatus>()
+        .map_err(|_| BackendError::validation("Invalid reading_status"))?;
 
-#[tauri::command]
-pub fn delete_book_permanently(
-    db: State<'_, Database>,
-    book_id: String,
-    _delete_files: bool,
-) -> Result<(), String> {
-    let parsed_id = book_id.parse::<BookId>().map_err(|e| e.to_string())?;
-    let repo = BookRepository::new(db.inner().clone());
-    repo.delete_permanently(&parsed_id)
-        .map_err(|e| e.to_string())
-}
+    let parsed_ids: Vec<BookId> = payload
+        .book_ids
+        .into_iter()
+        .filter_map(|s| s.parse().ok())
+        .collect();
 
-#[tauri::command]
-pub fn get_reading_progress(
-    db: State<'_, Database>,
-    book_id: String,
-) -> Result<Option<ReadingProgress>, String> {
-    let parsed_id = book_id.parse::<BookId>().map_err(|e| e.to_string())?;
-    let repo = ReadingProgressRepository::new(db.inner().clone());
-    repo.get(&parsed_id).map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-pub fn save_reading_progress(
-    db: State<'_, Database>,
-    progress: ReadingProgress,
-) -> Result<(), String> {
-    let repo = ReadingProgressRepository::new(db.inner().clone());
-    repo.save(&progress).map_err(|e| e.to_string())
+    ctx.library_service
+        .bulk_set_status(&parsed_ids, status)
+        .map_err(BackendError::from)
 }

@@ -1,16 +1,24 @@
+pub mod cache;
 pub mod db;
 pub mod duplicate;
 pub mod error;
+pub mod events;
+pub mod files;
+pub mod jobs;
 pub mod migrations;
 pub mod repos;
-pub mod service;
+pub mod services;
 
+pub use cache::{BoundedCache, CacheManager, CacheStats};
 pub use db::Database;
 pub use duplicate::DuplicateDetector;
 pub use error::{StorageError, StorageResult};
+pub use events::{DomainEvent, EventBus};
+pub use files::{FileService, StagedFile};
+pub use jobs::{ActiveJobState, CancellationToken, JobManager, JobProgress, JobStatus, JobType};
 pub use migrations::run_migrations;
 pub use repos::*;
-pub use service::LibraryService;
+pub use services::*;
 
 #[cfg(test)]
 mod tests {
