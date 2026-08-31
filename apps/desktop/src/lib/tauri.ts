@@ -106,7 +106,7 @@ let mockBookmarks: Bookmark[] = [
   },
 ];
 
-let mockCollections: Collection[] = [
+const mockCollections: Collection[] = [
   {
     id: "col_01",
     name: "Engineering & Architecture",
@@ -121,7 +121,7 @@ let mockCollections: Collection[] = [
     },
   },
 ];
-let mockTags: Tag[] = [
+const mockTags: Tag[] = [
   {
     id: "tag_01",
     name: "Systems",

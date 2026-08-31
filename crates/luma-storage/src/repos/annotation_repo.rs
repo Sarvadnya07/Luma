@@ -48,6 +48,29 @@ impl AnnotationRepository {
                     annotation.sync.deleted_at.map(|d| d.to_rfc3339()),
                 ],
             )?;
+
+            // Log change record for local-first sync
+            let payload = serde_json::json!({
+                "book_id": annotation.book_id.to_string(),
+                "type": type_str,
+                "quote": annotation.quote,
+            }).to_string();
+
+            let _ = conn.execute(
+                r#"
+                INSERT INTO change_records (
+                    id, entity_type, entity_id, version, device_id, operation, payload_json, occurred_at
+                ) VALUES (?1, 'annotation', ?2, ?3, ?4, 'create', ?5, datetime('now'))
+                "#,
+                params![
+                    format!("cr_{}", uuid::Uuid::now_v7().simple()),
+                    annotation.id.to_string(),
+                    annotation.sync.version.0 as i64,
+                    annotation.sync.device_id.to_string(),
+                    payload,
+                ],
+            );
+
             Ok(())
         })
     }

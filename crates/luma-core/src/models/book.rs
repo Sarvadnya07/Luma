@@ -7,9 +7,10 @@ use crate::error::LumaError;
 use crate::ids::{AuthorId, BookId, CoverImageId, DeviceId, FileId, SeriesId};
 use crate::version::SyncMetadata;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum DocumentFormat {
+    #[default]
     Epub,
     Pdf,
     Cbz,

@@ -135,16 +135,13 @@ impl EpubExtractor {
 
                     // Check EPUB 3 cover image property
                     if local_name == "item" {
-                        let mut item_id = String::new();
                         let mut item_href = String::new();
                         let mut is_cover = false;
 
                         for attr in e.attributes().flatten() {
                             let k = String::from_utf8_lossy(attr.key.as_ref()).to_string();
                             let v = String::from_utf8_lossy(&attr.value).to_string();
-                            if k == "id" {
-                                item_id = v;
-                            } else if k == "href" {
+                            if k == "href" {
                                 item_href = v;
                             } else if k == "properties" && v.contains("cover-image") {
                                 is_cover = true;
@@ -284,7 +281,12 @@ impl EpubExtractor {
         };
 
         // Try opening directly or with normalized path
-        let mut file_entry = archive.by_name(&full_path).or_else(|_| archive.by_name(&decoded_href)).ok()?;
+        let entry_res = if archive.by_name(&full_path).is_ok() {
+            archive.by_name(&full_path).ok()
+        } else {
+            archive.by_name(&decoded_href).ok()
+        };
+        let mut file_entry = entry_res?;
 
         let mut data = Vec::new();
         file_entry.read_to_end(&mut data).ok()?;

@@ -337,15 +337,64 @@ impl LibraryService {
 
     fn update_fts_index(&self, book: &Book) -> StorageResult<()> {
         self.db.with_conn(|conn| {
+            // Retrieve concatenated author names
+            let mut authors_stmt = conn.prepare(
+                r#"
+                SELECT a.name FROM authors a
+                JOIN book_authors ba ON ba.author_id = a.id
+                WHERE ba.book_id = ?1
+                "#,
+            )?;
+            let author_rows = authors_stmt.query_map([book.id.to_string()], |r| r.get::<_, String>(0))?;
+            let mut authors_vec = Vec::new();
+            for a in author_rows {
+                if let Ok(name) = a {
+                    authors_vec.push(name);
+                }
+            }
+            let authors_str = authors_vec.join(", ");
+
+            // Retrieve series title if present
+            let series_str: String = if let Some(ref sid) = book.series_id {
+                conn.query_row(
+                    "SELECT title FROM series WHERE id = ?1",
+                    [sid.to_string()],
+                    |r| r.get(0),
+                )
+                .unwrap_or_default()
+            } else {
+                String::new()
+            };
+
+            // Retrieve concatenated tags
+            let mut tags_stmt = conn.prepare(
+                r#"
+                SELECT t.name FROM tags t
+                JOIN book_tags bt ON bt.tag_id = t.id
+                WHERE bt.book_id = ?1
+                "#,
+            )?;
+            let tag_rows = tags_stmt.query_map([book.id.to_string()], |r| r.get::<_, String>(0))?;
+            let mut tags_vec = Vec::new();
+            for t in tag_rows {
+                if let Ok(tag_name) = t {
+                    tags_vec.push(tag_name);
+                }
+            }
+            let tags_str = tags_vec.join(", ");
+
             conn.execute(
                 r#"
                 INSERT OR REPLACE INTO books_fts (book_id, title, subtitle, authors, series, tags, description, isbn)
-                VALUES (?1, ?2, ?3, '', '', '', ?4, ?5)
+                VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
                 "#,
                 params![
                     book.id.to_string(),
                     book.title,
                     book.subtitle.clone().unwrap_or_default(),
+                    authors_str,
+                    series_str,
+                    tags_str,
                     book.description.clone().unwrap_or_default(),
                     book.isbn.clone().unwrap_or_default(),
                 ],

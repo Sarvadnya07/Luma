@@ -109,6 +109,12 @@ impl DuplicateDetector {
     fn normalize_string(input: &str) -> String {
         input
             .nfkd()
+            .map(|c| match c {
+                '‘' | '’' | '‚' | '‛' | '`' | '´' => '\'',
+                '“' | '”' | '„' | '‟' | '«' | '»' => '"',
+                '—' | '–' | '―' | '‐' | '‑' => '-',
+                other => other,
+            })
             .filter(|c| !c.is_whitespace() && !c.is_ascii_punctuation())
             .flat_map(|c| c.to_lowercase())
             .collect()

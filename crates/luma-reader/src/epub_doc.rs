@@ -117,10 +117,12 @@ impl EpubDocument {
             self.opf_dir.join(&item.href).to_string_lossy().replace('\\', "/")
         };
 
-        let mut entry = archive
-            .by_name(&chapter_path)
-            .or_else(|_| archive.by_name(&item.href))
-            .map_err(|e| LumaError::DocumentError(format!("Chapter file {} not found: {}", chapter_path, e)))?;
+        let mut entry = match archive.by_name(&chapter_path) {
+            Ok(e) => e,
+            Err(_) => archive
+                .by_name(&item.href)
+                .map_err(|e| LumaError::DocumentError(format!("Chapter file {} not found: {}", chapter_path, e)))?,
+        };
 
         let mut raw_html = String::new();
         entry
@@ -150,7 +152,7 @@ impl EpubDocument {
 
         let mut matches = Vec::new();
 
-        for (idx, spine_item) in self.spine.iter().enumerate() {
+        for (idx, _spine_item) in self.spine.iter().enumerate() {
             if let Ok(chapter) = self.get_chapter(idx) {
                 let text_lower = chapter.text_content.to_lowercase();
                 let mut start_search = 0;
@@ -331,7 +333,13 @@ impl EpubDocument {
                 opf_dir.join(href).to_string_lossy().replace('\\', "/")
             };
 
-            if let Ok(mut entry) = archive.by_name(&full_nav_path).or_else(|_| archive.by_name(href)) {
+            let entry_res = if archive.by_name(&full_nav_path).is_ok() {
+                archive.by_name(&full_nav_path).ok()
+            } else {
+                archive.by_name(href).ok()
+            };
+
+            if let Some(mut entry) = entry_res {
                 let mut nav_html = String::new();
                 if entry.read_to_string(&mut nav_html).is_ok() {
                     let items = Self::parse_nav_doc_toc(&nav_html);
@@ -350,7 +358,13 @@ impl EpubDocument {
                 opf_dir.join(href).to_string_lossy().replace('\\', "/")
             };
 
-            if let Ok(mut entry) = archive.by_name(&full_ncx_path).or_else(|_| archive.by_name(href)) {
+            let entry_res = if archive.by_name(&full_ncx_path).is_ok() {
+                archive.by_name(&full_ncx_path).ok()
+            } else {
+                archive.by_name(href).ok()
+            };
+
+            if let Some(mut entry) = entry_res {
                 let mut ncx_xml = String::new();
                 if entry.read_to_string(&mut ncx_xml).is_ok() {
                     let items = Self::parse_ncx_toc(&ncx_xml);

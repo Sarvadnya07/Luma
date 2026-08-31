@@ -76,27 +76,45 @@ pub fn verify_archive_safety(
 
 /// Strip executable script tags and hazardous inline handlers from untrusted HTML/SVG strings
 pub fn sanitize_untrusted_html(input: &str) -> String {
-    // Basic structural sanitizer removing dangerous script/iframe tags
     let mut cleaned = input.to_string();
-    let dangerous_patterns = [
+
+    let dangerous_tag_pairs = [
         ("<script", "</script>"),
         ("<iframe", "</iframe>"),
         ("<object", "</object>"),
         ("<embed", "</embed>"),
+        ("<applet", "</applet>"),
+        ("<form", "</form>"),
     ];
 
-    for (start_tag, end_tag) in dangerous_patterns {
-        while let Some(start_pos) = cleaned.to_lowercase().find(start_tag) {
-            if let Some(end_pos) = cleaned.to_lowercase()[start_pos..].find(end_tag) {
-                let full_end = start_pos + end_pos + end_tag.len();
-                cleaned.drain(start_pos..full_end);
-            } else if let Some(tag_end) = cleaned[start_pos..].find('>') {
-                let full_end = start_pos + tag_end + 1;
-                cleaned.drain(start_pos..full_end);
-            } else {
-                cleaned.truncate(start_pos);
+    // 1. Recursive removal of dangerous tag pairs until fixed-point (prevents <scr<script>ipt> evasion)
+    let mut changed = true;
+    while changed {
+        let before_len = cleaned.len();
+        for (start_tag, end_tag) in dangerous_tag_pairs {
+            while let Some(start_pos) = cleaned.to_lowercase().find(start_tag) {
+                if let Some(end_pos) = cleaned.to_lowercase()[start_pos..].find(end_tag) {
+                    let full_end = start_pos + end_pos + end_tag.len();
+                    cleaned.drain(start_pos..full_end);
+                } else if let Some(tag_end) = cleaned[start_pos..].find('>') {
+                    let full_end = start_pos + tag_end + 1;
+                    cleaned.drain(start_pos..full_end);
+                } else {
+                    cleaned.truncate(start_pos);
+                }
             }
         }
+        changed = cleaned.len() != before_len;
+    }
+
+    // 2. Neutralize inline event handlers (e.g. `onload=`, `onerror=`, `onclick=`)
+    if let Ok(event_regex) = regex::Regex::new(r#"(?i)\s+on[a-z]+\s*=\s*(?:'[^']*'|"[^"]*"|[^\s>]+)"#) {
+        cleaned = event_regex.replace_all(&cleaned, " ").to_string();
+    }
+
+    // 3. Neutralize `javascript:` pseudo-protocol URIs in attributes
+    if let Ok(js_proto_regex) = regex::Regex::new(r#"(?i)javascript:\s*"#) {
+        cleaned = js_proto_regex.replace_all(&cleaned, "blocked-javascript:").to_string();
     }
 
     cleaned
@@ -131,5 +149,31 @@ mod tests {
         assert!(!cleaned.contains("alert"));
         assert!(cleaned.contains("Good content"));
         assert!(cleaned.contains("and more text"));
+    }
+
+    #[test]
+    fn test_html_sanitizer_nested_bypass_prevention() {
+        let nested = "<div><scr<script>ipt>alert(1)</script>Safe Text</div>";
+        let cleaned = sanitize_untrusted_html(nested);
+        assert!(!cleaned.contains("<script"));
+        assert!(cleaned.contains("Safe Text"));
+    }
+
+    #[test]
+    fn test_html_sanitizer_event_handler_stripping() {
+        let dirty_img = r#"<img src="valid.jpg" onerror="alert('pwned')" onload="steal()" alt="Cover" />"#;
+        let cleaned = sanitize_untrusted_html(dirty_img);
+        assert!(!cleaned.contains("onerror"));
+        assert!(!cleaned.contains("onload"));
+        assert!(cleaned.contains("src=\"valid.jpg\""));
+        assert!(cleaned.contains("alt=\"Cover\""));
+    }
+
+    #[test]
+    fn test_html_sanitizer_javascript_protocol() {
+        let dirty_link = r#"<a href="javascript:alert('xss')">Click Here</a>"#;
+        let cleaned = sanitize_untrusted_html(dirty_link);
+        assert!(!cleaned.contains("href=\"javascript:"));
+        assert!(cleaned.contains("Click Here"));
     }
 }
