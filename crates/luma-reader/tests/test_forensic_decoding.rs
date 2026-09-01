@@ -51,7 +51,6 @@ fn test_epub_toc_and_entity_decoding_without_mojibake() {
     assert_eq!(decoded_entities, "The 3rd Law — ‘Make It Easy’ — \u{00A0}");
     assert!(!decoded_entities.contains('\u{FFFD}'));
 
-
     // Test XML Nav doc TOC extraction
     let mut reader = quick_xml::Reader::from_str(nav_xhtml);
     reader.config_mut().trim_text(true);
