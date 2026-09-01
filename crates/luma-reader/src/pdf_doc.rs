@@ -35,11 +35,21 @@ impl PdfDocument {
 
         let raw_str = String::from_utf8_lossy(&buffer);
 
-        // Extract approximate page count by searching for `/Type /Page` (excluding `/Pages`)
+        // Extract page count by searching for `/Type /Page` or `/Count N`
         let page_re = Regex::new(r"/Type\s*/Page\b").unwrap();
         let detected_pages = page_re.find_iter(&raw_str).count() as u32;
+
+        let count_re = Regex::new(r"/Count\s+(\d+)").unwrap();
+        let max_count = count_re
+            .captures_iter(&raw_str)
+            .filter_map(|c| c.get(1)?.as_str().parse::<u32>().ok())
+            .max()
+            .unwrap_or(0);
+
         let page_count = if detected_pages > 0 {
             detected_pages
+        } else if max_count > 0 {
+            max_count
         } else {
             1
         };
@@ -59,14 +69,14 @@ impl PdfDocument {
                     });
                 }
             }
-            if toc.len() >= 50 {
+            if toc.len() >= 100 {
                 break;
             }
         }
 
         // Fallback TOC if none extracted
         if toc.is_empty() {
-            for page in 1..=page_count.min(30) {
+            for page in 1..=page_count.min(50) {
                 toc.push(TocItem {
                     title: format!("Page {}", page),
                     locator: format!("page={}", page),
@@ -99,11 +109,9 @@ impl PdfDocument {
             )));
         }
 
-        // Read buffer to extract stream text if available
         let mut text_content = String::new();
         if let Ok(buffer) = std::fs::read(&self.file_path) {
-            let raw_str = String::from_utf8_lossy(&buffer);
-            text_content = Self::extract_page_text(&raw_str, page_number, self.page_count);
+            text_content = Self::extract_page_content(&buffer, page_number, self.page_count);
         }
 
         if text_content.is_empty() {
@@ -118,73 +126,103 @@ impl PdfDocument {
         })
     }
 
-    /// Extract text streams matching PDF text operators (BT ... ET, Tj, TJ)
-    fn extract_page_text(raw_str: &str, target_page: u32, total_pages: u32) -> String {
+    /// Extract text streams matching PDF text operators (BT ... ET, Tj, TJ) with Flate decompression
+    fn extract_page_content(buffer: &[u8], target_page: u32, total_pages: u32) -> String {
+        let raw_str = String::from_utf8_lossy(buffer);
         let mut page_text = String::new();
 
-        // 1. Extract literal text within parenthesis text operators: `(text) Tj` or `(text) '`
         let tj_re = Regex::new(r"\(([^)]+)\)\s*(?:Tj|'|\x22)").unwrap();
-        // 2. Extract text inside array operators: `[(t) -12 (e) -10 (x) (t)] TJ`
         let array_tj_re = Regex::new(r"\[([^\]]+)\]\s*TJ").unwrap();
         let paren_re = Regex::new(r"\(([^)]+)\)").unwrap();
 
-        // If single page or small doc, parse all text streams
+        // 1. Try uncompressed raw text extraction first
         if total_pages <= 1 {
-            for caps in tj_re.captures_iter(raw_str) {
-                if let Some(m) = caps.get(1) {
-                    page_text.push_str(m.as_str());
-                    page_text.push(' ');
-                }
-            }
-            for caps in array_tj_re.captures_iter(raw_str) {
-                if let Some(array_content) = caps.get(1) {
-                    for inner_cap in paren_re.captures_iter(array_content.as_str()) {
-                        if let Some(inner_m) = inner_cap.get(1) {
-                            page_text.push_str(inner_m.as_str());
-                        }
-                    }
-                    page_text.push(' ');
-                }
-            }
+            Self::extract_from_text_block(&raw_str, &tj_re, &array_tj_re, &paren_re, &mut page_text);
         } else {
-            // For multi-page PDFs, segment stream chunks roughly per page
-            let stream_re = Regex::new(r"(?s)stream\r?\n(.*?)endstream").unwrap();
-            let streams: Vec<_> = stream_re.captures_iter(raw_str).collect();
-            if !streams.is_empty() {
-                let stream_idx = ((target_page - 1) as usize) % streams.len();
-                if let Some(stream_cap) = streams.get(stream_idx) {
-                    if let Some(content) = stream_cap.get(1) {
-                        let stream_str = content.as_str();
-                        for caps in tj_re.captures_iter(stream_str) {
-                            if let Some(m) = caps.get(1) {
-                                page_text.push_str(m.as_str());
-                                page_text.push(' ');
-                            }
-                        }
-                        for caps in array_tj_re.captures_iter(stream_str) {
-                            if let Some(array_content) = caps.get(1) {
-                                for inner_cap in paren_re.captures_iter(array_content.as_str()) {
-                                    if let Some(inner_m) = inner_cap.get(1) {
-                                        page_text.push_str(inner_m.as_str());
-                                    }
-                                }
-                                page_text.push(' ');
-                            }
+            // Find all byte streams: `stream\r?\n ... endstream`
+            let stream_markers: Vec<usize> = buffer
+                .windows(6)
+                .enumerate()
+                .filter_map(|(i, w)| if w == b"stream" { Some(i + 6) } else { None })
+                .collect();
+
+            let end_markers: Vec<usize> = buffer
+                .windows(9)
+                .enumerate()
+                .filter_map(|(i, w)| if w == b"endstream" { Some(i) } else { None })
+                .collect();
+
+            if !stream_markers.is_empty() && !end_markers.is_empty() {
+                let stream_idx = ((target_page - 1) as usize) % stream_markers.len();
+                if let Some(&start) = stream_markers.get(stream_idx) {
+                    // Skip newline following `stream`
+                    let mut data_start = start;
+                    if data_start < buffer.len() && buffer[data_start] == b'\r' {
+                        data_start += 1;
+                    }
+                    if data_start < buffer.len() && buffer[data_start] == b'\n' {
+                        data_start += 1;
+                    }
+
+                    // Find matching endstream
+                    if let Some(&data_end) = end_markers.iter().find(|&&e| e >= data_start) {
+                        let stream_bytes = &buffer[data_start..data_end];
+
+                        // Attempt FlateDecode decompression
+                        if let Ok(decompressed) = miniz_oxide::inflate::decompress_to_vec_zlib(stream_bytes) {
+                            let decomp_str = String::from_utf8_lossy(&decompressed);
+                            Self::extract_from_text_block(&decomp_str, &tj_re, &array_tj_re, &paren_re, &mut page_text);
+                        } else {
+                            // Try raw text if not compressed
+                            let stream_str = String::from_utf8_lossy(stream_bytes);
+                            Self::extract_from_text_block(&stream_str, &tj_re, &array_tj_re, &paren_re, &mut page_text);
                         }
                     }
                 }
+            }
+
+            // If specific stream yielded no text, fallback to global stream scan
+            if page_text.trim().is_empty() {
+                Self::extract_from_text_block(&raw_str, &tj_re, &array_tj_re, &paren_re, &mut page_text);
             }
         }
 
         // Clean unescaped PDF control characters
-        page_text
+        let cleaned = page_text
             .replace("\\n", "\n")
             .replace("\\r", "")
             .replace("\\t", " ")
             .replace("\\(", "(")
             .replace("\\)", ")")
             .trim()
-            .to_string()
+            .to_string();
+
+        cleaned
+    }
+
+    fn extract_from_text_block(
+        stream_str: &str,
+        tj_re: &Regex,
+        array_tj_re: &Regex,
+        paren_re: &Regex,
+        out: &mut String,
+    ) {
+        for caps in tj_re.captures_iter(stream_str) {
+            if let Some(m) = caps.get(1) {
+                out.push_str(m.as_str());
+                out.push(' ');
+            }
+        }
+        for caps in array_tj_re.captures_iter(stream_str) {
+            if let Some(array_content) = caps.get(1) {
+                for inner_cap in paren_re.captures_iter(array_content.as_str()) {
+                    if let Some(inner_m) = inner_cap.get(1) {
+                        out.push_str(inner_m.as_str());
+                    }
+                }
+                out.push(' ');
+            }
+        }
     }
 
     pub fn search(&self, query: &str) -> Result<Vec<DocumentSearchMatch>> {

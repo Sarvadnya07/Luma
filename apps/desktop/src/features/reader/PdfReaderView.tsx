@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   ChevronLeft,
   ChevronRight,
@@ -8,6 +8,7 @@ import {
   ListTree,
   Image as ImageIcon,
   Bookmark as BookmarkIcon,
+  BookOpen,
 } from "lucide-react";
 import { useReaderStore } from "../../state/readerState";
 import { TextSelectionToolbar } from "./TextSelectionToolbar";
@@ -16,6 +17,8 @@ export const PdfReaderView: React.FC = () => {
   const currentBook = useReaderStore((s) => s.currentBook);
   const documentData = useReaderStore((s) => s.documentData);
   const currentPdfPage = useReaderStore((s) => s.currentPdfPage);
+  const leftPdfPageData = useReaderStore((s) => s.leftPdfPageData);
+  const rightPdfPageData = useReaderStore((s) => s.rightPdfPageData);
   const bookmarks = useReaderStore((s) => s.bookmarks);
   const loadPdfPage = useReaderStore((s) => s.loadPdfPage);
   const createHighlight = useReaderStore((s) => s.createHighlight);
@@ -30,6 +33,13 @@ export const PdfReaderView: React.FC = () => {
   const totalPages = Math.max(1, documentData?.total_pages_or_spines || 1);
   const leftPageNum = currentPdfPage % 2 === 0 ? currentPdfPage : Math.max(1, currentPdfPage - 1);
   const rightPageNum = Math.min(totalPages, leftPageNum + 1);
+
+  // Load page on mount or when book opens
+  useEffect(() => {
+    if (!leftPdfPageData && currentBook) {
+      loadPdfPage(currentPdfPage || 1);
+    }
+  }, [currentBook, currentPdfPage, leftPdfPageData, loadPdfPage]);
 
   const handleMouseUp = () => {
     const selection = window.getSelection();
@@ -53,6 +63,36 @@ export const PdfReaderView: React.FC = () => {
     });
   };
 
+  const renderPageBody = (textContent?: string, pageNum?: number) => {
+    if (!textContent || textContent.trim() === `Page ${pageNum}` || textContent.trim().length === 0) {
+      return (
+        <div className="flex-1 flex flex-col items-center justify-center text-center p-8 text-[#78716C]">
+          <BookOpen className="w-8 h-8 mb-2 opacity-40 text-[#8C8275]" />
+          <p className="font-serif text-sm font-semibold text-[#1C1917]">
+            {currentBook?.title || "Document"}
+          </p>
+          <p className="text-xs text-[#78716C] mt-1 font-mono">Page {pageNum}</p>
+        </div>
+      );
+    }
+
+    // Split text into paragraphs
+    const paragraphs = textContent
+      .split(/\n\s*\n|\r\n\s*\r\n/)
+      .map((p) => p.trim())
+      .filter((p) => p.length > 0);
+
+    return (
+      <div className="space-y-4 text-justify select-text font-serif leading-relaxed text-[#292524] text-[13px]">
+        {paragraphs.map((para, idx) => (
+          <p key={idx} className="leading-relaxed">
+            {para}
+          </p>
+        ))}
+      </div>
+    );
+  };
+
   return (
     <div
       className="relative w-full h-full flex bg-[#FAF7F2] select-text overflow-hidden text-[#1C1917]"
@@ -74,7 +114,7 @@ export const PdfReaderView: React.FC = () => {
       <aside className="w-64 border-r border-[#E5DFD3] bg-[#FAF7F2] flex flex-col z-20 flex-shrink-0 select-none">
         {/* Sidebar Header */}
         <div className="p-4 border-b border-[#E5DFD3]">
-          <h3 className="font-serif text-sm font-bold text-[#1C1917]">
+          <h3 className="font-serif text-sm font-bold text-[#1C1917] truncate">
             {currentBook?.title || "Document"}
           </h3>
           <p className="text-[11px] text-[#78716C] truncate mt-0.5 font-serif">
@@ -155,7 +195,7 @@ export const PdfReaderView: React.FC = () => {
               <div className="text-xs text-[#78716C] text-center py-6">No bookmarks yet</div>
             )
           ) : (
-            Array.from({ length: Math.min(totalPages, 20) }, (_, i) => i + 1).map((pageNum) => (
+            Array.from({ length: Math.min(totalPages, 50) }, (_, i) => i + 1).map((pageNum) => (
               <div
                 key={pageNum}
                 onClick={() => loadPdfPage(pageNum)}
@@ -166,7 +206,7 @@ export const PdfReaderView: React.FC = () => {
                 </div>
                 <div
                   className={`w-full aspect-[4/3] rounded-lg bg-white border p-2 flex items-center justify-center transition-all shadow-xs ${
-                    pageNum === currentPdfPage
+                    pageNum === currentPdfPage || pageNum === leftPageNum || (isDualSpread && pageNum === rightPageNum)
                       ? "border-teal-700 ring-2 ring-teal-600/30"
                       : "border-[#E5DFD3] group-hover:border-[#DDD5C7]"
                   }`}
@@ -183,15 +223,14 @@ export const PdfReaderView: React.FC = () => {
         </div>
       </aside>
 
-
       {/* Main Reading Viewport */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Floating Top Controls Header */}
-        <div className="h-12 border-b border-[#E5DFD3] bg-[#FAF7F2] px-6 flex items-center justify-between z-10">
+        <div className="h-12 border-b border-[#E5DFD3] bg-[#FAF7F2] px-6 flex items-center justify-between z-10 select-none">
           <div className="flex items-center gap-3">
             <button
-              disabled={leftPageNum <= 2}
-              onClick={() => loadPdfPage(Math.max(1, leftPageNum - 2))}
+              disabled={leftPageNum <= 1}
+              onClick={() => loadPdfPage(Math.max(1, isDualSpread ? leftPageNum - 2 : currentPdfPage - 1))}
               className="p-1 hover:text-[#18181B] text-[#78716C] rounded hover:bg-[#EFEAE1] disabled:opacity-30"
             >
               <ChevronLeft className="w-4 h-4" />
@@ -200,8 +239,8 @@ export const PdfReaderView: React.FC = () => {
               {isDualSpread ? `${leftPageNum}-${rightPageNum} / ${totalPages}` : `${currentPdfPage} / ${totalPages}`}
             </span>
             <button
-              disabled={rightPageNum >= totalPages}
-              onClick={() => loadPdfPage(Math.min(totalPages, leftPageNum + 2))}
+              disabled={isDualSpread ? rightPageNum >= totalPages : currentPdfPage >= totalPages}
+              onClick={() => loadPdfPage(Math.min(totalPages, isDualSpread ? leftPageNum + 2 : currentPdfPage + 1))}
               className="p-1 hover:text-[#18181B] text-[#78716C] rounded hover:bg-[#EFEAE1] disabled:opacity-30"
             >
               <ChevronRight className="w-4 h-4" />
@@ -235,58 +274,35 @@ export const PdfReaderView: React.FC = () => {
           </div>
         </div>
 
-        {/* Dual Page Spread Viewport */}
+        {/* Dual / Single Page Spread Viewport */}
         <div className="flex-1 overflow-auto p-8 flex justify-center items-start">
           <div
             style={{ transform: `scale(${zoom / 100})`, transformOrigin: "top center" }}
             className="flex gap-6 items-start transition-transform duration-150"
           >
-            {/* Left Page (Page 2) */}
+            {/* Left Page */}
             <div className="w-[440px] min-h-[600px] bg-white border border-[#E5DFD3] rounded-sm p-10 shadow-lg flex flex-col justify-between text-xs leading-relaxed text-[#292524]">
-              <div className="space-y-4">
-                <div className="space-y-1">
-                  <h2 className="font-serif text-lg font-bold text-[#1C1917]">The Architecture of Silence</h2>
-                  <p className="text-[10px] font-bold text-[#78716C] uppercase tracking-wider font-mono">
-                    SECTION 1: SPATIAL DYNAMICS
-                  </p>
-                </div>
-
-                <p>
-                  The contemporary understanding of library spaces often prioritizes the acoustic environment as a primary functional requirement. However, the conceptualization of "silence" within these structures extends beyond mere sound attenuation. It is a tectonic feature, built into the very masonry and spatial organization of the reading rooms.
-                </p>
-
-                <p>
-                  When examining the early 20th-century models, we observe a deliberate sequencing of thresholds. The transition from the clamor of the urban street to the sanctuary of the central hall occurs through compression chambers—vestibules that dampen reverberation.
-                </p>
+              <div className="flex-1">
+                {renderPageBody(leftPdfPageData?.text_content, leftPageNum)}
               </div>
 
-              <div className="text-center font-mono text-[10px] text-[#78716C] pt-4 border-t border-[#F2ECE2]">
+              <div className="text-center font-mono text-[10px] text-[#78716C] pt-4 border-t border-[#F2ECE2] mt-6">
                 {leftPageNum}
               </div>
             </div>
 
-            {/* Right Page (Page 3) */}
-            <div className="w-[440px] min-h-[600px] bg-white border border-[#E5DFD3] rounded-sm p-10 shadow-lg flex flex-col justify-between text-xs leading-relaxed text-[#292524]">
-              <div className="space-y-4">
-                <p>
-                  Modern interventions in these historic spaces must navigate the delicate balance between preserving this cultivated silence and accommodating contemporary collaborative needs. The introduction of "active learning" zones presents a topological challenge, often requiring a complete reimagining of the acoustic zoning.
-                </p>
+            {/* Right Page (Only in Dual Spread Mode) */}
+            {isDualSpread && rightPageNum <= totalPages && (
+              <div className="w-[440px] min-h-[600px] bg-white border border-[#E5DFD3] rounded-sm p-10 shadow-lg flex flex-col justify-between text-xs leading-relaxed text-[#292524]">
+                <div className="flex-1">
+                  {renderPageBody(rightPdfPageData?.text_content, rightPageNum)}
+                </div>
 
-                {/* Figure Box */}
-                <div className="border border-[#E5DFD3] bg-[#FAF7F2] rounded-lg p-6 flex flex-col items-center justify-center text-center space-y-2">
-                  <div className="w-full h-24 bg-[#EAE4DA] rounded flex items-center justify-center">
-                    <span className="font-serif italic text-base text-[#8C8275]">architecture</span>
-                  </div>
-                  <p className="text-[10px] text-[#78716C] italic font-serif">
-                    Fig 2. Acoustic Zoning Diagram, Level 1
-                  </p>
+                <div className="text-center font-mono text-[10px] text-[#78716C] pt-4 border-t border-[#F2ECE2] mt-6">
+                  {rightPageNum}
                 </div>
               </div>
-
-              <div className="text-center font-mono text-[10px] text-[#78716C] pt-4 border-t border-[#F2ECE2]">
-                {rightPageNum}
-              </div>
-            </div>
+            )}
           </div>
         </div>
       </div>

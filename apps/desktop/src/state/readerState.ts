@@ -8,6 +8,7 @@ import {
   Bookmark,
   DocumentSearchMatch,
   ReaderSettings,
+  PdfPageData,
 } from "@luma/shared-types";
 import { DEFAULT_READER_SETTINGS } from "@luma/reader-ui";
 import { LumaApi } from "../lib/tauri";
@@ -20,6 +21,8 @@ interface ReaderStoreState {
   currentChapter: ChapterContent | null;
   currentSpineIndex: number;
   currentPdfPage: number;
+  leftPdfPageData: PdfPageData | null;
+  rightPdfPageData: PdfPageData | null;
   readingProgress: ReadingProgress | null;
   annotations: Annotation[];
   bookmarks: Bookmark[];
@@ -58,7 +61,10 @@ export const useReaderStore = create<ReaderStoreState>((set, get) => ({
   currentChapter: null,
   currentSpineIndex: 0,
   currentPdfPage: 1,
+  leftPdfPageData: null,
+  rightPdfPageData: null,
   readingProgress: null,
+
   annotations: [],
   bookmarks: [],
   settings: DEFAULT_READER_SETTINGS,
@@ -170,22 +176,35 @@ export const useReaderStore = create<ReaderStoreState>((set, get) => ({
     if (!currentBook) return;
     try {
       const total = documentData?.total_pages_or_spines || 1;
-      const pct = pageNumber / total;
-      const locator = `page=${pageNumber}`;
+      const validPage = Math.max(1, Math.min(total, pageNumber));
+      const leftPage = validPage % 2 === 0 ? validPage : Math.max(1, validPage - 1);
+      const rightPage = leftPage + 1;
+
+      const [leftData, rightData] = await Promise.all([
+        LumaApi.getReaderPdfPage(currentBook.id, leftPage).catch(() => null),
+        rightPage <= total
+          ? LumaApi.getReaderPdfPage(currentBook.id, rightPage).catch(() => null)
+          : Promise.resolve(null),
+      ]);
+
+      const pct = validPage / total;
+      const locator = `page=${validPage}`;
 
       const progress: ReadingProgress = {
         book_id: currentBook.id,
         progress_percentage: pct,
         current_locator: locator,
-        current_chapter_title: `Page ${pageNumber}`,
-        current_page_number: pageNumber,
+        current_chapter_title: `Page ${validPage}`,
+        current_page_number: validPage,
         total_pages: total,
         last_read_at: new Date().toISOString(),
         sync: { version: 1, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), device_id: "dev_01", is_deleted: false },
       };
 
       set({
-        currentPdfPage: pageNumber,
+        currentPdfPage: validPage,
+        leftPdfPageData: leftData,
+        rightPdfPageData: rightData,
         readingProgress: progress,
       });
 
@@ -194,6 +213,7 @@ export const useReaderStore = create<ReaderStoreState>((set, get) => ({
       console.error("Failed to load PDF page:", err);
     }
   },
+
 
   jumpToLocator: async (locator: string) => {
     const { documentData } = get();
