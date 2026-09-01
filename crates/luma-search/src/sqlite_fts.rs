@@ -56,7 +56,7 @@ impl SearchEngine for SqliteFtsSearchEngine {
 
         let hits = self
             .db
-            .with_conn(move |conn| {
+            .with_read_conn(move |conn| {
                 let mut sql = String::from(
                     r#"
                     SELECT book_id, snippet(books_fts, 1, '<b>', '</b>', '...', 15), rank

@@ -41,48 +41,54 @@ pub fn normalize_text(input: &str) -> String {
     normalized
 }
 
-/// Compute Levenshtein edit distance between two strings
-#[allow(clippy::needless_range_loop)]
+/// Compute Levenshtein edit distance between two strings with O(min(M, N)) memory footprint
 pub fn levenshtein_distance(a: &str, b: &str) -> usize {
+    if a == b {
+        return 0;
+    }
+    if a.is_empty() {
+        return b.chars().count();
+    }
+    if b.is_empty() {
+        return a.chars().count();
+    }
+
     let a_chars: Vec<char> = a.chars().collect();
     let b_chars: Vec<char> = b.chars().collect();
     let (m, n) = (a_chars.len(), b_chars.len());
 
-    if m == 0 {
-        return n;
-    }
-    if n == 0 {
-        return m;
-    }
+    // Swap to ensure n <= m, minimizing buffer size
+    let (a_chars, b_chars, _m, n) = if n > m {
+        (b_chars, a_chars, n, m)
+    } else {
+        (a_chars, b_chars, m, n)
+    };
 
-    let mut dp = vec![vec![0usize; n + 1]; m + 1];
+    let mut v0: Vec<usize> = (0..=n).collect();
+    let mut v1: Vec<usize> = vec![0; n + 1];
 
-    for i in 0..=m {
-        dp[i][0] = i;
-    }
-    for j in 0..=n {
-        dp[0][j] = j;
-    }
+    for (i, &ca) in a_chars.iter().enumerate() {
+        v1[0] = i + 1;
 
-    for i in 1..=m {
-        for j in 1..=n {
-            let cost = if a_chars[i - 1] == b_chars[j - 1] {
-                0
-            } else {
-                1
-            };
-            dp[i][j] = (dp[i - 1][j] + 1)
-                .min(dp[i][j - 1] + 1)
-                .min(dp[i - 1][j - 1] + cost);
+        for (j, &cb) in b_chars.iter().enumerate() {
+            let cost = if ca == cb { 0 } else { 1 };
+            v1[j + 1] = (v1[j] + 1).min(v0[j + 1] + 1).min(v0[j] + cost);
         }
+
+        std::mem::swap(&mut v0, &mut v1);
     }
 
-    dp[m][n]
+    v0[n]
 }
 
 /// Computes similarity ratio between 0.0 (completely distinct) and 1.0 (exact match)
 pub fn similarity_ratio(a: &str, b: &str) -> f32 {
-    let max_len = a.chars().count().max(b.chars().count());
+    if a == b {
+        return 1.0;
+    }
+    let len_a = a.chars().count();
+    let len_b = b.chars().count();
+    let max_len = len_a.max(len_b);
     if max_len == 0 {
         return 1.0;
     }

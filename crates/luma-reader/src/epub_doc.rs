@@ -567,8 +567,10 @@ impl EpubDocument {
     }
 
     fn extract_chapter_title(html: &str) -> Option<String> {
-        let h_re = Regex::new(r"(?i)<(h1|h2|title)[^>]*>([^<]+)</(h1|h2|title)>").ok()?;
-        let caps = h_re.captures(html)?;
+        static HEADER_RE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+            Regex::new(r"(?i)<(h1|h2|title)[^>]*>([^<]+)</(h1|h2|title)>").expect("Valid regex")
+        });
+        let caps = HEADER_RE.captures(html)?;
         caps.get(2).map(|m| {
             let decoded = decode_xml_and_html_entities(m.as_str().trim());
             sanitize_untrusted_html(&decoded)
@@ -576,8 +578,10 @@ impl EpubDocument {
     }
 
     fn extract_plain_text(html: &str) -> String {
-        let tag_re = Regex::new(r"<[^>]+>").unwrap();
-        let stripped = tag_re.replace_all(html, " ");
+        static TAG_RE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+            Regex::new(r"<[^>]+>").expect("Valid regex")
+        });
+        let stripped = TAG_RE.replace_all(html, " ");
         let decoded = decode_xml_and_html_entities(&stripped);
         decoded.split_whitespace().collect::<Vec<_>>().join(" ")
     }

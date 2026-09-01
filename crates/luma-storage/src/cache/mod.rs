@@ -9,7 +9,7 @@ struct CacheEntry<V> {
     value: V,
     #[allow(dead_code)]
     created_at: Instant,
-    last_accessed: Instant,
+    last_accessed: Arc<AtomicU64>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -39,10 +39,17 @@ impl<K: std::hash::Hash + Eq + Clone + Send + Sync + 'static, V: Clone + Send + 
         }
     }
 
+    fn current_timestamp_ms() -> u64 {
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64
+    }
+
     pub async fn get(&self, key: &K) -> Option<V> {
-        let mut lock = self.entries.write().await;
-        if let Some(entry) = lock.get_mut(key) {
-            entry.last_accessed = Instant::now();
+        let lock = self.entries.read().await;
+        if let Some(entry) = lock.get(key) {
+            entry.last_accessed.store(Self::current_timestamp_ms(), Ordering::Relaxed);
             self.hits.fetch_add(1, Ordering::Relaxed);
             Some(entry.value.clone())
         } else {
@@ -57,7 +64,7 @@ impl<K: std::hash::Hash + Eq + Clone + Send + Sync + 'static, V: Clone + Send + 
             // Evict oldest accessed item
             if let Some(oldest_key) = lock
                 .iter()
-                .min_by_key(|(_, v)| v.last_accessed)
+                .min_by_key(|(_, v)| v.last_accessed.load(Ordering::Relaxed))
                 .map(|(k, _)| k.clone())
             {
                 lock.remove(&oldest_key);
@@ -65,12 +72,13 @@ impl<K: std::hash::Hash + Eq + Clone + Send + Sync + 'static, V: Clone + Send + 
         }
 
         let now = Instant::now();
+        let now_ms = Self::current_timestamp_ms();
         lock.insert(
             key,
             CacheEntry {
                 value,
                 created_at: now,
-                last_accessed: now,
+                last_accessed: Arc::new(AtomicU64::new(now_ms)),
             },
         );
     }

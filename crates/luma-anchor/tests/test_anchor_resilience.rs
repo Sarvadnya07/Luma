@@ -64,3 +64,45 @@ fn test_anchor_resilience_across_typography_and_reflow_mutations() {
         _ => panic!("Expected Failed for missing text"),
     }
 }
+
+#[test]
+fn test_benchmark_fuzzy_anchor_resolution_throughput() {
+    use std::time::Instant;
+
+    let prefix_text = "In the heart of the ancient forest, beneath towering oaks, ";
+    let target_quote = "the quick brown fox jumps over the lazy dog";
+    let suffix_text = " and vanishes into the golden afternoon sunlight.";
+    let filler = "Some other interesting chapters and paragraphs of the book text. ".repeat(50);
+
+    let doc_text = format!("{}{}{}{}{}", filler, prefix_text, target_quote, suffix_text, filler);
+
+    let quote_anchor = TextQuoteAnchor {
+        exact: target_quote.to_string(),
+        prefix: Some(prefix_text.to_string()),
+        suffix: Some(suffix_text.to_string()),
+        normalized_exact: target_quote.to_string(),
+    };
+
+    let start = Instant::now();
+    let iterations = 1000;
+    for _ in 0..iterations {
+        let res = AnchorEngine::resolve_quote(&quote_anchor, &doc_text);
+        assert!(matches!(
+            res,
+            ResolutionResult::HighConfidence(_)
+        ));
+    }
+    let duration = start.elapsed();
+    let avg_per_res_us = duration.as_micros() as f64 / iterations as f64;
+
+    println!(
+        "Benchmark: 1000 fuzzy anchor resolutions completed in {:?} (avg: {:.2} µs/res)",
+        duration, avg_per_res_us
+    );
+    // Performance budget: < 1500 µs (debug build) / < 100 µs (release build)
+    assert!(
+        avg_per_res_us < 1500.0,
+        "Anchor resolution exceeded latency budget: {:.2} µs",
+        avg_per_res_us
+    );
+}

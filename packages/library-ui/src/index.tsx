@@ -2,6 +2,40 @@ import React from "react";
 import { Book } from "@luma/shared-types";
 import { BookOpen, MoreVertical, ChevronLeft, ChevronRight } from "lucide-react";
 
+export function cleanDisplayTitle(raw: string): string {
+  if (!raw) return "Untitled Document";
+  let t = raw.trim();
+  t = t.replace(/^[0-9a-fA-F]{24,64}[\s_-]+/, "");
+  t = t.replace(/\s*(\(\s*(?:pdfdrive|z-lib\.org|oceanofpdf|libgen|retail|original)\s*\)|retailnbsped|nbsped)\s*/gi, " ");
+  t = t.replace(/[_-]/g, " ").trim();
+
+  if (t === t.toLowerCase() || t === t.toUpperCase()) {
+    t = t
+      .split(/\s+/)
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+      .join(" ");
+  }
+  return t || "Untitled Document";
+}
+
+const PALETTES = [
+  { bg: "from-[#2C1810] to-[#1A0F0A]", border: "border-[#4A2E20]", text: "text-[#E6C280]", sub: "text-[#A88B58]" },
+  { bg: "from-[#0F2027] to-[#203A43]", border: "border-[#2C5364]", text: "text-[#E0EAFC]", sub: "text-[#8BA4B8]" },
+  { bg: "from-[#134E5E] to-[#2B580C]", border: "border-[#3B6E1E]", text: "text-[#E2F0D9]", sub: "text-[#9EBF88]" },
+  { bg: "from-[#3D0C11] to-[#631922]", border: "border-[#8A2938]", text: "text-[#FCE4E6]", sub: "text-[#D48995]" },
+  { bg: "from-[#232526] to-[#414345]", border: "border-[#55585C]", text: "text-[#F5F5F5]", sub: "text-[#9E9E9E]" },
+  { bg: "from-[#4A2810] to-[#6E3B18]", border: "border-[#8F4E22]", text: "text-[#FDEBD0]", sub: "text-[#D29F68]" },
+];
+
+function getPalette(id: string) {
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) {
+    hash = (hash << 5) - hash + id.charCodeAt(i);
+    hash |= 0;
+  }
+  return PALETTES[Math.abs(hash) % PALETTES.length]!;
+}
+
 export interface BookCardProps {
   book: Book;
   authorName?: string;
@@ -17,6 +51,9 @@ export const BookCard: React.FC<BookCardProps> = ({
   onSelect,
   onOpenDetails,
 }) => {
+  const displayTitle = cleanDisplayTitle(book.title);
+  const palette = getPalette(book.id + book.title);
+
   return (
     <div
       onClick={onSelect}
@@ -27,17 +64,29 @@ export const BookCard: React.FC<BookCardProps> = ({
       {/* Book Cover Frame with realistic book depth */}
       <div className="relative aspect-[3/4.2] w-full rounded-md bg-[#EAE4DA] overflow-hidden shadow-[0_4px_12px_rgba(0,0,0,0.08),0_1px_3px_rgba(0,0,0,0.05)] group-hover:shadow-[0_8px_20px_rgba(0,0,0,0.12),0_2px_6px_rgba(0,0,0,0.08)] group-hover:-translate-y-0.5 transition-all duration-200 border border-[#DDD5C7]/60">
         {book.cover_image_path ? (
-          <img
-            src={book.cover_image_path}
-            alt={book.title}
-            className="w-full h-full object-cover"
-            loading="lazy"
-          />
+          <div className="relative w-full h-full">
+            <img
+              src={book.cover_image_path}
+              alt={displayTitle}
+              className="w-full h-full object-cover"
+              loading="lazy"
+            />
+            <div className="absolute inset-y-0 left-0 w-2.5 bg-gradient-to-r from-black/25 to-transparent pointer-events-none" />
+          </div>
         ) : (
-          <div className="w-full h-full flex flex-col items-center justify-center p-4 text-center bg-gradient-to-b from-[#F5EFE6] to-[#EAE2D5]">
-            <BookOpen className="w-8 h-8 text-[#8C8275] mb-2" />
-            <span className="font-serif text-xs font-semibold text-[#3D3833] line-clamp-2 px-1">
-              {book.title}
+          <div className={`w-full h-full bg-gradient-to-br ${palette.bg} ${palette.border} border p-3 flex flex-col justify-between text-center relative overflow-hidden shadow-inner`}>
+            <div className="absolute inset-y-0 left-0 w-2.5 bg-gradient-to-r from-black/40 to-transparent pointer-events-none" />
+            <span className={`text-[8px] uppercase tracking-widest ${palette.sub} font-mono block truncate pt-0.5`}>
+              {authorName !== "Unknown Author" ? authorName : "Luma Classic"}
+            </span>
+            <div className="my-auto px-0.5">
+              <BookOpen className="w-3.5 h-3.5 mx-auto mb-1 opacity-60 text-white" />
+              <span className={`font-serif text-[11px] font-semibold leading-tight ${palette.text} line-clamp-3`}>
+                {displayTitle}
+              </span>
+            </div>
+            <span className="text-[7px] text-white/30 uppercase tracking-wider font-mono pb-0.5">
+              {book.primary_file_id ? "Digital Copy" : "Luma"}
             </span>
           </div>
         )}
@@ -61,9 +110,9 @@ export const BookCard: React.FC<BookCardProps> = ({
       <div className="mt-2.5 px-0.5 space-y-0.5">
         <h3
           className="text-xs font-semibold text-[#1C1917] line-clamp-1 group-hover:text-black transition-colors"
-          title={book.title}
+          title={displayTitle}
         >
-          {book.title}
+          {displayTitle}
         </h3>
         <p className="text-[11px] text-[#78716C] line-clamp-1 hover:underline underline-offset-2">
           {authorName}

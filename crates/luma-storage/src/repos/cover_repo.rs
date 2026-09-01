@@ -40,7 +40,7 @@ impl CoverRepository {
     }
 
     pub fn get_by_id(&self, id: &CoverImageId) -> StorageResult<Option<CoverImage>> {
-        self.db.with_conn(|conn| {
+        self.db.with_read_conn(|conn| {
             let mut stmt = conn.prepare(
                 r#"
                 SELECT id, book_id, file_size_bytes, sha256_hash, mime_type, relative_path,
@@ -59,7 +59,7 @@ impl CoverRepository {
     }
 
     pub fn get_by_hash(&self, sha256_hash: &str) -> StorageResult<Option<CoverImage>> {
-        self.db.with_conn(|conn| {
+        self.db.with_read_conn(|conn| {
             let mut stmt = conn.prepare(
                 r#"
                 SELECT id, book_id, file_size_bytes, sha256_hash, mime_type, relative_path,

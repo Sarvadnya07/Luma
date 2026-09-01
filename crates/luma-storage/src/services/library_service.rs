@@ -104,24 +104,58 @@ impl LibraryService {
         tag_names: &[String],
         device_id: DeviceId,
     ) -> Result<BulkOperationResult> {
-        let tag_repo = TagRepository::new(self.db.clone());
         let mut successful = 0;
         let mut failed = 0;
 
-        for name in tag_names {
-            if let Ok(tag) = tag_repo.get_or_create_by_name(name, device_id) {
+        self.db.with_conn(|conn| {
+            let tx = conn.transaction().map_err(crate::error::StorageError::from)?;
+            for name in tag_names {
+                // Ensure tag exists
+                let normalized = name.trim().to_lowercase();
+                let tag_id = {
+                    let mut stmt = tx.prepare("SELECT id FROM tags WHERE LOWER(name) = ?1 AND is_deleted = 0")?;
+                    let mut rows = stmt.query(rusqlite::params![normalized])?;
+                    if let Some(row) = rows.next()? {
+                        let id_str: String = row.get(0)?;
+                        id_str.parse::<luma_core::ids::TagId>().unwrap_or_default()
+                    } else {
+                        drop(rows);
+                        drop(stmt);
+                        let new_tag = Tag::new(name.trim(), device_id);
+                        tx.execute(
+                            "INSERT INTO tags (id, name, color_hex, version, created_at, updated_at, device_id, is_deleted) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+                            rusqlite::params![
+                                new_tag.id.to_string(),
+                                new_tag.name,
+                                new_tag.color_hex,
+                                new_tag.sync.version.0 as i64,
+                                new_tag.sync.created_at.to_rfc3339(),
+                                new_tag.sync.updated_at.to_rfc3339(),
+                                new_tag.sync.device_id.to_string(),
+                                0,
+                            ],
+                        )?;
+                        new_tag.id
+                    }
+                };
+
                 for bid in book_ids {
-                    if tag_repo.add_tag_to_book(bid, &tag.id).is_ok() {
+                    if tx.execute(
+                        "INSERT OR IGNORE INTO book_tags (book_id, tag_id) VALUES (?1, ?2)",
+                        rusqlite::params![bid.to_string(), tag_id.to_string()],
+                    ).is_ok() {
                         successful += 1;
-                        self.event_bus
-                            .publish(DomainEvent::BookUpdated { book_id: *bid });
                     } else {
                         failed += 1;
                     }
                 }
-            } else {
-                failed += book_ids.len();
             }
+            tx.commit().map_err(crate::error::StorageError::from)?;
+            Ok(())
+        }).map_err(|e| luma_core::error::LumaError::StorageError(e.to_string()))?;
+
+        for bid in book_ids {
+            self.event_bus.publish(DomainEvent::BookUpdated { book_id: *bid });
         }
 
         Ok(BulkOperationResult {
@@ -136,18 +170,32 @@ impl LibraryService {
         collection_id: &CollectionId,
         book_ids: &[BookId],
     ) -> Result<BulkOperationResult> {
-        let repo = CollectionRepository::new(self.db.clone());
         let mut successful = 0;
         let mut failed = 0;
 
-        for bid in book_ids {
-            if repo.add_book_to_collection(collection_id, bid).is_ok() {
-                successful += 1;
-                self.event_bus
-                    .publish(DomainEvent::BookUpdated { book_id: *bid });
-            } else {
-                failed += 1;
+        self.db.with_conn(|conn| {
+            let tx = conn.transaction().map_err(crate::error::StorageError::from)?;
+            for bid in book_ids {
+                let max_pos: i32 = tx.query_row(
+                    "SELECT COALESCE(MAX(position), -1) + 1 FROM book_collections WHERE collection_id = ?1",
+                    rusqlite::params![collection_id.to_string()],
+                    |r| r.get(0),
+                )?;
+                if tx.execute(
+                    "INSERT OR IGNORE INTO book_collections (collection_id, book_id, position) VALUES (?1, ?2, ?3)",
+                    rusqlite::params![collection_id.to_string(), bid.to_string(), max_pos],
+                ).is_ok() {
+                    successful += 1;
+                } else {
+                    failed += 1;
+                }
             }
+            tx.commit().map_err(crate::error::StorageError::from)?;
+            Ok(())
+        }).map_err(|e| luma_core::error::LumaError::StorageError(e.to_string()))?;
+
+        for bid in book_ids {
+            self.event_bus.publish(DomainEvent::BookUpdated { book_id: *bid });
         }
 
         Ok(BulkOperationResult {
@@ -158,18 +206,28 @@ impl LibraryService {
     }
 
     pub fn bulk_trash(&self, book_ids: &[BookId]) -> Result<BulkOperationResult> {
-        let repo = BookRepository::new(self.db.clone());
         let mut successful = 0;
         let mut failed = 0;
+        let now = chrono::Utc::now().to_rfc3339();
+
+        self.db.with_conn(|conn| {
+            let tx = conn.transaction().map_err(crate::error::StorageError::from)?;
+            for bid in book_ids {
+                if tx.execute(
+                    "UPDATE books SET library_state = 'trashed', trashed_at = ?1, updated_at = ?1, version = version + 1 WHERE id = ?2",
+                    rusqlite::params![now, bid.to_string()],
+                ).is_ok() {
+                    successful += 1;
+                } else {
+                    failed += 1;
+                }
+            }
+            tx.commit().map_err(crate::error::StorageError::from)?;
+            Ok(())
+        }).map_err(|e| luma_core::error::LumaError::StorageError(e.to_string()))?;
 
         for bid in book_ids {
-            if repo.move_to_trash(bid).is_ok() {
-                successful += 1;
-                self.event_bus
-                    .publish(DomainEvent::BookTrashed { book_id: *bid });
-            } else {
-                failed += 1;
-            }
+            self.event_bus.publish(DomainEvent::BookTrashed { book_id: *bid });
         }
 
         Ok(BulkOperationResult {
@@ -184,18 +242,27 @@ impl LibraryService {
         book_ids: &[BookId],
         status: ReadingStatus,
     ) -> Result<BulkOperationResult> {
-        let repo = BookRepository::new(self.db.clone());
         let mut successful = 0;
         let mut failed = 0;
 
-        for bid in book_ids {
-            if repo.set_reading_status(bid, status).is_ok() {
-                successful += 1;
-                self.event_bus
-                    .publish(DomainEvent::BookUpdated { book_id: *bid });
-            } else {
-                failed += 1;
+        self.db.with_conn(|conn| {
+            let tx = conn.transaction().map_err(crate::error::StorageError::from)?;
+            for bid in book_ids {
+                if tx.execute(
+                    "UPDATE books SET reading_status = ?1, updated_at = datetime('now'), version = version + 1 WHERE id = ?2",
+                    rusqlite::params![status.to_string(), bid.to_string()],
+                ).is_ok() {
+                    successful += 1;
+                } else {
+                    failed += 1;
+                }
             }
+            tx.commit().map_err(crate::error::StorageError::from)?;
+            Ok(())
+        }).map_err(|e| luma_core::error::LumaError::StorageError(e.to_string()))?;
+
+        for bid in book_ids {
+            self.event_bus.publish(DomainEvent::BookUpdated { book_id: *bid });
         }
 
         Ok(BulkOperationResult {

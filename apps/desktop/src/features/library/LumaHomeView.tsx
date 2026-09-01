@@ -1,6 +1,7 @@
 import React from "react";
 import { Book } from "@luma/shared-types";
 import { BookOpen } from "lucide-react";
+import { BookCoverThumbnail, cleanDisplayTitle } from "./BookCoverThumbnail";
 
 export interface LumaHomeViewProps {
   books?: Book[];
@@ -39,7 +40,7 @@ export const LumaHomeView: React.FC<LumaHomeViewProps> = ({
 
   const upNextList =
     unreadBooks.length > 0
-      ? unreadBooks.filter((b) => b.id !== heroBook.id).slice(0, 3)
+      ? unreadBooks.slice(0, 3)
       : books.filter((b) => b.id !== heroBook.id).slice(0, 3);
 
   const recentlyAddedList = [...books]
@@ -48,35 +49,22 @@ export const LumaHomeView: React.FC<LumaHomeViewProps> = ({
         new Date(b.sync.created_at).getTime() -
         new Date(a.sync.created_at).getTime()
     )
-    .slice(0, 4);
+    .slice(0, 8);
 
-  const todayStr = new Date()
-    .toLocaleDateString("en-US", {
-      weekday: "long",
-      month: "long",
-      day: "numeric",
-    })
-    .toUpperCase();
-
+  const heroDisplayTitle = cleanDisplayTitle(heroBook.title);
 
   return (
-    <div className="space-y-8 pt-4 pb-12 animate-in fade-in duration-200">
-      {/* Greeting Header matching Screenshot 3 */}
-      <div className="space-y-1">
-        <span className="text-[11px] font-bold text-[#78716C] tracking-wider uppercase">
-          {todayStr || "SANCTUARY LIBRARY"}
-        </span>
-        <h2 className="font-serif text-xl font-medium text-[#1C1917] leading-relaxed">
-          Welcome back. You have{" "}
-          <span className="font-semibold text-black">
-            {inProgressBooks.length} book{inProgressBooks.length === 1 ? "" : "s"} in progress
-          </span>{" "}
-          and{" "}
-          <span className="font-semibold text-black">
-            {unreadBooks.length} unread
-          </span>{" "}
-          in your library.
-        </h2>
+    <div className="space-y-8 animate-in fade-in duration-200">
+      {/* Header Greeting */}
+      <div className="flex items-baseline justify-between">
+        <div>
+          <h2 className="font-serif text-2xl font-bold text-[#1C1917] tracking-tight">
+            Reading Sanctuary
+          </h2>
+          <p className="text-xs text-[#78716C] mt-0.5 font-sans">
+            Your personal knowledge haven • {books.length} publications
+          </p>
+        </div>
       </div>
 
       {/* Main Grid: Continue Reading Hero (Left) + Up Next (Right) */}
@@ -91,27 +79,13 @@ export const LumaHomeView: React.FC<LumaHomeViewProps> = ({
             className="group relative bg-[#F7F3EB]/90 hover:bg-[#F5EFE4] border border-[#E5DFD3] rounded-2xl p-6 flex flex-col sm:flex-row gap-6 cursor-pointer transition-all duration-200 shadow-2xs hover:shadow-sm"
           >
             {/* Book Cover Frame */}
-            <div className="w-36 h-48 bg-[#EAE4DA] rounded-lg border border-[#DDD5C7] overflow-hidden shadow-md flex-shrink-0 flex items-center justify-center group-hover:-translate-y-0.5 transition-transform duration-200">
-              {heroBook.cover_image_path ? (
-                <img
-                  src={heroBook.cover_image_path}
-                  alt={heroBook.title}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <div className="w-full h-full flex flex-col items-center justify-center p-3 text-center bg-gradient-to-b from-[#F2ECE0] to-[#E3DACB]">
-                  <span className="text-[9px] uppercase tracking-widest text-[#8C8275] mb-1 font-mono">
-                    {heroAuthor}
-                  </span>
-                  <span className="font-serif text-sm font-bold text-[#2E2924] leading-tight mb-2 line-clamp-3">
-                    {heroBook.title}
-                  </span>
-                  <div className="w-8 h-[1px] bg-[#8C8275] mb-2" />
-                  <span className="text-[8px] text-[#78716C] uppercase font-mono">
-                    {heroBook.subtitle || "LUMA EDITION"}
-                  </span>
-                </div>
-              )}
+            <div className="w-36 h-48 rounded-lg overflow-hidden shadow-md flex-shrink-0 flex items-center justify-center group-hover:-translate-y-0.5 transition-transform duration-200">
+              <BookCoverThumbnail
+                book={heroBook}
+                author={heroAuthor}
+                size="lg"
+                className="w-full h-full"
+              />
             </div>
 
             {/* Book Details */}
@@ -131,7 +105,7 @@ export const LumaHomeView: React.FC<LumaHomeViewProps> = ({
 
                 {/* Title and Author */}
                 <h4 className="font-serif text-2xl font-bold text-[#1C1917] group-hover:text-black transition-colors line-clamp-2">
-                  {heroBook.title}
+                  {heroDisplayTitle}
                 </h4>
                 <p className="text-xs text-[#78716C]">
                   {heroAuthor}
@@ -180,22 +154,24 @@ export const LumaHomeView: React.FC<LumaHomeViewProps> = ({
           <div className="space-y-2">
             {upNextList.map((item) => {
               const author = authorMap[item.id] || "Unknown Author";
+              const title = cleanDisplayTitle(item.title);
               return (
                 <div
                   key={item.id}
                   onClick={() => onSelectBook(item)}
                   className="flex items-center gap-3 p-2.5 rounded-xl bg-[#FFFFFF] hover:bg-[#FAF7F2] border border-[#E5DFD3] hover:border-[#DDD5C7] cursor-pointer transition-all shadow-2xs group"
                 >
-                  <div className="w-8 h-11 bg-[#EAE4DA] rounded border border-[#DDD5C7] flex items-center justify-center flex-shrink-0 shadow-2xs overflow-hidden">
-                    {item.cover_image_path ? (
-                      <img src={item.cover_image_path} alt={item.title} className="w-full h-full object-cover" />
-                    ) : (
-                      <BookOpen className="w-3.5 h-3.5 text-[#8C8275]" />
-                    )}
+                  <div className="w-8 h-11 rounded border border-[#DDD5C7] flex items-center justify-center flex-shrink-0 shadow-2xs overflow-hidden">
+                    <BookCoverThumbnail
+                      book={item}
+                      author={author}
+                      size="sm"
+                      className="w-full h-full"
+                    />
                   </div>
                   <div className="min-w-0 flex-1">
                     <h5 className="font-serif text-xs font-bold text-[#1C1917] truncate group-hover:text-black">
-                      {item.title}
+                      {title}
                     </h5>
                     <p className="text-[10px] text-[#78716C] truncate">
                       {author}
@@ -218,6 +194,7 @@ export const LumaHomeView: React.FC<LumaHomeViewProps> = ({
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-5">
             {recentlyAddedList.map((b) => {
               const author = authorMap[b.id] || "Unknown Author";
+              const title = cleanDisplayTitle(b.title);
               return (
                 <div
                   key={b.id}
@@ -225,23 +202,19 @@ export const LumaHomeView: React.FC<LumaHomeViewProps> = ({
                   className="group flex flex-col cursor-pointer transition-transform duration-150 hover:-translate-y-0.5"
                 >
                   {/* Card Thumbnail */}
-                  <div className="aspect-[3/4] w-full bg-[#EAE4DA] rounded-lg border border-[#DDD5C7] overflow-hidden shadow-xs flex items-center justify-center p-3 text-center">
-                    {b.cover_image_path ? (
-                      <img src={b.cover_image_path} alt={b.title} className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="flex flex-col items-center gap-1">
-                        <BookOpen className="w-5 h-5 text-[#8C8275]" />
-                        <span className="font-serif text-[11px] font-bold text-[#2E2924] line-clamp-2">
-                          {b.title}
-                        </span>
-                      </div>
-                    )}
+                  <div className="aspect-[3/4] w-full rounded-lg overflow-hidden shadow-xs flex items-center justify-center text-center">
+                    <BookCoverThumbnail
+                      book={b}
+                      author={author}
+                      size="md"
+                      className="w-full h-full"
+                    />
                   </div>
 
                   {/* Title & Author */}
                   <div className="mt-2 space-y-0.5 px-0.5">
                     <h5 className="font-semibold text-xs text-[#1C1917] truncate group-hover:text-black">
-                      {b.title}
+                      {title}
                     </h5>
                     <p className="text-[10px] text-[#78716C] truncate">
                       {author}

@@ -136,3 +136,91 @@ async fn test_job_manager_lifecycle_and_cancellation() {
         luma_storage::jobs::JobStatus::Cancelled
     );
 }
+
+#[tokio::test]
+async fn test_benchmark_collection_batch_loading_n_plus_one_regression() {
+    use luma_core::ids::DeviceId;
+    use luma_storage::repos::CollectionRepository;
+    use std::time::Instant;
+
+    let db = Database::open_in_memory().expect("Database open");
+    let col_repo = CollectionRepository::new(db.clone());
+    let book_repo = luma_storage::repos::BookRepository::new(db.clone());
+    let device_id = DeviceId::new();
+
+    // Seed 50 collections with 10 books each (500 relation rows)
+    for i in 0..50 {
+        let col = col_repo
+            .create(&format!("Collection {}", i), None, device_id)
+            .expect("Create collection");
+        for j in 0..10 {
+            let book = luma_core::models::book::Book::new(format!("Book {}_{}", i, j), device_id);
+            book_repo.insert(&book).expect("Insert book");
+            col_repo
+                .add_book_to_collection(&col.id, &book.id)
+                .expect("Add book to collection");
+        }
+    }
+
+    let start = Instant::now();
+    let iterations = 100;
+    for _ in 0..iterations {
+        let cols = col_repo.list_all().expect("List collections");
+        assert_eq!(cols.len(), 50);
+        assert_eq!(cols[0].book_ids.len(), 10);
+    }
+    let duration = start.elapsed();
+    let avg_ms = (duration.as_secs_f64() * 1000.0) / iterations as f64;
+
+    println!(
+        "Benchmark: 100 Collection list_all iterations (50 collections, 500 relations) completed in {:?} (avg: {:.3} ms/list)",
+        duration, avg_ms
+    );
+    // Performance budget: < 10ms per list_all of 50 collections
+    assert!(
+        avg_ms < 15.0,
+        "Collection list_all exceeded budget: {:.3} ms",
+        avg_ms
+    );
+}
+
+#[tokio::test]
+async fn test_benchmark_bulk_transaction_speed() {
+    use luma_core::ids::DeviceId;
+    use luma_core::models::book::{Book, ReadingStatus};
+    use luma_storage::repos::BookRepository;
+    use luma_storage::services::LibraryService;
+    use std::time::Instant;
+
+    let db = Database::open_in_memory().expect("Database open");
+    let service = LibraryService::new(db.clone(), EventBus::default());
+    let device_id = DeviceId::new();
+
+    // Create 100 dummy book records
+    let mut book_ids = Vec::new();
+    let book_repo = BookRepository::new(db.clone());
+    for i in 0..100 {
+        let book = Book::new(format!("Book {}", i), device_id);
+        book_repo.insert(&book).expect("Insert book");
+        book_ids.push(book.id);
+    }
+
+    // Benchmark bulk status change wrapped in single transaction
+    let start = Instant::now();
+    let res = service
+        .bulk_set_status(&book_ids, ReadingStatus::Completed)
+        .expect("Bulk status");
+    let elapsed = start.elapsed();
+
+    assert_eq!(res.successful, 100);
+    println!(
+        "Benchmark: Bulk status update of 100 books took {:?}",
+        elapsed
+    );
+    // Performance budget: < 100ms for 100 updates in memory
+    assert!(
+        elapsed.as_millis() < 150,
+        "Bulk status update took too long: {:?}",
+        elapsed
+    );
+}

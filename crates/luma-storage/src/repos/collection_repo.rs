@@ -49,18 +49,29 @@ impl CollectionRepository {
             let rows = stmt.query_map([], Self::row_to_collection)?;
             let mut collections = Vec::new();
             for r in rows {
-                let mut col = r?;
-                // Load book IDs
-                let mut bstmt = conn.prepare("SELECT book_id FROM book_collections WHERE collection_id = ?1 ORDER BY position ASC")?;
-                let brows = bstmt.query_map(params![col.id.to_string()], |br| {
-                    let bid_str: String = br.get(0)?;
-                    Ok(bid_str.parse::<BookId>().unwrap_or_default())
-                })?;
-                for bid in brows {
-                    col.book_ids.push(bid?);
-                }
-                collections.push(col);
+                collections.push(r?);
             }
+
+            if !collections.is_empty() {
+                // Batch-load all book_collections in a single query
+                let mut bstmt = conn.prepare("SELECT collection_id, book_id FROM book_collections ORDER BY position ASC")?;
+                let mut mapping: std::collections::HashMap<String, Vec<BookId>> = std::collections::HashMap::new();
+                let mut brows = bstmt.query([])?;
+                while let Some(row) = brows.next()? {
+                    let col_id_str: String = row.get(0)?;
+                    let book_id_str: String = row.get(1)?;
+                    if let Ok(bid) = book_id_str.parse::<BookId>() {
+                        mapping.entry(col_id_str).or_default().push(bid);
+                    }
+                }
+
+                for col in &mut collections {
+                    if let Some(bids) = mapping.remove(&col.id.to_string()) {
+                        col.book_ids = bids;
+                    }
+                }
+            }
+
             Ok(collections)
         })
     }

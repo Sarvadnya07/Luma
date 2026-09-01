@@ -82,13 +82,21 @@ impl ReaderService {
         let file_path = PathBuf::from(&file.relative_path);
         let initial_progress = prog_repo.get(book_id).unwrap_or(None);
 
+        let author_repo = crate::repos::AuthorRepository::new(self.db.clone());
+        let author_names: Vec<String> = author_repo
+            .get_authors_for_book(book_id)
+            .unwrap_or_default()
+            .into_iter()
+            .map(|a| a.name)
+            .collect();
+
         let (metadata, toc, total_count) = match file.format {
             DocumentFormat::Epub => {
                 let doc = EpubDocument::open(&file_path)?;
                 let spine_len = doc.spine_count() as u32;
                 let meta = DocumentMetadata {
                     title: book.title.clone(),
-                    authors: Vec::new(),
+                    authors: author_names.clone(),
                     language: book.language.clone(),
                     publisher: book.publisher.clone(),
                     description: book.description.clone(),
@@ -103,7 +111,7 @@ impl ReaderService {
                 let page_count = doc.page_count();
                 let meta = DocumentMetadata {
                     title: book.title.clone(),
-                    authors: Vec::new(),
+                    authors: author_names.clone(),
                     language: book.language.clone(),
                     publisher: book.publisher.clone(),
                     description: book.description.clone(),
@@ -116,7 +124,7 @@ impl ReaderService {
             _ => {
                 let meta = DocumentMetadata {
                     title: book.title.clone(),
-                    authors: Vec::new(),
+                    authors: author_names,
                     language: book.language.clone(),
                     publisher: book.publisher.clone(),
                     description: book.description.clone(),

@@ -19,6 +19,7 @@ pub struct LumaAppContext {
     pub event_bus: EventBus,
     #[allow(dead_code)]
     pub file_service: FileService,
+    pub cover_store: luma_reader::cover::CoverStore,
     pub job_manager: JobManager,
     #[allow(dead_code)]
     pub cache: CacheManager,
@@ -54,6 +55,7 @@ impl LumaAppContext {
 
         let event_bus = EventBus::default();
         let file_service = FileService::new(&data_path);
+        let cover_store = luma_reader::cover::CoverStore::new(file_service.covers_dir());
         let cache = CacheManager::new();
 
         let job_repo = JobRepository::new(db.clone());
@@ -95,6 +97,7 @@ impl LumaAppContext {
             db,
             event_bus,
             file_service,
+            cover_store,
             job_manager,
             cache,
             library_service,

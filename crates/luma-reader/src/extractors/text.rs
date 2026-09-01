@@ -33,10 +33,10 @@ impl TextExtractor {
 
         if format == DocumentFormat::Html {
             // Check <title>...</title>
-            if let Some(caps) = Regex::new(r"(?i)<title[^>]*>([^<]+)</title>")
-                .ok()
-                .and_then(|r| r.captures(&content_str))
-            {
+            static HTML_TITLE_RE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+                Regex::new(r"(?i)<title[^>]*>([^<]+)</title>").expect("Valid regex")
+            });
+            if let Some(caps) = HTML_TITLE_RE.captures(&content_str) {
                 if let Some(m) = caps.get(1) {
                     title = Some(m.as_str().trim().to_string());
                 }

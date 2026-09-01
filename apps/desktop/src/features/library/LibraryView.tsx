@@ -72,6 +72,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
   const [isDragging, setIsDragging] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [authorMap, setAuthorMap] = useState<Record<string, string>>(BOOK_AUTHORS_MAP);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -89,7 +90,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
   const loadData = async () => {
     setLoading(true);
     try {
-      const [fetchedBooks, fetchedCols, fetchedTags] = await Promise.all([
+      const [fetchedBooks, fetchedCols, fetchedTags, fetchedAuthors] = await Promise.all([
         LumaApi.listBooks(
           {
             library_state: currentSection === "trash" ? "trashed" : "active",
@@ -108,10 +109,24 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
         ),
         LumaApi.listCollections(),
         LumaApi.listTags(),
+        LumaApi.listAuthors(),
       ]);
+
+      const aMap: Record<string, string> = { ...BOOK_AUTHORS_MAP };
+      const authorIdMap = new Map((fetchedAuthors || []).map((a) => [a.id, a.name]));
+      for (const b of fetchedBooks || []) {
+        if (b.author_ids && b.author_ids.length > 0) {
+          const names = b.author_ids.map((id) => authorIdMap.get(id)).filter(Boolean);
+          if (names.length > 0) {
+            aMap[b.id] = names.join(", ");
+          }
+        }
+      }
+
       setBooks(fetchedBooks);
       setCollections(fetchedCols);
       setTags(fetchedTags);
+      setAuthorMap(aMap);
     } catch (err) {
       console.error("Failed to load library data:", err);
     } finally {
@@ -374,7 +389,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
           ) : currentSection === "library" && !searchQuery && formatFilter === "all" && statusFilter === "all" ? (
             <LumaHomeView
               books={books}
-              authorMap={BOOK_AUTHORS_MAP}
+              authorMap={authorMap}
               onSelectBook={(b) => handleOpenDetails(b.id)}
               onOpenReader={(b) => {
                 setCurrentBook(b);
@@ -400,7 +415,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
           ) : viewMode === "grid" ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6 pt-2">
               {books.map((book) => {
-                const author = BOOK_AUTHORS_MAP[book.id] || "Unknown Author";
+                const author = authorMap[book.id] || "Unknown Author";
                 const isSelected = selectedBookDetails?.book.id === book.id;
 
                 return (
@@ -421,7 +436,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
             <div className="space-y-4 pt-1">
               <BookTable
                 books={books}
-                authorMap={BOOK_AUTHORS_MAP}
+                authorMap={authorMap}
                 selectedBookId={selectedBookDetails?.book.id}
                 onSelectBook={(book) => handleOpenDetails(book.id)}
                 onOpenDetails={(book) => handleOpenDetails(book.id)}

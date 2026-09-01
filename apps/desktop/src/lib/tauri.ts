@@ -72,6 +72,15 @@ export const LumaApi = {
     return res;
   },
 
+  async getBookCoverDataUrl(bookId: string): Promise<string | null> {
+    if (isTauri()) {
+      const { invoke } = await import("@tauri-apps/api/core");
+      return invoke<string | null>("get_book_cover_data_url", { bookId });
+    }
+    const book = mockBooks.find((b) => b.id === bookId);
+    return book?.cover_image_path || null;
+  },
+
   async getBookDetails(bookId: string): Promise<BookDetailViewData | null> {
     if (isTauri()) {
       const { invoke } = await import("@tauri-apps/api/core");

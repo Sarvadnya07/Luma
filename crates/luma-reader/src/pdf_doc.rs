@@ -37,11 +37,13 @@ impl PdfDocument {
         let raw_str = String::from_utf8_lossy(&buffer);
 
         // 1. Detect actual page count from page tree objects or /Count
-        let page_re = Regex::new(r"/Type\s*/Page\b").unwrap();
-        let detected_pages = page_re.find_iter(&raw_str).count() as u32;
+        static PAGE_RE: std::sync::LazyLock<Regex> =
+            std::sync::LazyLock::new(|| Regex::new(r"/Type\s*/Page\b").expect("Valid regex"));
+        let detected_pages = PAGE_RE.find_iter(&raw_str).count() as u32;
 
-        let count_re = Regex::new(r"/Count\s+(\d+)").unwrap();
-        let max_count = count_re
+        static COUNT_RE: std::sync::LazyLock<Regex> =
+            std::sync::LazyLock::new(|| Regex::new(r"/Count\s+(\d+)").expect("Valid regex"));
+        let max_count = COUNT_RE
             .captures_iter(&raw_str)
             .filter_map(|c| c.get(1)?.as_str().parse::<u32>().ok())
             .max()
@@ -57,8 +59,10 @@ impl PdfDocument {
 
         // 2. Extract Outlines / TOC if present in PDF
         let mut toc = Vec::new();
-        let outline_re = Regex::new(r"/Title\s*(\([^)]+\)|<[0-9A-Fa-f]+>)").unwrap();
-        for (i, caps) in outline_re.captures_iter(&raw_str).enumerate() {
+        static OUTLINE_RE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+            Regex::new(r"/Title\s*(\([^)]+\)|<[0-9A-Fa-f]+>)").expect("Valid regex")
+        });
+        for (i, caps) in OUTLINE_RE.captures_iter(&raw_str).enumerate() {
             if let Some(m) = caps.get(1) {
                 let raw_title = Self::decode_pdf_string_literal(m.as_str());
                 let title = sanitize_untrusted_html(raw_title.trim());
@@ -216,17 +220,23 @@ impl PdfDocument {
 
     /// Extract text specifically bounded by BT (Begin Text) and ET (End Text) operators
     fn parse_bt_et_text_operators(stream_str: &str, out: &mut String) {
-        let bt_et_re = Regex::new(r"(?s)\bBT\b(.*?)\bET\b").unwrap();
-        let tj_str_re = Regex::new(r"\(([^)]*)\)\s*(?:Tj|'|\x22)").unwrap();
-        let tj_hex_re = Regex::new(r"<([0-9A-Fa-f]+)>\s*(?:Tj|'|\x22)").unwrap();
-        let array_tj_re = Regex::new(r"\[([^\]]+)\]\s*TJ").unwrap();
+        static BT_ET_RE: std::sync::LazyLock<Regex> =
+            std::sync::LazyLock::new(|| Regex::new(r"(?s)\bBT\b(.*?)\bET\b").expect("Valid regex"));
+        static TJ_STR_RE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+            Regex::new(r"\(([^)]*)\)\s*(?:Tj|'|\x22)").expect("Valid regex")
+        });
+        static TJ_HEX_RE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+            Regex::new(r"<([0-9A-Fa-f]+)>\s*(?:Tj|'|\x22)").expect("Valid regex")
+        });
+        static ARRAY_TJ_RE: std::sync::LazyLock<Regex> =
+            std::sync::LazyLock::new(|| Regex::new(r"\[([^\]]+)\]\s*TJ").expect("Valid regex"));
 
-        for bt_match in bt_et_re.captures_iter(stream_str) {
+        for bt_match in BT_ET_RE.captures_iter(stream_str) {
             if let Some(block) = bt_match.get(1) {
                 let block_str = block.as_str();
 
                 // 1. Literal strings `(...) Tj`
-                for caps in tj_str_re.captures_iter(block_str) {
+                for caps in TJ_STR_RE.captures_iter(block_str) {
                     if let Some(m) = caps.get(1) {
                         let decoded = Self::decode_pdf_literal_escapes(m.as_str());
                         if Self::is_valid_printable_text(&decoded) {
@@ -237,7 +247,7 @@ impl PdfDocument {
                 }
 
                 // 2. Hex strings `<48656c6c6f> Tj`
-                for caps in tj_hex_re.captures_iter(block_str) {
+                for caps in TJ_HEX_RE.captures_iter(block_str) {
                     if let Some(m) = caps.get(1) {
                         let decoded = Self::decode_pdf_hex_string(m.as_str());
                         if Self::is_valid_printable_text(&decoded) {
@@ -248,11 +258,11 @@ impl PdfDocument {
                 }
 
                 // 3. Array text operators `[(t) -12 (e) -10 (x) (t)] TJ`
-                for caps in array_tj_re.captures_iter(block_str) {
+                for caps in ARRAY_TJ_RE.captures_iter(block_str) {
                     if let Some(array_content) = caps.get(1) {
                         let array_str = array_content.as_str();
 
-                        for inner_caps in tj_str_re.captures_iter(array_str) {
+                        for inner_caps in TJ_STR_RE.captures_iter(array_str) {
                             if let Some(m) = inner_caps.get(1) {
                                 let decoded = Self::decode_pdf_literal_escapes(m.as_str());
                                 if Self::is_valid_printable_text(&decoded) {
@@ -261,7 +271,7 @@ impl PdfDocument {
                             }
                         }
 
-                        for inner_hex in tj_hex_re.captures_iter(array_str) {
+                        for inner_hex in TJ_HEX_RE.captures_iter(array_str) {
                             if let Some(m) = inner_hex.get(1) {
                                 let decoded = Self::decode_pdf_hex_string(m.as_str());
                                 if Self::is_valid_printable_text(&decoded) {

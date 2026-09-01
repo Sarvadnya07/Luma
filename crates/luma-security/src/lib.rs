@@ -74,6 +74,15 @@ pub fn verify_archive_safety(
     Ok(())
 }
 
+static EVENT_HANDLER_REGEX: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+    regex::Regex::new(r#"(?i)\s+on[a-z]+\s*=\s*(?:'[^']*'|"[^"]*"|[^\s>]+)"#)
+        .expect("Valid regex")
+});
+
+static JS_PROTO_REGEX: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+    regex::Regex::new(r#"(?i)javascript:\s*"#).expect("Valid regex")
+});
+
 /// Strip executable script tags and hazardous inline handlers from untrusted HTML/SVG strings
 pub fn sanitize_untrusted_html(input: &str) -> String {
     let mut cleaned = input.to_string();
@@ -91,9 +100,10 @@ pub fn sanitize_untrusted_html(input: &str) -> String {
     let mut changed = true;
     while changed {
         let before_len = cleaned.len();
+        let lower = cleaned.to_lowercase();
         for (start_tag, end_tag) in dangerous_tag_pairs {
-            while let Some(start_pos) = cleaned.to_lowercase().find(start_tag) {
-                if let Some(end_pos) = cleaned.to_lowercase()[start_pos..].find(end_tag) {
+            if let Some(start_pos) = lower.find(start_tag) {
+                if let Some(end_pos) = lower[start_pos..].find(end_tag) {
                     let full_end = start_pos + end_pos + end_tag.len();
                     cleaned.drain(start_pos..full_end);
                 } else if let Some(tag_end) = cleaned[start_pos..].find('>') {
@@ -108,20 +118,12 @@ pub fn sanitize_untrusted_html(input: &str) -> String {
     }
 
     // 2. Neutralize inline event handlers (e.g. `onload=`, `onerror=`, `onclick=`)
-    if let Ok(event_regex) =
-        regex::Regex::new(r#"(?i)\s+on[a-z]+\s*=\s*(?:'[^']*'|"[^"]*"|[^\s>]+)"#)
-    {
-        cleaned = event_regex.replace_all(&cleaned, " ").to_string();
-    }
+    let cleaned = EVENT_HANDLER_REGEX.replace_all(&cleaned, " ");
 
     // 3. Neutralize `javascript:` pseudo-protocol URIs in attributes
-    if let Ok(js_proto_regex) = regex::Regex::new(r#"(?i)javascript:\s*"#) {
-        cleaned = js_proto_regex
-            .replace_all(&cleaned, "blocked-javascript:")
-            .to_string();
-    }
+    let cleaned = JS_PROTO_REGEX.replace_all(&cleaned, "blocked-javascript:");
 
-    cleaned
+    cleaned.into_owned()
 }
 
 #[cfg(test)]

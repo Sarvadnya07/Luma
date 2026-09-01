@@ -46,6 +46,7 @@ fn main() {
             commands::trash_book,
             commands::restore_book,
             commands::delete_book_permanently,
+            commands::get_book_cover_data_url,
             // Import & File Picker
             commands::pick_import_files,
             commands::pick_import_directory,

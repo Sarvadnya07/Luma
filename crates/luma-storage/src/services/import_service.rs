@@ -141,10 +141,11 @@ impl ImportService {
                 }
             }
             DocumentFormat::Pdf => {
-                if let Ok(meta) = PdfExtractor::extract(&staged.staging_path) {
-                    title = meta.title;
-                    authors = meta.authors;
-                    description = meta.description;
+                if let Ok(pkg) = PdfExtractor::extract(&staged.staging_path) {
+                    title = pkg.metadata.title;
+                    authors = pkg.metadata.authors;
+                    description = pkg.metadata.description;
+                    cover_data = pkg.cover;
                 }
             }
             DocumentFormat::Cbz => {

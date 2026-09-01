@@ -50,10 +50,10 @@ export const PdfReaderView: React.FC = () => {
         if (isCancelled) return;
 
         if (bytes && bytes.length > 0) {
+          const uint8 = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
           const loadingTask = pdfjsLib.getDocument({
-            data: bytes,
-            cMapUrl: "https://cdn.jsdelivr.net/npm/pdfjs-dist@6.3.289/cmaps/",
-            cMapPacked: true,
+            data: uint8,
+            disableStream: true,
           });
           const doc = await loadingTask.promise;
           if (!isCancelled) {

@@ -106,10 +106,10 @@ fn test_pdf_extraction() {
     let format = FormatDetector::detect_from_file(pdf_file.path()).expect("PDF format detect");
     assert_eq!(format, DocumentFormat::Pdf);
 
-    let meta = PdfExtractor::extract(pdf_file.path()).expect("PDF extraction failed");
-    assert_eq!(meta.title, "Distributed Consensus Protocols");
-    assert_eq!(meta.authors, vec!["Leslie Lamport".to_string()]);
-    assert_eq!(meta.description, Some("Fault-Tolerant Systems".to_string()));
+    let pkg = PdfExtractor::extract(pdf_file.path()).expect("PDF extraction failed");
+    assert_eq!(pkg.metadata.title, "Distributed Consensus Protocols");
+    assert_eq!(pkg.metadata.authors, vec!["Leslie Lamport".to_string()]);
+    assert_eq!(pkg.metadata.description, Some("Fault-Tolerant Systems".to_string()));
 }
 
 #[test]

@@ -5,5 +5,5 @@ pub mod text;
 
 pub use cbz::CbzExtractor;
 pub use epub::{EpubExtractor, EpubPackageData, ExtractedCover};
-pub use pdf::PdfExtractor;
+pub use pdf::{PdfExtractor, PdfPackageData};
 pub use text::TextExtractor;

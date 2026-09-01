@@ -8,6 +8,7 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { BookDetailViewData, ReadingStatus } from "@luma/shared-types";
+import { BookCoverThumbnail, cleanDisplayTitle } from "./BookCoverThumbnail";
 
 export interface BookDetailsDrawerProps {
   data: BookDetailViewData | null;
@@ -39,7 +40,9 @@ export const BookDetailsDrawer: React.FC<BookDetailsDrawerProps> = ({
   const isTrashed = book.library_state === "trashed";
 
   const authorName =
-    authors.length > 0 ? authors.map((a) => a.name).join(", ") : "E. M. Forster";
+    authors.length > 0 ? authors.map((a) => a.name).join(", ") : "Unknown Author";
+
+  const displayTitle = cleanDisplayTitle(book.title);
 
   const progressPercent = reading_progress
     ? Math.round(reading_progress.progress_percentage * 100)
@@ -70,28 +73,20 @@ export const BookDetailsDrawer: React.FC<BookDetailsDrawerProps> = ({
       <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
         {/* Book Cover Frame with realistic book elevation & depth */}
         <div className="flex justify-center">
-          <div className="relative w-44 aspect-[3/4.4] rounded-lg bg-[#EAE4DA] overflow-hidden shadow-[0_12px_28px_rgba(0,0,0,0.14),0_2px_8px_rgba(0,0,0,0.08)] border border-[#DDD5C7]/70">
-            {book.cover_image_path ? (
-              <img
-                src={book.cover_image_path}
-                alt={book.title}
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <div className="w-full h-full flex flex-col items-center justify-center p-4 text-center bg-gradient-to-b from-[#F5EFE6] to-[#EAE2D5]">
-                <BookOpen className="w-10 h-10 text-[#8C8275] mb-2" />
-                <span className="font-serif text-xs font-semibold text-[#3D3833] line-clamp-3">
-                  {book.title}
-                </span>
-              </div>
-            )}
+          <div className="relative w-44 aspect-[3/4.4] rounded-lg overflow-hidden shadow-[0_12px_28px_rgba(0,0,0,0.14),0_2px_8px_rgba(0,0,0,0.08)] border border-[#DDD5C7]/70">
+            <BookCoverThumbnail
+              book={book}
+              author={authorName}
+              size="lg"
+              className="w-full h-full"
+            />
           </div>
         </div>
 
         {/* Title, Subtitle, Author */}
         <div className="text-center space-y-1.5 px-2">
           <h2 className="font-serif text-xl font-bold text-[#1C1917] leading-tight">
-            {book.title}
+            {displayTitle}
           </h2>
           {book.subtitle && (
             <p className="font-serif italic text-xs text-[#78716C] leading-snug">
