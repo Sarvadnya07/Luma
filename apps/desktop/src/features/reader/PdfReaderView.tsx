@@ -63,8 +63,11 @@ export const PdfReaderView: React.FC = () => {
     });
   };
 
-  const renderPageBody = (textContent?: string, pageNum?: number) => {
-    if (!textContent || textContent.trim() === `Page ${pageNum}` || textContent.trim().length === 0) {
+  const renderPageBody = (pageData: { text_content?: string; has_text_layer?: boolean } | null, pageNum?: number) => {
+    const textContent = pageData?.text_content;
+    const hasText = pageData?.has_text_layer ?? (textContent && textContent.trim().length > 0);
+
+    if (!hasText || !textContent || textContent.trim().length === 0) {
       return (
         <div className="flex-1 flex flex-col items-center justify-center text-center p-8 text-[#78716C]">
           <BookOpen className="w-8 h-8 mb-2 opacity-40 text-[#8C8275]" />
@@ -72,9 +75,13 @@ export const PdfReaderView: React.FC = () => {
             {currentBook?.title || "Document"}
           </p>
           <p className="text-xs text-[#78716C] mt-1 font-mono">Page {pageNum}</p>
+          <p className="text-[11px] text-[#A8A29E] mt-3 max-w-xs italic font-serif">
+            Text layer unavailable for this page (scanned or image-based)
+          </p>
         </div>
       );
     }
+
 
     // Split text into paragraphs
     const paragraphs = textContent
@@ -283,7 +290,7 @@ export const PdfReaderView: React.FC = () => {
             {/* Left Page */}
             <div className="w-[440px] min-h-[600px] bg-white border border-[#E5DFD3] rounded-sm p-10 shadow-lg flex flex-col justify-between text-xs leading-relaxed text-[#292524]">
               <div className="flex-1">
-                {renderPageBody(leftPdfPageData?.text_content, leftPageNum)}
+                {renderPageBody(leftPdfPageData, leftPageNum)}
               </div>
 
               <div className="text-center font-mono text-[10px] text-[#78716C] pt-4 border-t border-[#F2ECE2] mt-6">
@@ -295,7 +302,7 @@ export const PdfReaderView: React.FC = () => {
             {isDualSpread && rightPageNum <= totalPages && (
               <div className="w-[440px] min-h-[600px] bg-white border border-[#E5DFD3] rounded-sm p-10 shadow-lg flex flex-col justify-between text-xs leading-relaxed text-[#292524]">
                 <div className="flex-1">
-                  {renderPageBody(rightPdfPageData?.text_content, rightPageNum)}
+                  {renderPageBody(rightPdfPageData, rightPageNum)}
                 </div>
 
                 <div className="text-center font-mono text-[10px] text-[#78716C] pt-4 border-t border-[#F2ECE2] mt-6">
@@ -303,6 +310,7 @@ export const PdfReaderView: React.FC = () => {
                 </div>
               </div>
             )}
+
           </div>
         </div>
       </div>

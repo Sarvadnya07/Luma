@@ -9,6 +9,7 @@ use luma_core::error::{LumaError, Result};
 use luma_core::models::book::DocumentFormat;
 use luma_security::sanitize_untrusted_html;
 
+use crate::encoding::{decode_text_bytes, decode_xml_and_html_entities};
 use crate::DocumentMetadata;
 
 #[derive(Debug, Clone, Default)]
@@ -50,11 +51,13 @@ impl EpubExtractor {
             LumaError::CorruptedDocument(format!("OPF file not found in EPUB: {}", e))
         })?;
 
-        let mut opf_xml = String::new();
-        opf_entry
-            .read_to_string(&mut opf_xml)
-            .map_err(|e| LumaError::CorruptedDocument(format!("Failed to read OPF xml: {}", e)))?;
+        let mut opf_bytes = Vec::new();
+        opf_entry.read_to_end(&mut opf_bytes).map_err(|e| {
+            LumaError::CorruptedDocument(format!("Failed to read OPF bytes: {}", e))
+        })?;
         drop(opf_entry);
+
+        let opf_xml = decode_text_bytes(&opf_bytes);
 
         // 3. Parse OPF XML
         let (metadata, cover_id_or_href, series, series_index, subjects) =
@@ -80,13 +83,14 @@ impl EpubExtractor {
             LumaError::CorruptedDocument("META-INF/container.xml missing in EPUB".into())
         })?;
 
-        let mut container_xml = String::new();
+        let mut container_bytes = Vec::new();
         container_entry
-            .read_to_string(&mut container_xml)
+            .read_to_end(&mut container_bytes)
             .map_err(|e| {
                 LumaError::CorruptedDocument(format!("Failed to read container.xml: {}", e))
             })?;
 
+        let container_xml = decode_text_bytes(&container_bytes);
         let mut reader = Reader::from_str(&container_xml);
         reader.config_mut().trim_text(true);
 
@@ -250,7 +254,10 @@ impl EpubExtractor {
                     }
                 }
                 Ok(Event::Text(e)) => {
-                    let text = e.unescape().unwrap_or_default().trim().to_string();
+                    let raw_text = String::from_utf8_lossy(e.as_ref()).to_string();
+                    let decoded_text = decode_xml_and_html_entities(&raw_text);
+                    let text = decoded_text.trim().to_string();
+
                     if !text.is_empty() {
                         match current_tag.as_str() {
                             "title" if title.is_empty() => {
@@ -346,7 +353,6 @@ impl EpubExtractor {
         opf_dir: &Path,
         cover_ref: &str,
     ) -> Option<ExtractedCover> {
-        // If cover_ref is an item ID, find corresponding href in manifest
         let mut target_href = cover_ref.to_string();
         let item_regex = Regex::new(&format!(
             r#"<item[^>]*id=["']{}["'][^>]*href=["']([^"']+)["']"#,
@@ -360,7 +366,6 @@ impl EpubExtractor {
             }
         }
 
-        // URL decode href (e.g. spaces %20)
         let decoded_href = target_href.replace("%20", " ");
         let full_path = if opf_dir.as_os_str().is_empty() {
             decoded_href.clone()
@@ -368,7 +373,6 @@ impl EpubExtractor {
             opf_dir.join(&decoded_href).to_slash_lossy()
         };
 
-        // Try opening directly or with normalized path
         let entry_res = if archive.by_name(&full_path).is_ok() {
             archive.by_name(&full_path).ok()
         } else {

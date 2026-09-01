@@ -1,4 +1,3 @@
-use regex::Regex;
 use std::borrow::Cow;
 
 /// Safely decode byte slices into a valid UTF-8 String, handling BOM, XML declarations, and standard legacy fallbacks
@@ -212,14 +211,20 @@ mod tests {
     fn test_entity_decoding() {
         let raw = "Chapter 1 &mdash; The Beginning &ldquo;Quotes&rdquo; &amp; &#8212; &#x2014; &#160; &#x2019;";
         let decoded = decode_xml_and_html_entities(raw);
-        assert_eq!(decoded, "Chapter 1 — The Beginning “Quotes” & — — \u{00A0} ’");
+        assert_eq!(
+            decoded,
+            "Chapter 1 — The Beginning “Quotes” & — — \u{00A0} ’"
+        );
     }
 
     #[test]
     fn test_binary_classification() {
         assert!(is_binary_resource("image/jpeg", "cover.jpg"));
         assert!(is_binary_resource("font/woff2", "font.woff2"));
-        assert!(!is_binary_resource("application/xhtml+xml", "chapter.xhtml"));
+        assert!(!is_binary_resource(
+            "application/xhtml+xml",
+            "chapter.xhtml"
+        ));
         assert!(!is_binary_resource("application/x-dtbncx+xml", "toc.ncx"));
     }
 }

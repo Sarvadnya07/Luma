@@ -218,7 +218,9 @@ export interface PdfPageData {
   width_pt: number;
   height_pt: number;
   text_content: string;
+  has_text_layer?: boolean;
 }
+
 
 export interface DocumentSearchMatch {
   spine_index: number;

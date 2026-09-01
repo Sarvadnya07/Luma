@@ -7,6 +7,7 @@ use luma_core::error::{LumaError, Result};
 use luma_core::models::book::DocumentFormat;
 use luma_security::sanitize_untrusted_html;
 
+use crate::pdf_doc::PdfDocument;
 use crate::DocumentMetadata;
 
 pub struct PdfExtractor;
@@ -32,9 +33,9 @@ impl PdfExtractor {
 
         let raw_text = String::from_utf8_lossy(&buffer);
 
-        let mut title = Self::extract_field(&raw_text, r"/Title\s*\(([^)]+)\)");
-        let author = Self::extract_field(&raw_text, r"/Author\s*\(([^)]+)\)");
-        let subject = Self::extract_field(&raw_text, r"/Subject\s*\(([^)]+)\)");
+        let mut title = Self::extract_field(&raw_text, r"/Title\s*(\([^)]+\)|<[0-9A-Fa-f]+>)");
+        let author = Self::extract_field(&raw_text, r"/Author\s*(\([^)]+\)|<[0-9A-Fa-f]+>)");
+        let subject = Self::extract_field(&raw_text, r"/Subject\s*(\([^)]+\)|<[0-9A-Fa-f]+>)");
 
         if title.is_none() {
             // Fallback: Check XMP `<dc:title>`
@@ -43,7 +44,10 @@ impl PdfExtractor {
                 .and_then(|r| r.captures(&raw_text))
             {
                 if let Some(m) = caps.get(1) {
-                    title = Some(m.as_str().to_string());
+                    let clean = m.as_str().trim();
+                    if !clean.is_empty() && PdfDocument::is_valid_printable_text(clean) {
+                        title = Some(clean.to_string());
+                    }
                 }
             }
         }
@@ -76,6 +80,13 @@ impl PdfExtractor {
     fn extract_field(text: &str, pattern: &str) -> Option<String> {
         let re = Regex::new(pattern).ok()?;
         let caps = re.captures(text)?;
-        caps.get(1).map(|m| m.as_str().trim().to_string())
+        let raw_val = caps.get(1)?.as_str();
+        let decoded = PdfDocument::decode_pdf_string_literal(raw_val);
+        let trimmed = decoded.trim().to_string();
+        if !trimmed.is_empty() && PdfDocument::is_valid_printable_text(&trimmed) {
+            Some(trimmed)
+        } else {
+            None
+        }
     }
 }

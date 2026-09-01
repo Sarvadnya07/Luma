@@ -15,6 +15,7 @@ pub struct PdfPageData {
     pub width_pt: f32,
     pub height_pt: f32,
     pub text_content: String,
+    pub has_text_layer: bool,
 }
 
 pub struct PdfDocument {
@@ -35,7 +36,7 @@ impl PdfDocument {
 
         let raw_str = String::from_utf8_lossy(&buffer);
 
-        // Extract page count by searching for `/Type /Page` or `/Count N`
+        // 1. Detect actual page count from page tree objects or /Count
         let page_re = Regex::new(r"/Type\s*/Page\b").unwrap();
         let detected_pages = page_re.find_iter(&raw_str).count() as u32;
 
@@ -54,13 +55,14 @@ impl PdfDocument {
             1
         };
 
-        // Extract Outlines/Bookmarks if present
+        // 2. Extract Outlines / TOC if present in PDF
         let mut toc = Vec::new();
-        let outline_re = Regex::new(r"/Title\s*\(([^)]+)\)").unwrap();
+        let outline_re = Regex::new(r"/Title\s*(\([^)]+\)|<[0-9A-Fa-f]+>)").unwrap();
         for (i, caps) in outline_re.captures_iter(&raw_str).enumerate() {
             if let Some(m) = caps.get(1) {
-                let title = sanitize_untrusted_html(m.as_str().trim());
-                if !title.is_empty() {
+                let raw_title = Self::decode_pdf_string_literal(m.as_str());
+                let title = sanitize_untrusted_html(raw_title.trim());
+                if !title.is_empty() && Self::is_valid_printable_text(&title) {
                     toc.push(TocItem {
                         title,
                         locator: format!("page={}", i + 1),
@@ -74,7 +76,7 @@ impl PdfDocument {
             }
         }
 
-        // Fallback TOC if none extracted
+        // Fallback TOC if no outline was present
         if toc.is_empty() {
             for page in 1..=page_count.min(50) {
                 toc.push(TocItem {
@@ -110,12 +112,15 @@ impl PdfDocument {
         }
 
         let mut text_content = String::new();
-        if let Ok(buffer) = std::fs::read(&self.file_path) {
-            text_content = Self::extract_page_content(&buffer, page_number, self.page_count);
-        }
+        let mut has_text_layer = false;
 
-        if text_content.is_empty() {
-            text_content = format!("Page {}", page_number);
+        if let Ok(buffer) = std::fs::read(&self.file_path) {
+            let extracted =
+                Self::extract_page_content_stream(&buffer, page_number, self.page_count);
+            if Self::is_valid_printable_text(&extracted) && !extracted.trim().is_empty() {
+                text_content = extracted;
+                has_text_layer = true;
+            }
         }
 
         Ok(PdfPageData {
@@ -123,106 +128,294 @@ impl PdfDocument {
             width_pt: 595.0,  // Standard A4 width pt
             height_pt: 842.0, // Standard A4 height pt
             text_content,
+            has_text_layer,
         })
     }
 
-    /// Extract text streams matching PDF text operators (BT ... ET, Tj, TJ) with Flate decompression
-    fn extract_page_content(buffer: &[u8], target_page: u32, total_pages: u32) -> String {
-        let raw_str = String::from_utf8_lossy(buffer);
+    /// Safely isolates content streams for the page and extracts text strictly from BT ... ET operators
+    fn extract_page_content_stream(buffer: &[u8], target_page: u32, total_pages: u32) -> String {
         let mut page_text = String::new();
 
-        let tj_re = Regex::new(r"\(([^)]+)\)\s*(?:Tj|'|\x22)").unwrap();
-        let array_tj_re = Regex::new(r"\[([^\]]+)\]\s*TJ").unwrap();
-        let paren_re = Regex::new(r"\(([^)]+)\)").unwrap();
+        // 1. Locate all streams in the file
+        let stream_markers: Vec<usize> = buffer
+            .windows(6)
+            .enumerate()
+            .filter_map(|(i, w)| if w == b"stream" { Some(i + 6) } else { None })
+            .collect();
 
-        // 1. Try uncompressed raw text extraction first
-        if total_pages <= 1 {
-            Self::extract_from_text_block(&raw_str, &tj_re, &array_tj_re, &paren_re, &mut page_text);
+        let end_markers: Vec<usize> = buffer
+            .windows(9)
+            .enumerate()
+            .filter_map(|(i, w)| if w == b"endstream" { Some(i) } else { None })
+            .collect();
+
+        if stream_markers.is_empty() || end_markers.is_empty() {
+            return String::new();
+        }
+
+        // Determine candidate streams for target page
+        let candidate_indices: Vec<usize> = if total_pages <= 1 {
+            (0..stream_markers.len()).collect()
         } else {
-            // Find all byte streams: `stream\r?\n ... endstream`
-            let stream_markers: Vec<usize> = buffer
-                .windows(6)
-                .enumerate()
-                .filter_map(|(i, w)| if w == b"stream" { Some(i + 6) } else { None })
-                .collect();
+            // Map page number to stream chunks
+            let streams_per_page = (stream_markers.len() as f32 / total_pages as f32).max(1.0);
+            let start_idx = ((target_page - 1) as f32 * streams_per_page) as usize;
+            let end_idx = (start_idx + streams_per_page.ceil() as usize).min(stream_markers.len());
+            (start_idx..end_idx).collect()
+        };
 
-            let end_markers: Vec<usize> = buffer
-                .windows(9)
-                .enumerate()
-                .filter_map(|(i, w)| if w == b"endstream" { Some(i) } else { None })
-                .collect();
-
-            if !stream_markers.is_empty() && !end_markers.is_empty() {
-                let stream_idx = ((target_page - 1) as usize) % stream_markers.len();
-                if let Some(&start) = stream_markers.get(stream_idx) {
-                    // Skip newline following `stream`
-                    let mut data_start = start;
-                    if data_start < buffer.len() && buffer[data_start] == b'\r' {
-                        data_start += 1;
-                    }
-                    if data_start < buffer.len() && buffer[data_start] == b'\n' {
-                        data_start += 1;
-                    }
-
-                    // Find matching endstream
-                    if let Some(&data_end) = end_markers.iter().find(|&&e| e >= data_start) {
-                        let stream_bytes = &buffer[data_start..data_end];
-
-                        // Attempt FlateDecode decompression
-                        if let Ok(decompressed) = miniz_oxide::inflate::decompress_to_vec_zlib(stream_bytes) {
-                            let decomp_str = String::from_utf8_lossy(&decompressed);
-                            Self::extract_from_text_block(&decomp_str, &tj_re, &array_tj_re, &paren_re, &mut page_text);
-                        } else {
-                            // Try raw text if not compressed
-                            let stream_str = String::from_utf8_lossy(stream_bytes);
-                            Self::extract_from_text_block(&stream_str, &tj_re, &array_tj_re, &paren_re, &mut page_text);
-                        }
-                    }
+        for &idx in &candidate_indices {
+            if let Some(&start) = stream_markers.get(idx) {
+                let mut data_start = start;
+                if data_start < buffer.len() && buffer[data_start] == b'\r' {
+                    data_start += 1;
                 }
-            }
+                if data_start < buffer.len() && buffer[data_start] == b'\n' {
+                    data_start += 1;
+                }
 
-            // If specific stream yielded no text, fallback to global stream scan
-            if page_text.trim().is_empty() {
-                Self::extract_from_text_block(&raw_str, &tj_re, &array_tj_re, &paren_re, &mut page_text);
+                if let Some(&data_end) = end_markers.iter().find(|&&e| e >= data_start) {
+                    // Check header before stream for image or font descriptors (to avoid processing binary assets)
+                    let header_start = data_start.saturating_sub(256);
+                    let header_str = String::from_utf8_lossy(&buffer[header_start..data_start]);
+                    if header_str.contains("/Subtype /Image")
+                        || header_str.contains("/Subtype/Image")
+                        || header_str.contains("/Type /Font")
+                        || header_str.contains("/Type/Font")
+                        || header_str.contains("/FontDescriptor")
+                    {
+                        continue;
+                    }
+
+                    let stream_bytes = &buffer[data_start..data_end];
+
+                    // Decompress FlateDecode if compressed
+                    let decompressed_opt =
+                        miniz_oxide::inflate::decompress_to_vec_zlib(stream_bytes).ok();
+                    let stream_str = if let Some(ref decomp) = decompressed_opt {
+                        String::from_utf8_lossy(decomp)
+                    } else {
+                        String::from_utf8_lossy(stream_bytes)
+                    };
+
+                    Self::parse_bt_et_text_operators(&stream_str, &mut page_text);
+                }
             }
         }
 
-        // Clean unescaped PDF control characters
+        // Format clean paragraph structure
         let cleaned = page_text
             .replace("\\n", "\n")
             .replace("\\r", "")
             .replace("\\t", " ")
-            .replace("\\(", "(")
-            .replace("\\)", ")")
             .trim()
             .to_string();
 
         cleaned
     }
 
-    fn extract_from_text_block(
-        stream_str: &str,
-        tj_re: &Regex,
-        array_tj_re: &Regex,
-        paren_re: &Regex,
-        out: &mut String,
-    ) {
-        for caps in tj_re.captures_iter(stream_str) {
-            if let Some(m) = caps.get(1) {
-                out.push_str(m.as_str());
-                out.push(' ');
-            }
-        }
-        for caps in array_tj_re.captures_iter(stream_str) {
-            if let Some(array_content) = caps.get(1) {
-                for inner_cap in paren_re.captures_iter(array_content.as_str()) {
-                    if let Some(inner_m) = inner_cap.get(1) {
-                        out.push_str(inner_m.as_str());
+    /// Extract text specifically bounded by BT (Begin Text) and ET (End Text) operators
+    fn parse_bt_et_text_operators(stream_str: &str, out: &mut String) {
+        let bt_et_re = Regex::new(r"(?s)\bBT\b(.*?)\bET\b").unwrap();
+        let tj_str_re = Regex::new(r"\(([^)]*)\)\s*(?:Tj|'|\x22)").unwrap();
+        let tj_hex_re = Regex::new(r"<([0-9A-Fa-f]+)>\s*(?:Tj|'|\x22)").unwrap();
+        let array_tj_re = Regex::new(r"\[([^\]]+)\]\s*TJ").unwrap();
+
+        for bt_match in bt_et_re.captures_iter(stream_str) {
+            if let Some(block) = bt_match.get(1) {
+                let block_str = block.as_str();
+
+                // 1. Literal strings `(...) Tj`
+                for caps in tj_str_re.captures_iter(block_str) {
+                    if let Some(m) = caps.get(1) {
+                        let decoded = Self::decode_pdf_literal_escapes(m.as_str());
+                        if Self::is_valid_printable_text(&decoded) {
+                            out.push_str(&decoded);
+                            out.push(' ');
+                        }
                     }
                 }
-                out.push(' ');
+
+                // 2. Hex strings `<48656c6c6f> Tj`
+                for caps in tj_hex_re.captures_iter(block_str) {
+                    if let Some(m) = caps.get(1) {
+                        let decoded = Self::decode_pdf_hex_string(m.as_str());
+                        if Self::is_valid_printable_text(&decoded) {
+                            out.push_str(&decoded);
+                            out.push(' ');
+                        }
+                    }
+                }
+
+                // 3. Array text operators `[(t) -12 (e) -10 (x) (t)] TJ`
+                for caps in array_tj_re.captures_iter(block_str) {
+                    if let Some(array_content) = caps.get(1) {
+                        let array_str = array_content.as_str();
+
+                        for inner_caps in tj_str_re.captures_iter(array_str) {
+                            if let Some(m) = inner_caps.get(1) {
+                                let decoded = Self::decode_pdf_literal_escapes(m.as_str());
+                                if Self::is_valid_printable_text(&decoded) {
+                                    out.push_str(&decoded);
+                                }
+                            }
+                        }
+
+                        for inner_hex in tj_hex_re.captures_iter(array_str) {
+                            if let Some(m) = inner_hex.get(1) {
+                                let decoded = Self::decode_pdf_hex_string(m.as_str());
+                                if Self::is_valid_printable_text(&decoded) {
+                                    out.push_str(&decoded);
+                                }
+                            }
+                        }
+
+                        out.push(' ');
+                    }
+                }
             }
         }
+    }
+
+    /// Decode PDF string literals in parenthesized or hex format
+    pub fn decode_pdf_string_literal(raw: &str) -> String {
+        let trimmed = raw.trim();
+        if trimmed.starts_with('(') && trimmed.ends_with(')') {
+            let inner = &trimmed[1..trimmed.len() - 1];
+            Self::decode_pdf_literal_escapes(inner)
+        } else if trimmed.starts_with('<') && trimmed.ends_with('>') {
+            let inner = &trimmed[1..trimmed.len() - 1];
+            Self::decode_pdf_hex_string(inner)
+        } else {
+            raw.to_string()
+        }
+    }
+
+    /// Decode PDF escape sequences: \ddd octal, \n, \r, \t, \b, \f, \(, \), \\
+    fn decode_pdf_literal_escapes(input: &str) -> String {
+        let mut result = String::with_capacity(input.len());
+        let mut chars = input.chars().peekable();
+
+        while let Some(ch) = chars.next() {
+            if ch == '\\' {
+                match chars.peek() {
+                    Some('n') => {
+                        chars.next();
+                        result.push('\n');
+                    }
+                    Some('r') => {
+                        chars.next();
+                        result.push('\r');
+                    }
+                    Some('t') => {
+                        chars.next();
+                        result.push('\t');
+                    }
+                    Some('b') => {
+                        chars.next();
+                    }
+                    Some('f') => {
+                        chars.next();
+                    }
+                    Some('(') => {
+                        chars.next();
+                        result.push('(');
+                    }
+                    Some(')') => {
+                        chars.next();
+                        result.push(')');
+                    }
+                    Some('\\') => {
+                        chars.next();
+                        result.push('\\');
+                    }
+                    Some(&c) if c.is_digit(8) => {
+                        // Octal code \ddd
+                        let mut octal = String::new();
+                        for _ in 0..3 {
+                            if let Some(&digit) = chars.peek() {
+                                if digit.is_digit(8) {
+                                    octal.push(chars.next().unwrap());
+                                } else {
+                                    break;
+                                }
+                            }
+                        }
+                        if let Ok(code) = u8::from_str_radix(&octal, 8) {
+                            result.push(code as char);
+                        }
+                    }
+                    _ => {
+                        if let Some(next_ch) = chars.next() {
+                            result.push(next_ch);
+                        }
+                    }
+                }
+            } else {
+                result.push(ch);
+            }
+        }
+
+        result
+    }
+
+    /// Decode PDF hexadecimal string `<48656c6c6f>`
+    fn decode_pdf_hex_string(hex_str: &str) -> String {
+        let clean_hex: String = hex_str.chars().filter(|c| c.is_ascii_hexdigit()).collect();
+        let mut bytes = Vec::new();
+        let mut chars = clean_hex.chars();
+
+        while let Some(c1) = chars.next() {
+            let c2 = chars.next().unwrap_or('0');
+            let byte_str = format!("{}{}", c1, c2);
+            if let Ok(b) = u8::from_str_radix(&byte_str, 16) {
+                bytes.push(b);
+            }
+        }
+
+        // Check if UTF-16 BE BOM (\xFE\xFF)
+        if bytes.len() >= 2 && bytes[0] == 0xFE && bytes[1] == 0xFF {
+            let u16_slice: Vec<u16> = bytes[2..]
+                .chunks_exact(2)
+                .map(|chunk| u16::from_be_bytes([chunk[0], chunk[1]]))
+                .collect();
+            return String::from_utf16_lossy(&u16_slice);
+        }
+
+        String::from_utf8_lossy(&bytes).to_string()
+    }
+
+    /// Validates character entropy and unprintable ratios to protect against raw CID/binary glyph leakage
+    pub fn is_valid_printable_text(text: &str) -> bool {
+        let trimmed = text.trim();
+        if trimmed.is_empty() {
+            return false;
+        }
+
+        let mut printable_count = 0;
+        let mut unprintable_count = 0;
+
+        for ch in trimmed.chars() {
+            if (ch.is_control() || (ch as u32) < 0x20 || ch == '\u{FFFD}')
+                && ch != '\n'
+                && ch != '\r'
+                && ch != '\t'
+            {
+                unprintable_count += 1;
+            } else {
+                printable_count += 1;
+            }
+        }
+
+        if printable_count == 0 {
+            return false;
+        }
+
+        let total = printable_count + unprintable_count;
+        let unprintable_ratio = unprintable_count as f32 / total as f32;
+
+        // Strict rejection of binary garbage: if unprintable characters exceed 10%, reject text layer
+        unprintable_ratio <= 0.10
     }
 
     pub fn search(&self, query: &str) -> Result<Vec<DocumentSearchMatch>> {
@@ -234,6 +427,9 @@ impl PdfDocument {
         let mut matches = Vec::new();
         for page in 1..=self.page_count {
             if let Ok(page_data) = self.get_page(page) {
+                if !page_data.has_text_layer {
+                    continue;
+                }
                 let text_lower = page_data.text_content.to_lowercase();
                 if let Some(idx) = text_lower.find(&clean_q) {
                     let start_snippet = idx.saturating_sub(40);

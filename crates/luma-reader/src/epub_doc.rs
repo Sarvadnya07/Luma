@@ -579,9 +579,6 @@ impl EpubDocument {
         let tag_re = Regex::new(r"<[^>]+>").unwrap();
         let stripped = tag_re.replace_all(html, " ");
         let decoded = decode_xml_and_html_entities(&stripped);
-        decoded
-            .split_whitespace()
-            .collect::<Vec<_>>()
-            .join(" ")
+        decoded.split_whitespace().collect::<Vec<_>>().join(" ")
     }
 }
