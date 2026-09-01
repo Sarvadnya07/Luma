@@ -19,6 +19,7 @@ import {
   Puzzle,
   Moon,
   Sun,
+  Settings,
 } from "lucide-react";
 import { Collection, Tag } from "@luma/shared-types";
 import { LumaLogo } from "@luma/ui";
@@ -53,6 +54,7 @@ export interface LibrarySidebarProps {
   onSelectTag?: (id: string | null) => void;
   onCreateCollection?: () => void;
   onImportClick?: () => void;
+  onOpenSettings?: () => void;
   isDarkMode?: boolean;
   onToggleDarkMode?: () => void;
 }
@@ -68,6 +70,7 @@ export const LibrarySidebar: React.FC<LibrarySidebarProps> = ({
   onSelectTag,
   onCreateCollection: _onCreateCollection,
   onImportClick,
+  onOpenSettings,
   isDarkMode = false,
   onToggleDarkMode,
 }) => {
@@ -208,11 +211,20 @@ export const LibrarySidebar: React.FC<LibrarySidebarProps> = ({
         </div>
       </div>
 
-      {/* Bottom Import Book Action */}
-      <div className="pt-4 border-t border-[#E5DFD3]">
+      {/* Bottom Actions: Settings & Import Book */}
+      <div className="pt-4 border-t border-[#E5DFD3] dark:border-[#302C27] flex items-center gap-2">
+        <button
+          type="button"
+          onClick={onOpenSettings}
+          className="p-2.5 rounded-lg border border-[#DDD5C7] dark:border-[#38332E] bg-[#FAF7F2] dark:bg-[#24211E] text-[#57534E] dark:text-[#C7BEB2] hover:bg-[#FFFFFF] dark:hover:bg-[#2D2824] hover:text-[#18181B] dark:hover:text-white transition-colors"
+          title="System & Preferences"
+          aria-label="System & Preferences"
+        >
+          <Settings className="w-4 h-4" />
+        </button>
         <button
           onClick={onImportClick}
-          className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-[#18181B] hover:bg-[#27272A] active:bg-[#09090B] text-white text-xs font-medium rounded-lg shadow-sm transition-all"
+          className="flex-1 flex items-center justify-center gap-2 py-2.5 px-3 bg-[#18181B] hover:bg-[#27272A] active:bg-[#09090B] text-white text-xs font-medium rounded-lg shadow-sm transition-all"
         >
           <Plus className="w-3.5 h-3.5" />
           <span>Import Book</span>

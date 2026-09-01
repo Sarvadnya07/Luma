@@ -882,6 +882,20 @@ export const LumaApi = {
     return { operation: "vacuum_database", items_processed: 1, duration_ms: 15, message: "OK" };
   },
 
+  async maintenanceReconcileFiles(): Promise<MaintenanceResult> {
+    return this.reconcileFiles();
+  },
+  async maintenanceRebuildSearchIndex(): Promise<MaintenanceResult> {
+    return this.rebuildSearchIndex();
+  },
+  async maintenanceCleanupCaches(): Promise<MaintenanceResult> {
+    return this.cleanupCaches();
+  },
+  async maintenanceVacuumDatabase(): Promise<MaintenanceResult> {
+    return this.vacuumDatabase();
+  },
+
+
   // Diagnostics
   async runDiagnostics(): Promise<DiagnosticsReport> {
     if (isTauri()) {

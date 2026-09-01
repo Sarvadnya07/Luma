@@ -21,6 +21,7 @@ import { ResearchProjectWorkspace } from "../workspace/ResearchProjectWorkspace"
 import { SyncDeviceCenter } from "../devices/SyncDeviceCenter";
 import { IntegrationsPluginsView } from "../plugins/IntegrationsPluginsView";
 import { CommandPaletteModal } from "../palette/CommandPaletteModal";
+import { SettingsModal } from "../settings/SettingsModal";
 import { BookOpen } from "lucide-react";
 
 const BOOK_AUTHORS_MAP: Record<string, string> = {
@@ -70,6 +71,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
   const [isCollectionModalOpen, setIsCollectionModalOpen] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -293,12 +295,13 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
         selectedCollectionId={selectedCollectionId}
         selectedTagId={selectedTagId}
         onSelectCollection={setSelectedCollectionId}
-          onSelectTag={setSelectedTagId}
-          onCreateCollection={() => setIsCollectionModalOpen(true)}
-          onImportClick={openImportPicker}
-          isDarkMode={isDarkMode}
-          onToggleDarkMode={onToggleDarkMode}
-        />
+        onSelectTag={setSelectedTagId}
+        onCreateCollection={() => setIsCollectionModalOpen(true)}
+        onImportClick={openImportPicker}
+        onOpenSettings={() => setIsSettingsOpen(true)}
+        isDarkMode={isDarkMode}
+        onToggleDarkMode={onToggleDarkMode}
+      />
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col px-8 py-6 overflow-y-auto w-full">
@@ -549,17 +552,22 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
             const id = actionId.replace("open_book_", "");
             const b = books.find((x) => x.id === id) || books[0];
             if (b) setCurrentBook(b);
-          } else if (actionId === "open_meditations") {
-            const b = books.find((x) => x.id === "book_meditations") || books[0];
-            if (b) setCurrentBook(b);
+          } else if (actionId === "start_backup") {
+            setIsSettingsOpen(true);
           } else if (actionId === "search_annotations") {
             setCurrentSection("annotations");
-          } else if (actionId === "start_backup") {
-            setCurrentSection("devices");
           } else if (actionId === "toggle_eink") {
             setCurrentSection("all");
           }
         }}
+      />
+
+      {/* Settings Modal */}
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        isDarkMode={isDarkMode}
+        onToggleDarkMode={onToggleDarkMode}
       />
     </div>
   );
