@@ -92,7 +92,7 @@ export const ReaderView: React.FC<ReaderViewProps> = ({ book }) => {
   const isPdf = documentData?.file.format === "pdf";
 
   return (
-    <div className="relative w-full h-full flex flex-col bg-[#FAF7F2] text-[#1C1917] overflow-hidden select-none">
+    <div className="relative w-full h-full flex flex-col bg-[#FAF7F2] text-[#1C1917] overflow-hidden">
       {/* Status Toast Notification */}
       {statusMessage && (
         <div className="fixed top-16 left-1/2 transform -translate-x-1/2 z-50 bg-[#18181B] text-white text-xs px-4 py-2 rounded-full shadow-2xl flex items-center gap-2 animate-in fade-in slide-in-from-top-2 duration-150 font-medium">

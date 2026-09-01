@@ -26,8 +26,8 @@ export const DuplicateReviewModal: React.FC<DuplicateReviewModalProps> = ({
 }) => {
   if (!isOpen) return null;
 
-  const title = existingBook?.title || "The Great Gatsby";
-  const author = "F. Scott Fitzgerald";
+  const title = existingBook?.title || "Existing Publication";
+  const author = "Library Record";
 
   return (
     <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
@@ -44,17 +44,6 @@ export const DuplicateReviewModal: React.FC<DuplicateReviewModalProps> = ({
         </div>
 
         <div className="p-6 space-y-5">
-          {/* Batch Progress Bar */}
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between text-xs text-[#78716C]">
-              <span>Processing batch...</span>
-              <span className="font-mono text-[#1C1917] font-semibold">15 of 20</span>
-            </div>
-            <div className="w-full h-1.5 bg-[#E5DFD3] rounded-full overflow-hidden">
-              <div className="h-full bg-[#18181B] transition-all duration-300 w-[75%]" />
-            </div>
-          </div>
-
           {/* Duplicate Alert Box */}
           <div className="bg-[#FBF6EE] border border-[#E8DFC8] rounded-xl p-4 space-y-1.5">
             <div className="flex items-center gap-2 text-rose-800 font-semibold text-xs">
@@ -62,7 +51,7 @@ export const DuplicateReviewModal: React.FC<DuplicateReviewModalProps> = ({
               <span>Duplicate Detected</span>
             </div>
             <p className="text-xs text-[#6B6358] leading-relaxed pl-6">
-              A book with the same title already exists in your library. Please review the metadata below.
+              A document with a matching title, hash, or publication identifier already exists in your library.
             </p>
           </div>
 
@@ -88,17 +77,15 @@ export const DuplicateReviewModal: React.FC<DuplicateReviewModalProps> = ({
               </div>
               <div className="space-y-1 pt-1 border-t border-[#F2ECE2] text-[11px]">
                 <div className="flex justify-between text-[#78716C]">
-                  <span>Format:</span>
-                  <span className="font-mono font-semibold text-[#1C1917]">EPUB</span>
+                  <span>Status:</span>
+                  <span className="font-mono font-semibold text-[#1C1917]">In Library</span>
                 </div>
-                <div className="flex justify-between text-[#78716C]">
-                  <span>Size:</span>
-                  <span className="font-mono text-[#57534E]">4.2 MB</span>
-                </div>
-                <div className="flex justify-between text-[#78716C]">
-                  <span>Added:</span>
-                  <span className="text-[#57534E]">Oct 2023</span>
-                </div>
+                {existingBook?.published_date && (
+                  <div className="flex justify-between text-[#78716C]">
+                    <span>Published:</span>
+                    <span className="text-[#57534E]">{existingBook.published_date}</span>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -113,25 +100,25 @@ export const DuplicateReviewModal: React.FC<DuplicateReviewModalProps> = ({
                   <FileCheck2 className="w-5 h-5 text-emerald-700" />
                 </div>
                 <div className="space-y-0.5 min-w-0">
-                  <h4 className="font-serif font-bold text-[#1C1917] truncate">{title}</h4>
-                  <p className="text-[11px] text-[#78716C] truncate">{author}</p>
+                  <h4 className="font-serif font-bold text-[#1C1917] truncate">
+                    {importingFile?.filename || title}
+                  </h4>
+                  <p className="text-[11px] text-[#78716C] truncate">New Staged File</p>
                 </div>
               </div>
               <div className="space-y-1 pt-1 border-t border-[#F2ECE2] text-[11px]">
                 <div className="flex justify-between text-[#78716C]">
                   <span>Format:</span>
                   <span className="font-mono font-semibold text-[#1C1917]">
-                    {importingFile?.format || "PDF"}
+                    {importingFile?.format?.toUpperCase() || "DIGITAL"}
                   </span>
                 </div>
-                <div className="flex justify-between text-[#78716C]">
-                  <span>Size:</span>
-                  <span className="font-mono text-[#57534E]">{importingFile?.size || "6.8 MB"}</span>
-                </div>
-                <div className="flex justify-between text-[#78716C]">
-                  <span>Quality:</span>
-                  <span className="font-medium text-emerald-700 font-serif">High Res</span>
-                </div>
+                {importingFile?.size && (
+                  <div className="flex justify-between text-[#78716C]">
+                    <span>Size:</span>
+                    <span className="font-mono text-[#57534E]">{importingFile.size}</span>
+                  </div>
+                )}
               </div>
             </div>
           </div>

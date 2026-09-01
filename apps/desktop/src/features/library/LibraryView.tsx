@@ -24,18 +24,6 @@ import { CommandPaletteModal } from "../palette/CommandPaletteModal";
 import { SettingsModal } from "../settings/SettingsModal";
 import { BookOpen } from "lucide-react";
 
-const BOOK_AUTHORS_MAP: Record<string, string> = {
-  book_arch_stillness: "E. M. Forster",
-  book_meditations: "Marcus Aurelius",
-  book_great_gatsby: "F. Scott Fitzgerald",
-  book_foundation: "Isaac Asimov",
-  book_design_everyday: "Don Norman",
-  book_leaves_of_grass: "Walt Whitman",
-  book_thinking_fast: "Daniel Kahneman",
-  book_sapiens: "Yuval Noah Harari",
-  book_poetics_of_space: "Gaston Bachelard",
-};
-
 export interface LibraryViewProps {
   isDarkMode?: boolean;
   onToggleDarkMode?: () => void;
@@ -72,7 +60,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
   const [isDragging, setIsDragging] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [authorMap, setAuthorMap] = useState<Record<string, string>>(BOOK_AUTHORS_MAP);
+  const [authorMap, setAuthorMap] = useState<Record<string, string>>({});
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -112,7 +100,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
         LumaApi.listAuthors(),
       ]);
 
-      const aMap: Record<string, string> = { ...BOOK_AUTHORS_MAP };
+      const aMap: Record<string, string> = {};
       const authorIdMap = new Map((fetchedAuthors || []).map((a) => [a.id, a.name]));
       for (const b of fetchedBooks || []) {
         if (b.author_ids && b.author_ids.length > 0) {

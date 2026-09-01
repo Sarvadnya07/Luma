@@ -1,9 +1,11 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   BookOpen,
   User,
   Settings,
 } from "lucide-react";
+import { Book } from "@luma/shared-types";
+import { LumaApi } from "../../lib/tauri";
 
 export interface ReadingIntelligenceDashboardProps {
   onOpenBook?: (bookId: string) => void;
@@ -14,6 +16,16 @@ export const ReadingIntelligenceDashboard: React.FC<ReadingIntelligenceDashboard
   onOpenBook,
   onNavigateTab,
 }) => {
+  const [libraryBooks, setLibraryBooks] = useState<Book[]>([]);
+
+  useEffect(() => {
+    LumaApi.listBooks().then((b) => {
+      if (b && b.length > 0) {
+        setLibraryBooks(b);
+      }
+    }).catch(() => {});
+  }, []);
+
   // 5 weeks x 7 days heatmap levels (0 to 4)
   const heatmapData = [
     [1, 2, 0, 3, 2, 4, 3],
@@ -192,29 +204,24 @@ export const ReadingIntelligenceDashboard: React.FC<ReadingIntelligenceDashboard
             </span>
 
             <div className="space-y-3">
-              {[
-                {
-                  id: "book_decline_fall",
-                  title: "The Decline and Fall of the Roman Empire",
-                  author: "Edward Gibbon • Vol. 1, Chapter 15",
-                  time: "2h 15m",
-                  progress: 12,
-                },
-                {
-                  id: "book_meditations",
-                  title: "Meditations",
-                  author: "Marcus Aurelius • Book V",
-                  time: "45m",
-                  progress: 54,
-                },
-                {
-                  id: "book_wealth_nations",
-                  title: "The Wealth of Nations",
-                  author: "Adam Smith • Book 1, Chapter 2",
-                  time: "1h 10m",
-                  progress: 8,
-                },
-              ].map((sess) => (
+              {(libraryBooks.length > 0
+                ? libraryBooks.slice(0, 3).map((b, i) => ({
+                    id: b.id,
+                    title: b.title,
+                    author: b.subtitle || (b.reading_status === "reading" ? "In Progress" : "Recent"),
+                    time: `${i + 1}h ${15 * (i + 1)}m`,
+                    progress: b.reading_status === "completed" ? 100 : b.reading_status === "reading" ? 45 : 10,
+                  }))
+                : [
+                    {
+                      id: "book_recent",
+                      title: "Digital Reading Sanctuary",
+                      author: "Scholarly Session",
+                      time: "1h 30m",
+                      progress: 25,
+                    },
+                  ]
+              ).map((sess) => (
                 <div
                   key={sess.id}
                   onClick={() => onOpenBook?.(sess.id)}
@@ -261,7 +268,9 @@ export const ReadingIntelligenceDashboard: React.FC<ReadingIntelligenceDashboard
               </span>
               <div className="p-5 bg-[#FFFFFF] border border-[#E5DFD3] rounded-xl shadow-2xs space-y-3">
                 <div className="flex items-baseline justify-between">
-                  <span className="text-3xl font-bold font-mono text-[#1C1917]">12</span>
+                  <span className="text-3xl font-bold font-mono text-[#1C1917]">
+                    {libraryBooks.length > 0 ? libraryBooks.length * 2 : 12}
+                  </span>
                   <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
                     +2.5 Hours
                   </span>
@@ -278,18 +287,18 @@ export const ReadingIntelligenceDashboard: React.FC<ReadingIntelligenceDashboard
                 QUEUE
               </span>
               <div className="space-y-2">
-                {[
-                  {
-                    id: "book_critique_pure_reason",
-                    title: "Critique of Pure Reason",
-                    author: "Immanuel Kant",
-                  },
-                  {
-                    id: "book_origin_species",
-                    title: "On the Origin of Species",
-                    author: "Charles Darwin",
-                  },
-                ].map((item) => (
+                {(libraryBooks.length > 3
+                  ? libraryBooks.slice(3, 5).map((b) => ({
+                      id: b.id,
+                      title: b.title,
+                      author: b.subtitle || "Reading Queue",
+                    }))
+                  : libraryBooks.slice(0, 2).map((b) => ({
+                      id: b.id,
+                      title: b.title,
+                      author: b.subtitle || "Reading Queue",
+                    }))
+                ).map((item) => (
                   <div
                     key={item.id}
                     onClick={() => onOpenBook?.(item.id)}

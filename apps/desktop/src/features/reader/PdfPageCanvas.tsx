@@ -13,6 +13,15 @@ interface PdfPageCanvasProps {
   onPageLoaded?: (hasText: boolean) => void;
 }
 
+interface TextSpan {
+  str: string;
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+  fontSize: number;
+}
+
 export const PdfPageCanvas: React.FC<PdfPageCanvasProps> = ({
   pdfDoc,
   pageNum,
@@ -26,6 +35,7 @@ export const PdfPageCanvas: React.FC<PdfPageCanvasProps> = ({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [renderState, setRenderState] = useState<"loading" | "rendered" | "error">("loading");
+  const [textSpans, setTextSpans] = useState<TextSpan[]>([]);
   const [pageDimensions, setPageDimensions] = useState<{ width: number; height: number }>({
     width: isThumbnail ? 160 : 440,
     height: isThumbnail ? 220 : 600,
@@ -66,10 +76,43 @@ export const PdfPageCanvas: React.FC<PdfPageCanvasProps> = ({
         const finalScale = baseScale * effectiveZoom;
 
         const viewport = page.getViewport({ scale: finalScale * dpr });
+        const logicalViewport = page.getViewport({ scale: finalScale });
         const logicalWidth = viewport.width / dpr;
         const logicalHeight = viewport.height / dpr;
 
         setPageDimensions({ width: logicalWidth, height: logicalHeight });
+
+        // Build text layer overlay spans for text selection
+        if (!isThumbnail && hasText) {
+          const spans: TextSpan[] = [];
+          for (const item of textContent.items) {
+            if ("str" in item && typeof item.str === "string" && item.str.length > 0) {
+              const [vx, vy] = logicalViewport.convertToViewportPoint(
+                item.transform[4] as number,
+                item.transform[5] as number
+              );
+              const fontHeight =
+                Math.hypot(item.transform[0] as number, item.transform[1] as number) *
+                finalScale;
+              const itemWidth = (item.width || 0) * finalScale;
+              spans.push({
+                str: item.str,
+                left: vx,
+                top: vy - fontHeight,
+                width: itemWidth,
+                height: fontHeight,
+                fontSize: Math.max(1, fontHeight),
+              });
+            }
+          }
+          if (!isCancelled) {
+            setTextSpans(spans);
+          }
+        } else {
+          if (!isCancelled) {
+            setTextSpans([]);
+          }
+        }
 
         const canvas = canvasRef.current;
         if (!canvas) return;
@@ -156,6 +199,35 @@ export const PdfPageCanvas: React.FC<PdfPageCanvasProps> = ({
         }`}
       />
 
+      {/* Selectable Text Layer Overlay for Selection & Highlighting */}
+      {renderState === "rendered" && textSpans.length > 0 && (
+        <div
+          className="absolute inset-0 overflow-hidden select-text pointer-events-auto leading-none z-10"
+          style={{ width: `${pageDimensions.width}px`, height: `${pageDimensions.height}px` }}
+        >
+          {textSpans.map((span, idx) => (
+            <span
+              key={idx}
+              style={{
+                position: "absolute",
+                left: `${span.left}px`,
+                top: `${span.top}px`,
+                fontSize: `${span.fontSize}px`,
+                fontFamily: "sans-serif",
+                lineHeight: "1",
+                transformOrigin: "left top",
+                color: "transparent",
+                userSelect: "text",
+                whiteSpace: "pre",
+                cursor: "text",
+              }}
+            >
+              {span.str}
+            </span>
+          ))}
+        </div>
+      )}
+
       {/* Loading Skeleton */}
       {renderState === "loading" && (
         <div
@@ -185,7 +257,7 @@ export const PdfPageCanvas: React.FC<PdfPageCanvasProps> = ({
       )}
 
       {/* Subtle Bottom Status Indicator for Scanned/Image Pages */}
-      {renderState === "rendered" && (isScannedOnly || !hasTextLayer) && (
+      {renderState === "rendered" && isScannedOnly && hasTextLayer === false && (
         <div className="absolute bottom-2 right-2 px-1.5 py-0.5 rounded bg-[#FAF7F2]/90 border border-[#E5DFD3] text-[9px] font-mono text-[#78716C] flex items-center gap-1 opacity-70 hover:opacity-100 select-none shadow-xs pointer-events-auto">
           <FileText className="w-2.5 h-2.5 text-[#8C8275]" />
           <span>Image / Scanned Page</span>

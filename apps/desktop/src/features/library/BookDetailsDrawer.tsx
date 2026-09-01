@@ -46,12 +46,6 @@ export const BookDetailsDrawer: React.FC<BookDetailsDrawerProps> = ({
 
   const progressPercent = reading_progress
     ? Math.round(reading_progress.progress_percentage * 100)
-    : book.id === "book_arch_stillness"
-    ? 75
-    : book.id === "book_great_gatsby"
-    ? 66
-    : book.id === "book_meditations"
-    ? 45
     : 0;
 
   return (
@@ -161,8 +155,9 @@ export const BookDetailsDrawer: React.FC<BookDetailsDrawerProps> = ({
             Synopsis
           </span>
           <p className="text-xs text-[#443F39] leading-relaxed text-justify">
-            {book.description ||
-              "In this profound exploration of spatial dynamics within literature, the author examines how the physical environments constructed by modernist writers serve as vessels for silence and psychological depth. Drawing on architectural theory and literary analysis, the book offers a new perspective on the deliberate use of emptiness in narrative structure."}
+            {book.description && book.description.trim().length > 0
+              ? book.description
+              : "No synopsis available for this publication."}
           </p>
         </div>
 

@@ -126,7 +126,12 @@ export const LumaHomeView: React.FC<LumaHomeViewProps> = ({
                   <div
                     className="h-full bg-[#18181B] transition-all duration-300"
                     style={{
-                      width: heroBook.reading_status === "completed" ? "100%" : "45%",
+                      width:
+                        heroBook.reading_status === "completed"
+                          ? "100%"
+                          : heroBook.reading_status === "reading"
+                          ? "50%"
+                          : "0%",
                     }}
                   />
                 </div>

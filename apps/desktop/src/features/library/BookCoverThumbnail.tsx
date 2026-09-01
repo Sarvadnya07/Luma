@@ -66,7 +66,8 @@ export const BookCoverThumbnail: React.FC<BookCoverThumbnailProps> = ({
   useEffect(() => {
     let isCancelled = false;
 
-    if (coverUrl && (coverUrl.startsWith("data:") || coverUrl.startsWith("http"))) {
+    if (book.cover_image_path?.startsWith("data:") || book.cover_image_path?.startsWith("http")) {
+      setCoverUrl(book.cover_image_path);
       return;
     }
 
@@ -74,6 +75,9 @@ export const BookCoverThumbnail: React.FC<BookCoverThumbnailProps> = ({
       setCoverUrl(coverCache.get(book.id)!);
       return;
     }
+
+    // Reset current cover while loading new book's cover
+    setCoverUrl(null);
 
     async function loadCover() {
       try {
