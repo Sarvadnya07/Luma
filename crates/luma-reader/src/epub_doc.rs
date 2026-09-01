@@ -10,6 +10,7 @@ use std::path::{Path, PathBuf};
 use luma_core::error::{LumaError, Result};
 use luma_security::sanitize_untrusted_html;
 
+use crate::encoding::{decode_text_bytes, decode_xml_and_html_entities, is_binary_resource};
 use crate::TocItem;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -39,11 +40,12 @@ pub struct DocumentSearchMatch {
     pub match_char_offset: usize,
 }
 
-#[allow(dead_code)]
 pub struct EpubDocument {
     file_path: PathBuf,
+    #[allow(dead_code)]
     opf_path: String,
     opf_dir: PathBuf,
+    #[allow(dead_code)]
     manifest: HashMap<String, (String, String)>, // id -> (href, media-type)
     spine: Vec<SpineItem>,
     toc: Vec<TocItem>,
@@ -70,12 +72,13 @@ impl EpubDocument {
         let mut opf_entry = archive
             .by_name(&opf_path)
             .map_err(|e| LumaError::CorruptedDocument(format!("OPF missing: {}", e)))?;
-        let mut opf_xml = String::new();
+        let mut opf_bytes = Vec::new();
         opf_entry
-            .read_to_string(&mut opf_xml)
+            .read_to_end(&mut opf_bytes)
             .map_err(|e| LumaError::CorruptedDocument(e.to_string()))?;
         drop(opf_entry);
 
+        let opf_xml = decode_text_bytes(&opf_bytes);
         let (manifest, spine, nav_href, ncx_href) = Self::parse_opf_manifest_and_spine(&opf_xml)?;
 
         // 3. Parse TOC from Navigation Document (EPUB 3) or NCX (EPUB 2)
@@ -119,6 +122,15 @@ impl EpubDocument {
         }
 
         let item = &self.spine[spine_index];
+
+        // Guard against binary resources accidentally placed in spine
+        if is_binary_resource(&item.media_type, &item.href) {
+            return Err(LumaError::DocumentError(format!(
+                "Spine item {} is a binary resource ({}) and cannot be rendered as chapter text",
+                item.href, item.media_type
+            )));
+        }
+
         let file = File::open(&self.file_path)
             .map_err(|e| LumaError::DocumentError(format!("Failed to open EPUB file: {}", e)))?;
         let mut archive =
@@ -133,9 +145,7 @@ impl EpubDocument {
                 .replace('\\', "/")
         };
 
-        let mut raw_html = String::new();
-        let has_chapter = archive.by_name(&chapter_path).is_ok();
-        let mut entry = if has_chapter {
+        let mut entry = if archive.by_name(&chapter_path).is_ok() {
             archive.by_name(&chapter_path).unwrap()
         } else {
             archive.by_name(&item.href).map_err(|e| {
@@ -143,10 +153,12 @@ impl EpubDocument {
             })?
         };
 
-        entry.read_to_string(&mut raw_html).map_err(|e| {
+        let mut chapter_bytes = Vec::new();
+        entry.read_to_end(&mut chapter_bytes).map_err(|e| {
             LumaError::DocumentError(format!("Failed to read chapter {}: {}", item.href, e))
         })?;
 
+        let raw_html = decode_text_bytes(&chapter_bytes);
         let sanitized_html = sanitize_untrusted_html(&raw_html);
         let text_content = Self::extract_plain_text(&sanitized_html);
         let title = Self::extract_chapter_title(&sanitized_html)
@@ -212,11 +224,12 @@ impl EpubDocument {
             .by_name("META-INF/container.xml")
             .map_err(|_| LumaError::CorruptedDocument("META-INF/container.xml missing".into()))?;
 
-        let mut container_xml = String::new();
+        let mut container_bytes = Vec::new();
         container_entry
-            .read_to_string(&mut container_xml)
+            .read_to_end(&mut container_bytes)
             .map_err(|e| LumaError::CorruptedDocument(e.to_string()))?;
 
+        let container_xml = decode_text_bytes(&container_bytes);
         let mut reader = Reader::from_str(&container_xml);
         reader.config_mut().trim_text(true);
 
@@ -378,8 +391,9 @@ impl EpubDocument {
             };
 
             if let Some(mut entry) = entry_res {
-                let mut nav_html = String::new();
-                if entry.read_to_string(&mut nav_html).is_ok() {
+                let mut nav_bytes = Vec::new();
+                if entry.read_to_end(&mut nav_bytes).is_ok() {
+                    let nav_html = decode_text_bytes(&nav_bytes);
                     let items = Self::parse_nav_doc_toc(&nav_html);
                     if !items.is_empty() {
                         return items;
@@ -403,8 +417,9 @@ impl EpubDocument {
             };
 
             if let Some(mut entry) = entry_res {
-                let mut ncx_xml = String::new();
-                if entry.read_to_string(&mut ncx_xml).is_ok() {
+                let mut ncx_bytes = Vec::new();
+                if entry.read_to_end(&mut ncx_bytes).is_ok() {
+                    let ncx_xml = decode_text_bytes(&ncx_bytes);
                     let items = Self::parse_ncx_toc(&ncx_xml);
                     if !items.is_empty() {
                         return items;
@@ -433,34 +448,69 @@ impl EpubDocument {
             .collect()
     }
 
+    /// Robust XML-event based EPUB 3 Navigation Document parser supporting nested tags and rich markup
     fn parse_nav_doc_toc(nav_html: &str) -> Vec<TocItem> {
         let mut items = Vec::new();
-        // Regex extract <a> links inside <nav>
-        let a_regex = Regex::new(r#"<a[^>]*href=["']([^"']+)["'][^>]*>([^<]+)</a>"#).unwrap();
+        let mut reader = Reader::from_str(nav_html);
+        reader.config_mut().trim_text(true);
 
-        for (idx, caps) in a_regex.captures_iter(nav_html).enumerate() {
-            let href = caps
-                .get(1)
-                .map(|m| m.as_str().trim().to_string())
-                .unwrap_or_default();
-            let title = caps
-                .get(2)
-                .map(|m| m.as_str().trim().to_string())
-                .unwrap_or_default();
+        let mut buf = Vec::new();
+        let mut current_href = String::new();
+        let mut current_title_parts: Vec<String> = Vec::new();
+        let mut inside_a = false;
 
-            if !href.is_empty() && !title.is_empty() {
-                items.push(TocItem {
-                    title: sanitize_untrusted_html(&title),
-                    locator: href,
-                    play_order: Some((idx + 1) as u32),
-                    children: Vec::new(),
-                });
+        loop {
+            match reader.read_event_into(&mut buf) {
+                Ok(Event::Start(e)) => {
+                    let local_name = String::from_utf8_lossy(e.local_name().as_ref()).to_string();
+                    if local_name == "a" {
+                        inside_a = true;
+                        current_title_parts.clear();
+                        for attr in e.attributes().flatten() {
+                            if attr.key.as_ref() == b"href" {
+                                current_href = String::from_utf8_lossy(&attr.value).to_string();
+                            }
+                        }
+                    }
+                }
+                Ok(Event::Text(e)) if inside_a => {
+                    let text = String::from_utf8_lossy(e.as_ref()).to_string();
+                    let decoded = decode_xml_and_html_entities(&text);
+                    if !decoded.trim().is_empty() {
+                        current_title_parts.push(decoded.trim().to_string());
+                    }
+                }
+                Ok(Event::End(e)) => {
+                    let local_name = String::from_utf8_lossy(e.local_name().as_ref()).to_string();
+                    if local_name == "a" {
+                        inside_a = false;
+                        let full_title = current_title_parts.join(" ");
+                        let clean_title = decode_xml_and_html_entities(&full_title);
+                        let sanitized = sanitize_untrusted_html(&clean_title);
+
+                        if !current_href.is_empty() && !sanitized.trim().is_empty() {
+                            let play_order = (items.len() + 1) as u32;
+                            items.push(TocItem {
+                                title: sanitized.trim().to_string(),
+                                locator: current_href.clone(),
+                                play_order: Some(play_order),
+                                children: Vec::new(),
+                            });
+                        }
+                        current_href.clear();
+                        current_title_parts.clear();
+                    }
+                }
+                Ok(Event::Eof) => break,
+                _ => {}
             }
+            buf.clear();
         }
 
         items
     }
 
+    /// Robust EPUB 2 NCX parser decoding all XML & HTML entities and preserving full Unicode
     fn parse_ncx_toc(ncx_xml: &str) -> Vec<TocItem> {
         let mut items = Vec::new();
         let mut reader = Reader::from_str(ncx_xml);
@@ -489,14 +539,16 @@ impl EpubDocument {
                     }
                 }
                 Ok(Event::Text(e)) if in_text => {
-                    current_title = e.unescape().unwrap_or_default().trim().to_string();
+                    let raw_text = String::from_utf8_lossy(e.as_ref()).to_string();
+                    current_title = decode_xml_and_html_entities(&raw_text).trim().to_string();
                     in_text = false;
                 }
                 Ok(Event::End(e)) => {
                     if e.local_name().as_ref() == b"navPoint" && !current_title.is_empty() {
                         let play_order = (items.len() + 1) as u32;
+                        let sanitized = sanitize_untrusted_html(&current_title);
                         items.push(TocItem {
-                            title: sanitize_untrusted_html(&current_title),
+                            title: sanitized.trim().to_string(),
                             locator: current_src.clone(),
                             play_order: Some(play_order),
                             children: Vec::new(),
@@ -517,17 +569,17 @@ impl EpubDocument {
     fn extract_chapter_title(html: &str) -> Option<String> {
         let h_re = Regex::new(r"(?i)<(h1|h2|title)[^>]*>([^<]+)</(h1|h2|title)>").ok()?;
         let caps = h_re.captures(html)?;
-        caps.get(2)
-            .map(|m| sanitize_untrusted_html(m.as_str().trim()))
+        caps.get(2).map(|m| {
+            let decoded = decode_xml_and_html_entities(m.as_str().trim());
+            sanitize_untrusted_html(&decoded)
+        })
     }
 
     fn extract_plain_text(html: &str) -> String {
         let tag_re = Regex::new(r"<[^>]+>").unwrap();
-        tag_re
-            .replace_all(html, " ")
-            .replace("&nbsp;", " ")
-            .replace("&quot;", "\"")
-            .replace("&amp;", "&")
+        let stripped = tag_re.replace_all(html, " ");
+        let decoded = decode_xml_and_html_entities(&stripped);
+        decoded
             .split_whitespace()
             .collect::<Vec<_>>()
             .join(" ")

@@ -1,9 +1,11 @@
 pub mod cover;
 pub mod detector;
+pub mod encoding;
 pub mod epub_doc;
 pub mod extractors;
 pub mod pdf_doc;
 pub mod session;
+
 
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
