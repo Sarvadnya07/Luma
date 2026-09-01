@@ -35,19 +35,21 @@ import {
   mockCollections,
   mockTags,
   mockSettings,
-  deleteMockAnnotation,
-  deleteMockBookmark,
   BOOK_AUTHORS_MAP,
   GATSBY_CHAPTER_3_HTML,
   MEDITATIONS_BOOK_2_HTML,
 } from "./mockData";
 
+
 export const isTauri = () =>
   typeof window !== "undefined" &&
   ("__TAURI_INTERNALS__" in window || "__TAURI__" in window);
 
+let inMemBookmarks: Bookmark[] = [...mockBookmarks];
+let inMemAnnotations: Annotation[] = [...mockAnnotations];
 
 export const LumaApi = {
+
 
   async listBooks(filter?: LibraryFilterOptions, sort?: LibrarySortOptions, page?: number, pageSize?: number): Promise<Book[]> {
     if (isTauri()) {
@@ -307,7 +309,7 @@ export const LumaApi = {
       const { invoke } = await import("@tauri-apps/api/core");
       return invoke<Bookmark[]>("list_bookmarks", { bookId });
     }
-    return mockBookmarks.filter((b) => b.book_id === bookId);
+    return inMemBookmarks.filter((b) => b.book_id === bookId);
   },
 
   async createBookmark(
@@ -330,7 +332,7 @@ export const LumaApi = {
       page_number: pageNumber || null,
       sync: { version: 1, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), device_id: "dev_01", is_deleted: false },
     };
-    mockBookmarks.push(newBmk);
+    inMemBookmarks.push(newBmk);
     return newBmk;
   },
 
@@ -339,7 +341,7 @@ export const LumaApi = {
       const { invoke } = await import("@tauri-apps/api/core");
       return invoke("delete_bookmark", { bookmarkId });
     }
-    deleteMockBookmark(bookmarkId);
+    inMemBookmarks = inMemBookmarks.filter((b) => b.id !== bookmarkId);
   },
 
   async listAnnotations(bookId: string): Promise<Annotation[]> {
@@ -347,7 +349,7 @@ export const LumaApi = {
       const { invoke } = await import("@tauri-apps/api/core");
       return invoke<Annotation[]>("list_annotations", { bookId });
     }
-    return mockAnnotations.filter((a) => a.book_id === bookId);
+    return inMemAnnotations.filter((a) => a.book_id === bookId);
   },
 
   async saveAnnotation(annotation: Annotation): Promise<void> {
@@ -355,11 +357,11 @@ export const LumaApi = {
       const { invoke } = await import("@tauri-apps/api/core");
       return invoke("save_annotation", { annotation });
     }
-    const idx = mockAnnotations.findIndex((a) => a.id === annotation.id);
+    const idx = inMemAnnotations.findIndex((a) => a.id === annotation.id);
     if (idx >= 0) {
-      mockAnnotations[idx] = annotation;
+      inMemAnnotations[idx] = annotation;
     } else {
-      mockAnnotations.push(annotation);
+      inMemAnnotations.push(annotation);
     }
   },
 
@@ -368,7 +370,7 @@ export const LumaApi = {
       const { invoke } = await import("@tauri-apps/api/core");
       return invoke("delete_annotation", { annotationId });
     }
-    deleteMockAnnotation(annotationId);
+    inMemAnnotations = inMemAnnotations.filter((a) => a.id !== annotationId);
   },
 
   async updateAnnotationNote(annotationId: string, note: string | null): Promise<void> {
@@ -376,7 +378,8 @@ export const LumaApi = {
       const { invoke } = await import("@tauri-apps/api/core");
       return invoke("update_annotation_note", { annotationId, note });
     }
-    const target = mockAnnotations.find((a) => a.id === annotationId);
+    const target = inMemAnnotations.find((a) => a.id === annotationId);
+
 
     if (target) {
       target.note = note;
@@ -796,10 +799,11 @@ export const LumaApi = {
       file_size_bytes: 1048576,
       sha256_hash: "mockhash",
       books_count: mockBooks.length,
-      annotations_count: mockAnnotations.length,
-      bookmarks_count: mockBookmarks.length,
+      annotations_count: inMemAnnotations.length,
+      bookmarks_count: inMemBookmarks.length,
       created_at: new Date().toISOString(),
     };
+
   },
 
 
