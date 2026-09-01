@@ -55,6 +55,20 @@ interface ReaderStoreState {
   setStatusMessage: (msg: string | null) => void;
 }
 
+let progressDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+function debouncedSaveProgress(progress: ReadingProgress) {
+  if (progressDebounceTimer) {
+    clearTimeout(progressDebounceTimer);
+  }
+  progressDebounceTimer = setTimeout(() => {
+    LumaApi.saveReadingProgress(progress).catch((err) => {
+      console.warn("[readerState] Failed to persist reading progress:", err);
+    });
+    progressDebounceTimer = null;
+  }, 400);
+}
+
 export const useReaderStore = create<ReaderStoreState>((set, get) => ({
   currentBook: null,
   documentData: null,
@@ -129,6 +143,14 @@ export const useReaderStore = create<ReaderStoreState>((set, get) => ({
   },
 
   closeReader: () => {
+    if (progressDebounceTimer) {
+      clearTimeout(progressDebounceTimer);
+      progressDebounceTimer = null;
+      const curr = get().readingProgress;
+      if (curr) {
+        LumaApi.saveReadingProgress(curr).catch(() => {});
+      }
+    }
     set({
       currentBook: null,
       documentData: null,
@@ -165,7 +187,7 @@ export const useReaderStore = create<ReaderStoreState>((set, get) => ({
         readingProgress: progress,
       });
 
-      await LumaApi.saveReadingProgress(progress);
+      debouncedSaveProgress(progress);
     } catch (err) {
       console.error("Failed to load chapter:", err);
     }
@@ -208,7 +230,7 @@ export const useReaderStore = create<ReaderStoreState>((set, get) => ({
         readingProgress: progress,
       });
 
-      await LumaApi.saveReadingProgress(progress);
+      debouncedSaveProgress(progress);
     } catch (err) {
       console.error("Failed to load PDF page:", err);
     }

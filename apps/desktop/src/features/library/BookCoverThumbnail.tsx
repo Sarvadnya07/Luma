@@ -82,7 +82,7 @@ export const BookCoverThumbnail: React.FC<BookCoverThumbnailProps> = ({
           coverCache.set(book.id, dataUrl);
           setCoverUrl(dataUrl);
         }
-      } catch (err) {
+      } catch {
         // Fallback to stylized cover
       }
     }

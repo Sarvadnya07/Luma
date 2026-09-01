@@ -68,6 +68,7 @@ CREATE TABLE IF NOT EXISTS book_authors (
     position INTEGER NOT NULL DEFAULT 0,
     PRIMARY KEY (book_id, author_id)
 );
+CREATE INDEX IF NOT EXISTS idx_book_authors_author_id ON book_authors(author_id);
 
 -- Annotations table
 CREATE TABLE IF NOT EXISTS annotations (
@@ -189,6 +190,7 @@ CREATE TABLE IF NOT EXISTS book_tags (
     tag_id TEXT NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
     PRIMARY KEY (book_id, tag_id)
 );
+CREATE INDEX IF NOT EXISTS idx_book_tags_tag_id ON book_tags(tag_id);
 
 -- Collections table
 CREATE TABLE IF NOT EXISTS collections (
@@ -211,6 +213,7 @@ CREATE TABLE IF NOT EXISTS book_collections (
     position INTEGER NOT NULL DEFAULT 0,
     PRIMARY KEY (collection_id, book_id)
 );
+CREATE INDEX IF NOT EXISTS idx_book_collections_book_id ON book_collections(book_id);
 
 -- Cover Images table
 CREATE TABLE IF NOT EXISTS cover_images (
@@ -263,6 +266,9 @@ CREATE VIRTUAL TABLE IF NOT EXISTS books_fts USING fts5(
     isbn,
     tokenize = 'unicode61'
 );
+
+CREATE INDEX IF NOT EXISTS idx_books_reading_status ON books(reading_status);
+CREATE INDEX IF NOT EXISTS idx_books_library_state ON books(library_state);
 "#;
 
 pub const V3_BACKEND_SCHEMA: &str = r#"

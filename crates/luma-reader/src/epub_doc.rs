@@ -49,6 +49,7 @@ pub struct EpubDocument {
     manifest: HashMap<String, (String, String)>, // id -> (href, media-type)
     spine: Vec<SpineItem>,
     toc: Vec<TocItem>,
+    chapter_cache: std::sync::RwLock<HashMap<usize, ChapterContent>>,
 }
 
 impl EpubDocument {
@@ -97,6 +98,7 @@ impl EpubDocument {
             manifest,
             spine,
             toc,
+            chapter_cache: std::sync::RwLock::new(HashMap::new()),
         })
     }
 
@@ -119,6 +121,13 @@ impl EpubDocument {
                 spine_index,
                 self.spine.len()
             )));
+        }
+
+        // Fast path: check in-memory chapter cache
+        if let Ok(cache) = self.chapter_cache.read() {
+            if let Some(cached) = cache.get(&spine_index) {
+                return Ok(cached.clone());
+            }
         }
 
         let item = &self.spine[spine_index];
@@ -164,14 +173,21 @@ impl EpubDocument {
         let title = Self::extract_chapter_title(&sanitized_html)
             .unwrap_or_else(|| format!("Chapter {}", spine_index + 1));
 
-        Ok(ChapterContent {
+        let content = ChapterContent {
             spine_index,
             id: item.id.clone(),
             title,
             href: item.href.clone(),
             html_content: sanitized_html,
             text_content,
-        })
+        };
+
+        // Cache parsed chapter in memory
+        if let Ok(mut cache) = self.chapter_cache.write() {
+            cache.insert(spine_index, content.clone());
+        }
+
+        Ok(content)
     }
 
     pub fn search(&self, query: &str) -> Result<Vec<DocumentSearchMatch>> {

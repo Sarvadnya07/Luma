@@ -40,8 +40,27 @@ pub fn sanitize_relative_path(base_dir: &Path, untrusted_rel_path: &str) -> Resu
 pub fn compute_sha256(bytes: &[u8]) -> String {
     let mut hasher = Sha256::new();
     hasher.update(bytes);
-    let result = hasher.finalize();
-    hex::encode(result)
+    format!("{:x}", hasher.finalize())
+}
+
+/// Compute SHA-256 hash and total size in constant O(1) memory from a stream reader
+pub fn compute_sha256_reader<R: std::io::Read>(mut reader: R) -> Result<(String, u64)> {
+    let mut hasher = Sha256::new();
+    let mut buffer = [0u8; 64 * 1024];
+    let mut total_bytes = 0u64;
+
+    loop {
+        let bytes_read = reader.read(&mut buffer).map_err(|e| {
+            LumaError::StorageError(format!("Failed to stream read for hashing: {}", e))
+        })?;
+        if bytes_read == 0 {
+            break;
+        }
+        hasher.update(&buffer[..bytes_read]);
+        total_bytes += bytes_read as u64;
+    }
+
+    Ok((format!("{:x}", hasher.finalize()), total_bytes))
 }
 
 /// Verify decompression safety parameters against zip-bomb heuristics

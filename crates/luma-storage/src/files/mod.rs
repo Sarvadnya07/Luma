@@ -2,7 +2,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use luma_core::error::{LumaError, Result};
-use luma_security::compute_sha256;
+use luma_security::compute_sha256_reader;
 
 #[derive(Clone)]
 pub struct FileService {
@@ -116,12 +116,13 @@ impl FileService {
         })
     }
 
-    /// Compute SHA256 of file
+    /// Compute SHA256 of file using streaming reader in constant O(1) memory
     pub fn hash_file<P: AsRef<Path>>(&self, path: P) -> Result<(String, u64)> {
-        let bytes = self.read_bytes(path)?;
-        let hash = compute_sha256(&bytes);
-        let len = bytes.len() as u64;
-        Ok((hash, len))
+        let p = path.as_ref();
+        let file = fs::File::open(p).map_err(|e| {
+            LumaError::StorageError(format!("Failed to open file for hashing {}: {}", p.display(), e))
+        })?;
+        compute_sha256_reader(std::io::BufReader::new(file))
     }
 
     /// Stage a source file into the temporary staging directory
