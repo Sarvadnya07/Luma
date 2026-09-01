@@ -1,3 +1,4 @@
+import React, { useCallback, useMemo } from "react";
 import {
   Library,
   BookOpen,
@@ -24,6 +25,10 @@ import {
 import { Collection, Tag } from "@luma/shared-types";
 import { LumaLogo } from "@luma/ui";
 
+// ------------------------------------------------------------------
+// Types
+// ------------------------------------------------------------------
+
 export type SidebarSection =
   | "library"
   | "all"
@@ -43,6 +48,28 @@ export type SidebarSection =
   | "archive"
   | "trash";
 
+export interface NavigationItem {
+  id: SidebarSection | string;
+  label: string;
+  icon: React.ElementType;
+  /** Optional section grouping (e.g., "primary", "study", "explore") */
+  section?: "primary" | "study" | "explore";
+}
+
+export interface LibrarySidebarLabels {
+  brandName?: string;
+  brandSubtitle?: string;
+  primarySectionLabel?: string;
+  studySectionLabel?: string;
+  exploreSectionLabel?: string;
+  importButtonLabel?: string;
+  settingsTooltip?: string;
+  darkModeToggleLabel?: string;
+  lightModeToggleLabel?: string;
+  noCollectionsLabel?: string;
+  noTagsLabel?: string;
+}
+
 export interface LibrarySidebarProps {
   currentSection: SidebarSection;
   onSelectSection: (section: SidebarSection) => void;
@@ -57,15 +84,86 @@ export interface LibrarySidebarProps {
   onOpenSettings?: () => void;
   isDarkMode?: boolean;
   onToggleDarkMode?: () => void;
+  labels?: LibrarySidebarLabels;
+  /** Custom navigation items – if provided, overrides the default ones */
+  items?: NavigationItem[];
+  /** Custom logo component (defaults to LumaLogo) */
+  logo?: React.ReactNode;
+  /** Custom brand wordmark (e.g., text, image) – if provided, replaces brand name + subtitle */
+  brandWordmark?: React.ReactNode;
+  /** Additional CSS classes for the sidebar container */
+  className?: string;
+  /** Additional CSS classes for each navigation item */
+  itemClassName?: string;
+  /** Custom icon for dark mode toggle (when dark) */
+  darkModeIcon?: React.ReactNode;
+  /** Custom icon for light mode toggle (when light) */
+  lightModeIcon?: React.ReactNode;
+  /** Custom render function for sub‑items (collections/tags) */
+  renderSubItems?: (props: {
+    type: "collections" | "tags";
+    items: Collection[] | Tag[];
+    selectedId: string | null;
+    onSelect: (id: string | null) => void;
+  }) => React.ReactNode;
 }
+
+// ------------------------------------------------------------------
+// Default Labels
+// ------------------------------------------------------------------
+
+const DEFAULT_LABELS: Required<LibrarySidebarLabels> = {
+  brandName: "Luma",
+  brandSubtitle: "Digital Sanctuary",
+  primarySectionLabel: "",
+  studySectionLabel: "Deep Study",
+  exploreSectionLabel: "Explore",
+  importButtonLabel: "Import Book",
+  settingsTooltip: "System & Preferences",
+  darkModeToggleLabel: "Switch to light mode",
+  lightModeToggleLabel: "Switch to dark mode",
+  noCollectionsLabel: "No collections",
+  noTagsLabel: "No tags",
+};
+
+// ------------------------------------------------------------------
+// Default Navigation Items
+// ------------------------------------------------------------------
+
+const DEFAULT_ITEMS: NavigationItem[] = [
+  // Primary
+  { id: "library", label: "Library", icon: Library, section: "primary" },
+  { id: "all", label: "All Books", icon: BookOpen, section: "primary" },
+  { id: "reading", label: "Currently Reading", icon: Clock, section: "primary" },
+  { id: "collections", label: "Collections", icon: Layers, section: "primary" },
+  { id: "tags", label: "Tags", icon: TagIcon, section: "primary" },
+  // Study
+  { id: "atrium", label: "The Atrium", icon: Compass, section: "study" },
+  { id: "notes", label: "Notes Workspace", icon: FileText, section: "study" },
+  { id: "flashcards", label: "Flashcards", icon: HelpCircle, section: "study" },
+  { id: "projects", label: "Research Projects", icon: FolderKanban, section: "study" },
+  { id: "history", label: "Reading Intelligence", icon: BarChart2, section: "study" },
+  // Explore
+  { id: "authors", label: "Authors", icon: Users, section: "explore" },
+  { id: "series", label: "Series", icon: Bookmark, section: "explore" },
+  { id: "annotations", label: "Annotations", icon: Edit3, section: "explore" },
+  { id: "devices", label: "Devices", icon: Smartphone, section: "explore" },
+  { id: "plugins", label: "Plugins", icon: Puzzle, section: "explore" },
+  { id: "archive", label: "Archive", icon: Archive, section: "explore" },
+  { id: "trash", label: "Trash", icon: Trash2, section: "explore" },
+];
+
+// ------------------------------------------------------------------
+// Main Component
+// ------------------------------------------------------------------
 
 export const LibrarySidebar: React.FC<LibrarySidebarProps> = ({
   currentSection,
   onSelectSection,
-  collections: _collections = [],
-  tags: _tags = [],
-  selectedCollectionId: _selectedCollectionId,
-  selectedTagId: _selectedTagId,
+  collections = [],
+  tags = [],
+  selectedCollectionId = null,
+  selectedTagId = null,
   onSelectCollection,
   onSelectTag,
   onCreateCollection: _onCreateCollection,
@@ -73,142 +171,223 @@ export const LibrarySidebar: React.FC<LibrarySidebarProps> = ({
   onOpenSettings,
   isDarkMode = false,
   onToggleDarkMode,
+  labels: customLabels = {},
+  items = DEFAULT_ITEMS,
+  logo,
+  brandWordmark,
+  className = "",
+  itemClassName = "",
+  darkModeIcon = <Sun className="h-4 w-4" />,
+  lightModeIcon = <Moon className="h-4 w-4" />,
+  renderSubItems,
 }) => {
-  const navItems = [
-    { id: "library", label: "Library", icon: Library },
-    { id: "all", label: "All Books", icon: BookOpen },
-    { id: "reading", label: "Currently Reading", icon: Clock },
-    { id: "collections", label: "Collections", icon: Layers },
-    { id: "tags", label: "Tags", icon: TagIcon },
-  ];
+  const labels = { ...DEFAULT_LABELS, ...customLabels };
 
-  const studyItems = [
-    { id: "atrium", label: "The Atrium", icon: Compass },
-    { id: "notes", label: "Notes Workspace", icon: FileText },
-    { id: "flashcards", label: "Flashcards", icon: HelpCircle },
-    { id: "projects", label: "Research Projects", icon: FolderKanban },
-    { id: "history", label: "Reading Intelligence", icon: BarChart2 },
-  ];
+  // Group items by section
+  const groupedItems = useMemo(() => {
+    const groups: Record<string, NavigationItem[]> = {
+      primary: [],
+      study: [],
+      explore: [],
+    };
+    items.forEach((item) => {
+      const section = item.section || "primary";
+      if (groups[section]) groups[section].push(item);
+      else groups[section] = [item];
+    });
+    return groups;
+  }, [items]);
 
-  const exploreItems = [
-    { id: "authors", label: "Authors", icon: Users },
-    { id: "series", label: "Series", icon: Bookmark },
-    { id: "annotations", label: "Annotations", icon: Edit3 },
-    { id: "devices", label: "Devices", icon: Smartphone },
-    { id: "plugins", label: "Plugins", icon: Puzzle },
-    { id: "archive", label: "Archive", icon: Archive },
-    { id: "trash", label: "Trash", icon: Trash2 },
-  ];
+  const handleSelectSection = useCallback(
+    (id: SidebarSection) => {
+      onSelectSection(id);
+      // Clear collection/tag selection when switching away from their sections
+      if (id !== "collections" && onSelectCollection) {
+        onSelectCollection(null);
+      }
+      if (id !== "tags" && onSelectTag) {
+        onSelectTag(null);
+      }
+    },
+    [onSelectSection, onSelectCollection, onSelectTag]
+  );
+
+  const handleSelectCollection = useCallback(
+    (id: string | null) => {
+      onSelectCollection?.(id);
+      if (id) {
+        // Optionally navigate to collection view – could trigger a section change
+        // but we keep it as is; parent can handle.
+      }
+    },
+    [onSelectCollection]
+  );
+
+  const handleSelectTag = useCallback(
+    (id: string | null) => {
+      onSelectTag?.(id);
+    },
+    [onSelectTag]
+  );
+
+  // Render sub‑items for collections or tags when the section is active
+  const renderSubItemsContent = () => {
+    if (currentSection === "collections" && collections.length > 0) {
+      if (renderSubItems) {
+        return renderSubItems({
+          type: "collections",
+          items: collections,
+          selectedId: selectedCollectionId,
+          onSelect: handleSelectCollection,
+        });
+      }
+      return (
+        <div className="mt-1 ml-7 space-y-0.5">
+          {collections.map((coll) => (
+            <button
+              key={coll.id}
+              onClick={() => handleSelectCollection(coll.id)}
+              className={`w-full text-left px-2 py-1 rounded text-xs transition-colors ${
+                selectedCollectionId === coll.id
+                  ? "bg-[#D6CEC2] text-[#1C1917] font-medium"
+                  : "text-[#57534E] hover:text-[#1C1917] hover:bg-[#EBE5DB]"
+              }`}
+            >
+              {coll.name}
+            </button>
+          ))}
+          <button
+            onClick={_onCreateCollection}
+            className="w-full text-left px-2 py-1 text-xs text-[#78716C] hover:text-[#1C1917] flex items-center gap-1"
+          >
+            <Plus className="w-3 h-3" />
+            <span>New Collection</span>
+          </button>
+        </div>
+      );
+    }
+
+    if (currentSection === "tags" && tags.length > 0) {
+      if (renderSubItems) {
+        return renderSubItems({
+          type: "tags",
+          items: tags,
+          selectedId: selectedTagId,
+          onSelect: handleSelectTag,
+        });
+      }
+      return (
+        <div className="mt-1 ml-7 space-y-0.5">
+          {tags.map((tag) => (
+            <button
+              key={tag.id}
+              onClick={() => handleSelectTag(tag.id)}
+              className={`w-full text-left px-2 py-1 rounded text-xs transition-colors ${
+                selectedTagId === tag.id
+                  ? "bg-[#D6CEC2] text-[#1C1917] font-medium"
+                  : "text-[#57534E] hover:text-[#1C1917] hover:bg-[#EBE5DB]"
+              }`}
+            >
+              {tag.name}
+            </button>
+          ))}
+        </div>
+      );
+    }
+    return null;
+  };
+
+  const renderNavItem = (item: NavigationItem) => {
+    const Icon = item.icon;
+    const isActive = currentSection === item.id;
+    return (
+      <button
+        key={item.id}
+        onClick={() => handleSelectSection(item.id as SidebarSection)}
+        className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition-all ${itemClassName} ${
+          isActive
+            ? "bg-[#E4DED3] text-[#1C1917] font-semibold shadow-xs"
+            : "text-[#57534E] hover:text-[#1C1917] hover:bg-[#EBE5DB]"
+        }`}
+        aria-current={isActive ? "page" : undefined}
+      >
+        <Icon className={`w-4 h-4 ${isActive ? "text-[#1C1917]" : "text-[#78716C]"}`} />
+        <span>{item.label}</span>
+      </button>
+    );
+  };
 
   return (
-    <aside className="w-60 border-r border-[#E5DFD3] bg-[#F3EFE6] px-4 py-5 flex flex-col justify-between select-none h-full overflow-y-auto flex-shrink-0 transition-colors dark:border-[#302C27] dark:bg-[#1A1816]">
+    <aside
+      className={`w-60 border-r border-[#E5DFD3] bg-[#F3EFE6] px-4 py-5 flex flex-col justify-between select-none h-full overflow-y-auto flex-shrink-0 transition-colors dark:border-[#302C27] dark:bg-[#1A1816] ${className}`}
+      role="navigation"
+      aria-label="Library navigation"
+    >
       <div className="space-y-6">
         {/* Brand Header */}
         <div className="px-2 pt-1 pb-2 flex items-center gap-3">
-          <LumaLogo size={32} showWordmark={false} />
-          <div className="min-w-0 flex-1">
-            <h1 className="font-serif text-xl font-black text-[#1C1917] tracking-tight leading-none dark:text-[#F5F1EA]">
-              Luma
-            </h1>
-            <p className="text-[9px] font-semibold tracking-[0.2em] text-[#78716C] uppercase mt-0.5 dark:text-[#B8AEA2]">
-              Digital Sanctuary
-            </p>
-          </div>
+          {logo ? (
+            logo
+          ) : (
+            <LumaLogo size={32} showWordmark={false} />
+          )}
+          {brandWordmark ? (
+            brandWordmark
+          ) : (
+            <div className="min-w-0 flex-1">
+              <h1 className="font-serif text-xl font-black text-[#1C1917] tracking-tight leading-none dark:text-[#F5F1EA]">
+                {labels.brandName}
+              </h1>
+              <p className="text-[9px] font-semibold tracking-[0.2em] text-[#78716C] uppercase mt-0.5 dark:text-[#B8AEA2]">
+                {labels.brandSubtitle}
+              </p>
+            </div>
+          )}
           <button
             type="button"
             onClick={onToggleDarkMode}
             className="grid h-8 w-8 flex-shrink-0 place-items-center rounded-lg border border-[#DDD5C7] bg-[#FAF7F2] text-[#57534E] shadow-2xs transition-colors hover:bg-[#FFFFFF] hover:text-[#18181B] dark:border-[#3B3630] dark:bg-[#24211E] dark:text-[#F2C14E] dark:hover:bg-[#2D2925]"
-            title={isDarkMode ? "Switch to light mode" : "Switch to dark mode"}
-            aria-label={isDarkMode ? "Switch to light mode" : "Switch to dark mode"}
+            title={isDarkMode ? labels.darkModeToggleLabel : labels.lightModeToggleLabel}
+            aria-label={isDarkMode ? labels.darkModeToggleLabel : labels.lightModeToggleLabel}
             aria-pressed={isDarkMode}
           >
-            {isDarkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            {isDarkMode ? darkModeIcon : lightModeIcon}
           </button>
         </div>
 
         {/* Primary Views */}
-        <div className="space-y-1">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = currentSection === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => {
-                  onSelectSection(item.id as SidebarSection);
-                  onSelectCollection?.(null);
-                  onSelectTag?.(null);
-                }}
-                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
-                  isActive
-                    ? "bg-[#E4DED3] text-[#1C1917] font-semibold shadow-xs"
-                    : "text-[#57534E] hover:text-[#1C1917] hover:bg-[#EBE5DB]"
-                }`}
-              >
-                <Icon className={`w-4 h-4 ${isActive ? "text-[#1C1917]" : "text-[#78716C]"}`} />
-                <span>{item.label}</span>
-              </button>
-            );
-          })}
-        </div>
+        {groupedItems.primary && groupedItems.primary.length > 0 && (
+          <div className="space-y-1">
+            {labels.primarySectionLabel && (
+              <div className="px-3 text-[10px] font-semibold text-[#8C8275] uppercase tracking-wider mb-2">
+                {labels.primarySectionLabel}
+              </div>
+            )}
+            {groupedItems.primary.map(renderNavItem)}
+            {/* Show sub-items if collections or tags are active */}
+            {(currentSection === "collections" || currentSection === "tags") && renderSubItemsContent()}
+          </div>
+        )}
 
         {/* Deep Study Workspace Section */}
-        <div className="space-y-1">
-          <div className="px-3 text-[10px] font-semibold text-[#8C8275] uppercase tracking-wider mb-2">
-            Deep Study
+        {groupedItems.study && groupedItems.study.length > 0 && (
+          <div className="space-y-1">
+            <div className="px-3 text-[10px] font-semibold text-[#8C8275] uppercase tracking-wider mb-2">
+              {labels.studySectionLabel}
+            </div>
+            {groupedItems.study.map(renderNavItem)}
           </div>
-          {studyItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = currentSection === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => {
-                  onSelectSection(item.id as SidebarSection);
-                  onSelectCollection?.(null);
-                  onSelectTag?.(null);
-                }}
-                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
-                  isActive
-                    ? "bg-[#E4DED3] text-[#1C1917] font-semibold shadow-xs"
-                    : "text-[#57534E] hover:text-[#1C1917] hover:bg-[#EBE5DB]"
-                }`}
-              >
-                <Icon className={`w-4 h-4 ${isActive ? "text-[#1C1917]" : "text-[#78716C]"}`} />
-                <span>{item.label}</span>
-              </button>
-            );
-          })}
-        </div>
+        )}
 
         {/* Explore Section */}
-        <div className="space-y-1">
-          <div className="px-3 text-[10px] font-semibold text-[#8C8275] uppercase tracking-wider mb-2">
-            Explore
+        {groupedItems.explore && groupedItems.explore.length > 0 && (
+          <div className="space-y-1">
+            <div className="px-3 text-[10px] font-semibold text-[#8C8275] uppercase tracking-wider mb-2">
+              {labels.exploreSectionLabel}
+            </div>
+            {groupedItems.explore.map(renderNavItem)}
           </div>
-          {exploreItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = currentSection === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => {
-                  onSelectSection(item.id as SidebarSection);
-                  onSelectCollection?.(null);
-                  onSelectTag?.(null);
-                }}
-                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
-                  isActive
-                    ? "bg-[#E4DED3] text-[#1C1917] font-semibold shadow-xs"
-                    : "text-[#57534E] hover:text-[#1C1917] hover:bg-[#EBE5DB]"
-                }`}
-              >
-                <Icon className={`w-4 h-4 ${isActive ? "text-[#1C1917]" : "text-[#78716C]"}`} />
-                <span>{item.label}</span>
-              </button>
-            );
-          })}
-        </div>
+        )}
       </div>
 
       {/* Bottom Actions: Settings & Import Book */}
@@ -217,8 +396,8 @@ export const LibrarySidebar: React.FC<LibrarySidebarProps> = ({
           type="button"
           onClick={onOpenSettings}
           className="p-2.5 rounded-lg border border-[#DDD5C7] dark:border-[#38332E] bg-[#FAF7F2] dark:bg-[#24211E] text-[#57534E] dark:text-[#C7BEB2] hover:bg-[#FFFFFF] dark:hover:bg-[#2D2824] hover:text-[#18181B] dark:hover:text-white transition-colors"
-          title="System & Preferences"
-          aria-label="System & Preferences"
+          title={labels.settingsTooltip}
+          aria-label={labels.settingsTooltip}
         >
           <Settings className="w-4 h-4" />
         </button>
@@ -227,7 +406,7 @@ export const LibrarySidebar: React.FC<LibrarySidebarProps> = ({
           className="flex-1 flex items-center justify-center gap-2 py-2.5 px-3 bg-[#18181B] hover:bg-[#27272A] active:bg-[#09090B] text-white text-xs font-medium rounded-lg shadow-sm transition-all"
         >
           <Plus className="w-3.5 h-3.5" />
-          <span>Import Book</span>
+          <span>{labels.importButtonLabel}</span>
         </button>
       </div>
     </aside>

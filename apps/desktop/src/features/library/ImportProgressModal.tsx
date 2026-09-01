@@ -1,110 +1,284 @@
-import React from "react";
-import { X, Clock, FileText } from "lucide-react";
-import { ImportJob } from "@luma/shared-types";
-import { Button, Badge } from "@luma/ui";
+import React, { useCallback, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
+import { X, AlertTriangle, BookOpen, FileCheck2 } from "lucide-react";
+import { Book } from "@luma/shared-types";
 
-export interface ImportProgressModalProps {
-  job: ImportJob | null;
-  isOpen: boolean;
-  onClose: () => void;
+// ------------------------------------------------------------------
+// Types
+// ------------------------------------------------------------------
+
+export interface DuplicateReviewModalLabels {
+  title?: string;
+  alertTitle?: string;
+  alertMessage?: string;
+  existingSectionLabel?: string;
+  importingSectionLabel?: string;
+  statusLabel?: string;
+  publishedLabel?: string;
+  formatLabel?: string;
+  sizeLabel?: string;
+  inLibraryStatus?: string;
+  newStagedFileLabel?: string;
+  cancelLabel?: string;
+  useExistingLabel?: string;
+  addAsNewFormatLabel?: string;
+  existingBookFallbackTitle?: string;
+  authorFallbackLabel?: string;
 }
 
-export const ImportProgressModal: React.FC<ImportProgressModalProps> = ({
-  job,
+export interface DuplicateReviewModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onUseExisting?: () => void;
+  onAddAsNewFormat?: () => void;
+  existingBook?: Book | null;
+  importingFile?: {
+    filename: string;
+    format: string;
+    size: string;
+    quality?: string;
+  } | null;
+  labels?: DuplicateReviewModalLabels;
+  loading?: boolean;
+  disabled?: boolean;
+  className?: string;
+  overlayClassName?: string;
+  renderActions?: (props: {
+    onCancel: () => void;
+    onUseExisting: () => void;
+    onAddAsNewFormat: () => void;
+    loading: boolean;
+    disabled: boolean;
+  }) => React.ReactNode;
+  children?: React.ReactNode;
+  closeOnOverlayClick?: boolean;
+}
+
+// ------------------------------------------------------------------
+// Default Labels
+// ------------------------------------------------------------------
+
+const DEFAULT_LABELS: Required<DuplicateReviewModalLabels> = {
+  title: "Importing Library",
+  alertTitle: "Duplicate Detected",
+  alertMessage:
+    "A document with a matching title, hash, or publication identifier already exists in your library.",
+  existingSectionLabel: "EXISTING FILE",
+  importingSectionLabel: "IMPORTING FILE",
+  statusLabel: "Status:",
+  publishedLabel: "Published:",
+  formatLabel: "Format:",
+  sizeLabel: "Size:",
+  inLibraryStatus: "In Library",
+  newStagedFileLabel: "New Staged File",
+  cancelLabel: "Cancel",
+  useExistingLabel: "Use Existing",
+  addAsNewFormatLabel: "Add as New Format",
+  existingBookFallbackTitle: "Existing Publication",
+  authorFallbackLabel: "Library Record",
+};
+
+// ------------------------------------------------------------------
+// Main Component
+// ------------------------------------------------------------------
+
+export const DuplicateReviewModal: React.FC<DuplicateReviewModalProps> = ({
   isOpen,
   onClose,
+  onUseExisting,
+  onAddAsNewFormat,
+  existingBook,
+  importingFile,
+  labels: customLabels = {},
+  loading = false,
+  disabled = false,
+  className = "",
+  overlayClassName = "",
+  renderActions,
+  children,
+  closeOnOverlayClick = false,
 }) => {
-  if (!isOpen || !job) return null;
+  const labels = { ...DEFAULT_LABELS, ...customLabels };
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
 
-  const pct =
-    job.total_files > 0
-      ? Math.round(((job.completed_count + job.failed_count) / job.total_files) * 100)
-      : 0;
+  useEffect(() => {
+    if (isOpen && closeButtonRef.current) {
+      setTimeout(() => closeButtonRef.current?.focus(), 50);
+    }
+  }, [isOpen]);
 
-  return (
-    <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-[#FAF7F2] border border-[#E5DFD3] rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-150">
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isOpen) onClose();
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
+
+  const handleUseExisting = useCallback(() => onUseExisting?.(), [onUseExisting]);
+  const handleAddAsNewFormat = useCallback(() => onAddAsNewFormat?.(), [onAddAsNewFormat]);
+
+  if (!isOpen) return null;
+
+  const title = existingBook?.title || labels.existingBookFallbackTitle;
+  const author = labels.authorFallbackLabel;
+  const isDisabled = loading || disabled;
+
+  const modalContent = (
+    <div
+      className={`fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 ${overlayClassName}`}
+      onClick={closeOnOverlayClick ? onClose : undefined}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="duplicate-review-title"
+      aria-describedby="duplicate-review-desc"
+    >
+      <div
+        className={`bg-[#FAF7F2] border border-[#E5DFD3] rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150 text-[#1C1917] ${className}`}
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-[#E5DFD3]">
-          <div className="flex items-center gap-2.5">
-            <Clock className="w-5 h-5 text-[#18181B]" />
-            <h3 className="font-serif text-sm font-bold text-[#1C1917]">
-              {job.status === "processing" ? "Importing Documents..." : "Import Completed"}
-            </h3>
-          </div>
-          {job.status !== "processing" && (
-            <button onClick={onClose} className="text-[#78716C] hover:text-[#18181B] p-1 rounded-md hover:bg-[#EFEAE1]">
-              <X className="w-4 h-4" />
-            </button>
-          )}
+          <h3 id="duplicate-review-title" className="font-serif text-base font-bold text-[#1C1917]">
+            {labels.title}
+          </h3>
+          <button
+            ref={closeButtonRef}
+            onClick={onClose}
+            className="text-[#78716C] hover:text-[#18181B] p-1 rounded-md hover:bg-[#EFEAE1]"
+            aria-label="Close modal"
+            disabled={isDisabled}
+          >
+            <X className="w-4 h-4" />
+          </button>
         </div>
 
-        {/* Content */}
-        <div className="p-6 space-y-4">
-          {/* Progress Bar */}
-          <div className="space-y-1.5">
-            <div className="flex justify-between text-xs text-[#78716C]">
-              <span>Overall Progress</span>
-              <span className="font-mono text-[#1C1917] font-semibold">{pct}%</span>
+        <div className="p-6 space-y-5">
+          {/* Duplicate Alert Box */}
+          <div className="bg-[#FBF6EE] border border-[#E8DFC8] rounded-xl p-4 space-y-1.5">
+            <div className="flex items-center gap-2 text-rose-800 font-semibold text-xs">
+              <AlertTriangle className="w-4 h-4 text-rose-700" />
+              <span>{labels.alertTitle}</span>
             </div>
-            <div className="w-full h-2 bg-[#E5DFD3] rounded-full overflow-hidden">
-              <div
-                className="h-full bg-[#18181B] transition-all duration-300"
-                style={{ width: `${pct}%` }}
-              />
-            </div>
+            <p id="duplicate-review-desc" className="text-xs text-[#6B6358] leading-relaxed pl-6">
+              {labels.alertMessage}
+            </p>
           </div>
 
-          {/* Stats Badges */}
-          <div className="grid grid-cols-3 gap-2 text-center text-xs">
-            <div className="bg-[#FFFFFF] p-2.5 rounded-lg border border-[#E5DFD3]">
-              <span className="text-[#78716C] block text-[10px]">Imported</span>
-              <span className="text-emerald-700 font-bold text-sm">{job.completed_count}</span>
-            </div>
-            <div className="bg-[#FFFFFF] p-2.5 rounded-lg border border-[#E5DFD3]">
-              <span className="text-[#78716C] block text-[10px]">Skipped</span>
-              <span className="text-amber-700 font-bold text-sm">{job.skipped_count}</span>
-            </div>
-            <div className="bg-[#FFFFFF] p-2.5 rounded-lg border border-[#E5DFD3]">
-              <span className="text-[#78716C] block text-[10px]">Failed</span>
-              <span className="text-rose-700 font-bold text-sm">{job.failed_count}</span>
-            </div>
-          </div>
-
-          {/* Item Log */}
-          <div className="space-y-1.5 max-h-48 overflow-y-auto pt-2">
-            <span className="text-[10px] font-semibold text-[#78716C] uppercase tracking-wider">
-              File Ingestion Log
-            </span>
-            {job.items.map((item, idx) => (
-              <div
-                key={idx}
-                className="flex items-center justify-between p-2 bg-[#FFFFFF] border border-[#E5DFD3] rounded-lg text-xs"
-              >
-                <div className="flex items-center gap-2 truncate pr-2">
-                  <FileText className="w-3.5 h-3.5 text-[#78716C] flex-shrink-0" />
-                  <span className="text-[#1C1917] truncate">{item.original_filename}</span>
+          {/* Side-by-Side Comparison */}
+          <div className="grid grid-cols-2 gap-4 text-xs">
+            {/* Existing File */}
+            <div className="bg-white border border-[#E5DFD3] rounded-xl p-3.5 space-y-3 shadow-2xs">
+              <span className="text-[10px] font-bold text-[#78716C] uppercase tracking-wider block">
+                {labels.existingSectionLabel}
+              </span>
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-14 bg-[#EAE4DA] rounded border border-[#DDD5C7] flex items-center justify-center flex-shrink-0 overflow-hidden shadow-xs">
+                  {existingBook?.cover_image_path ? (
+                    <img
+                      src={existingBook.cover_image_path}
+                      alt={title}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <BookOpen className="w-5 h-5 text-[#8C8275]" />
+                  )}
                 </div>
-                {item.status === "success" ? (
-                  <Badge variant="success">Success</Badge>
-                ) : (
-                  <Badge variant="error">Failed</Badge>
+                <div className="space-y-0.5 min-w-0">
+                  <h4 className="font-serif font-bold text-[#1C1917] truncate">{title}</h4>
+                  <p className="text-[11px] text-[#78716C] truncate">{author}</p>
+                </div>
+              </div>
+              <div className="space-y-1 pt-1 border-t border-[#F2ECE2] text-[11px]">
+                <div className="flex justify-between text-[#78716C]">
+                  <span>{labels.statusLabel}</span>
+                  <span className="font-mono font-semibold text-[#1C1917]">{labels.inLibraryStatus}</span>
+                </div>
+                {existingBook?.published_date && (
+                  <div className="flex justify-between text-[#78716C]">
+                    <span>{labels.publishedLabel}</span>
+                    <span className="text-[#57534E]">{existingBook.published_date}</span>
+                  </div>
                 )}
               </div>
-            ))}
+            </div>
+
+            {/* Importing File */}
+            <div className="bg-white border border-[#E5DFD3] rounded-xl p-3.5 space-y-3 shadow-2xs relative">
+              <div className="w-2.5 h-2.5 rounded-full bg-emerald-600 absolute top-3 right-3" />
+              <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider block">
+                {labels.importingSectionLabel}
+              </span>
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-14 bg-[#EAE4DA] rounded border border-[#DDD5C7] flex items-center justify-center flex-shrink-0 overflow-hidden shadow-xs">
+                  <FileCheck2 className="w-5 h-5 text-emerald-700" />
+                </div>
+                <div className="space-y-0.5 min-w-0">
+                  <h4 className="font-serif font-bold text-[#1C1917] truncate">
+                    {importingFile?.filename || title}
+                  </h4>
+                  <p className="text-[11px] text-[#78716C] truncate">{labels.newStagedFileLabel}</p>
+                </div>
+              </div>
+              <div className="space-y-1 pt-1 border-t border-[#F2ECE2] text-[11px]">
+                <div className="flex justify-between text-[#78716C]">
+                  <span>{labels.formatLabel}</span>
+                  <span className="font-mono font-semibold text-[#1C1917]">
+                    {importingFile?.format?.toUpperCase() || "DIGITAL"}
+                  </span>
+                </div>
+                {importingFile?.size && (
+                  <div className="flex justify-between text-[#78716C]">
+                    <span>{labels.sizeLabel}</span>
+                    <span className="font-mono text-[#57534E]">{importingFile.size}</span>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
 
-          {/* Close button */}
-          {job.status !== "processing" && (
-            <div className="pt-2 flex justify-end">
-              <Button variant="primary" size="sm" onClick={onClose}>
-                Done
-              </Button>
-            </div>
-          )}
+          {children}
+
+          {/* Footer Actions */}
+          <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#E5DFD3]">
+            {renderActions ? (
+              renderActions({
+                onCancel: onClose,
+                onUseExisting: handleUseExisting,
+                onAddAsNewFormat: handleAddAsNewFormat,
+                loading,
+                disabled: isDisabled,
+              })
+            ) : (
+              <>
+                <button
+                  onClick={onClose}
+                  className="px-3 py-1.5 text-xs text-[#78716C] hover:text-[#18181B] font-medium transition-colors disabled:opacity-50"
+                  disabled={isDisabled}
+                >
+                  {labels.cancelLabel}
+                </button>
+                <button
+                  onClick={handleUseExisting}
+                  className="px-3.5 py-1.5 bg-white border border-[#DDD5C7] hover:bg-[#F7F3EB] text-xs font-semibold text-[#1C1917] rounded-lg transition-colors shadow-2xs disabled:opacity-50"
+                  disabled={isDisabled}
+                >
+                  {labels.useExistingLabel}
+                </button>
+                <button
+                  onClick={handleAddAsNewFormat}
+                  className="px-4 py-1.5 bg-[#18181B] hover:bg-[#27272A] text-xs font-semibold text-white rounded-lg transition-colors shadow-sm disabled:opacity-50"
+                  disabled={isDisabled}
+                >
+                  {labels.addAsNewFormatLabel}
+                </button>
+              </>
+            )}
+          </div>
         </div>
       </div>
     </div>
   );
-};
 
+  return createPortal(modalContent, document.body);
+};
