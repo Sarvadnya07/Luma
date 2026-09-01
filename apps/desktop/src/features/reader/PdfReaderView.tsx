@@ -8,10 +8,13 @@ import {
   ListTree,
   Image as ImageIcon,
   Bookmark as BookmarkIcon,
-  BookOpen,
 } from "lucide-react";
+import type { PDFDocumentProxy } from "pdfjs-dist";
 import { useReaderStore } from "../../state/readerState";
+import { LumaApi } from "../../lib/tauri";
 import { TextSelectionToolbar } from "./TextSelectionToolbar";
+import { PdfPageCanvas } from "./PdfPageCanvas";
+import { pdfjsLib } from "./pdfWorker";
 
 export const PdfReaderView: React.FC = () => {
   const currentBook = useReaderStore((s) => s.currentBook);
@@ -24,22 +27,76 @@ export const PdfReaderView: React.FC = () => {
   const createHighlight = useReaderStore((s) => s.createHighlight);
   const toggleBookmark = useReaderStore((s) => s.toggleBookmark);
 
+  const [pdfDoc, setPdfDoc] = useState<PDFDocumentProxy | null>(null);
   const [zoom, setZoom] = useState<number>(100);
   const [isDualSpread, setIsDualSpread] = useState<boolean>(true);
   const [sidebarTab, setSidebarTab] = useState<"contents" | "thumbnails" | "bookmarks">("thumbnails");
   const [selectionPos, setSelectionPos] = useState<{ top: number; left: number } | null>(null);
   const [selectedText, setSelectedText] = useState<string>("");
 
-  const totalPages = Math.max(1, documentData?.total_pages_or_spines || 1);
+  const totalPages = Math.max(1, pdfDoc?.numPages || documentData?.total_pages_or_spines || 1);
   const leftPageNum = currentPdfPage % 2 === 0 ? currentPdfPage : Math.max(1, currentPdfPage - 1);
   const rightPageNum = Math.min(totalPages, leftPageNum + 1);
 
-  // Load page on mount or when book opens
+  // Load PDF Document bytes into PDF.js proxy
+  useEffect(() => {
+    let isCancelled = false;
+
+    async function loadPdfBytes() {
+      if (!currentBook) return;
+      try {
+        const primaryId = currentBook.primary_file_id || undefined;
+        const bytes = await LumaApi.getBookFileBytes(currentBook.id, primaryId);
+        if (isCancelled) return;
+
+        if (bytes && bytes.length > 0) {
+          const loadingTask = pdfjsLib.getDocument({
+            data: bytes,
+            cMapUrl: "https://cdn.jsdelivr.net/npm/pdfjs-dist@6.3.289/cmaps/",
+            cMapPacked: true,
+          });
+          const doc = await loadingTask.promise;
+          if (!isCancelled) {
+            setPdfDoc(doc);
+          }
+        }
+      } catch (err) {
+        console.warn("[PdfReaderView] Failed to load PDF file bytes for PDF.js:", err);
+      }
+    }
+
+    loadPdfBytes();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [currentBook]);
+
+  // Load page text & metadata on mount or navigation
   useEffect(() => {
     if (!leftPdfPageData && currentBook) {
       loadPdfPage(currentPdfPage || 1);
     }
   }, [currentBook, currentPdfPage, leftPdfPageData, loadPdfPage]);
+
+  // Keyboard navigation
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+      if (e.key === "ArrowLeft" || e.key === "PageUp") {
+        e.preventDefault();
+        loadPdfPage(Math.max(1, isDualSpread ? leftPageNum - 2 : currentPdfPage - 1));
+      } else if (e.key === "ArrowRight" || e.key === "PageDown" || e.key === " ") {
+        e.preventDefault();
+        loadPdfPage(Math.min(totalPages, isDualSpread ? leftPageNum + 2 : currentPdfPage + 1));
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [currentPdfPage, isDualSpread, leftPageNum, loadPdfPage, totalPages]);
 
   const handleMouseUp = () => {
     const selection = window.getSelection();
@@ -61,43 +118,6 @@ export const PdfReaderView: React.FC = () => {
       top: rect.top,
       left: rect.left + rect.width / 2,
     });
-  };
-
-  const renderPageBody = (pageData: { text_content?: string; has_text_layer?: boolean } | null, pageNum?: number) => {
-    const textContent = pageData?.text_content;
-    const hasText = pageData?.has_text_layer ?? (textContent && textContent.trim().length > 0);
-
-    if (!hasText || !textContent || textContent.trim().length === 0) {
-      return (
-        <div className="flex-1 flex flex-col items-center justify-center text-center p-8 text-[#78716C]">
-          <BookOpen className="w-8 h-8 mb-2 opacity-40 text-[#8C8275]" />
-          <p className="font-serif text-sm font-semibold text-[#1C1917]">
-            {currentBook?.title || "Document"}
-          </p>
-          <p className="text-xs text-[#78716C] mt-1 font-mono">Page {pageNum}</p>
-          <p className="text-[11px] text-[#A8A29E] mt-3 max-w-xs italic font-serif">
-            Text layer unavailable for this page (scanned or image-based)
-          </p>
-        </div>
-      );
-    }
-
-
-    // Split text into paragraphs
-    const paragraphs = textContent
-      .split(/\n\s*\n|\r\n\s*\r\n/)
-      .map((p) => p.trim())
-      .filter((p) => p.length > 0);
-
-    return (
-      <div className="space-y-4 text-justify select-text font-serif leading-relaxed text-[#292524] text-[13px]">
-        {paragraphs.map((para, idx) => (
-          <p key={idx} className="leading-relaxed">
-            {para}
-          </p>
-        ))}
-      </div>
-    );
   };
 
   return (
@@ -202,7 +222,7 @@ export const PdfReaderView: React.FC = () => {
               <div className="text-xs text-[#78716C] text-center py-6">No bookmarks yet</div>
             )
           ) : (
-            Array.from({ length: Math.min(totalPages, 50) }, (_, i) => i + 1).map((pageNum) => (
+            Array.from({ length: Math.min(totalPages, 100) }, (_, i) => i + 1).map((pageNum) => (
               <div
                 key={pageNum}
                 onClick={() => loadPdfPage(pageNum)}
@@ -212,17 +232,17 @@ export const PdfReaderView: React.FC = () => {
                   <span>Page {pageNum}</span>
                 </div>
                 <div
-                  className={`w-full aspect-[4/3] rounded-lg bg-white border p-2 flex items-center justify-center transition-all shadow-xs ${
+                  className={`w-full rounded-lg overflow-hidden transition-all shadow-xs ${
                     pageNum === currentPdfPage || pageNum === leftPageNum || (isDualSpread && pageNum === rightPageNum)
-                      ? "border-teal-700 ring-2 ring-teal-600/30"
-                      : "border-[#E5DFD3] group-hover:border-[#DDD5C7]"
+                      ? "ring-2 ring-teal-700 shadow-md"
+                      : "opacity-85 group-hover:opacity-100"
                   }`}
                 >
-                  <div className="w-full h-full border border-dashed border-[#E5DFD3] rounded flex items-center justify-center p-2 text-center">
-                    <span className="font-serif text-[9px] text-[#78716C]">
-                      Page {pageNum}
-                    </span>
-                  </div>
+                  <PdfPageCanvas
+                    pdfDoc={pdfDoc}
+                    pageNum={pageNum}
+                    isThumbnail={true}
+                  />
                 </div>
               </div>
             ))
@@ -239,6 +259,7 @@ export const PdfReaderView: React.FC = () => {
               disabled={leftPageNum <= 1}
               onClick={() => loadPdfPage(Math.max(1, isDualSpread ? leftPageNum - 2 : currentPdfPage - 1))}
               className="p-1 hover:text-[#18181B] text-[#78716C] rounded hover:bg-[#EFEAE1] disabled:opacity-30"
+              title="Previous Page (ArrowLeft)"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
@@ -249,6 +270,7 @@ export const PdfReaderView: React.FC = () => {
               disabled={isDualSpread ? rightPageNum >= totalPages : currentPdfPage >= totalPages}
               onClick={() => loadPdfPage(Math.min(totalPages, isDualSpread ? leftPageNum + 2 : currentPdfPage + 1))}
               className="p-1 hover:text-[#18181B] text-[#78716C] rounded hover:bg-[#EFEAE1] disabled:opacity-30"
+              title="Next Page (ArrowRight)"
             >
               <ChevronRight className="w-4 h-4" />
             </button>
@@ -258,6 +280,7 @@ export const PdfReaderView: React.FC = () => {
             <button
               onClick={() => setZoom((z) => Math.max(60, z - 10))}
               className="p-1 hover:text-[#18181B] rounded hover:bg-[#EFEAE1]"
+              title="Zoom Out"
             >
               <ZoomOut className="w-3.5 h-3.5" />
             </button>
@@ -265,6 +288,7 @@ export const PdfReaderView: React.FC = () => {
             <button
               onClick={() => setZoom((z) => Math.min(180, z + 10))}
               className="p-1 hover:text-[#18181B] rounded hover:bg-[#EFEAE1]"
+              title="Zoom In"
             >
               <ZoomIn className="w-3.5 h-3.5" />
             </button>
@@ -283,34 +307,36 @@ export const PdfReaderView: React.FC = () => {
 
         {/* Dual / Single Page Spread Viewport */}
         <div className="flex-1 overflow-auto p-8 flex justify-center items-start">
-          <div
-            style={{ transform: `scale(${zoom / 100})`, transformOrigin: "top center" }}
-            className="flex gap-6 items-start transition-transform duration-150"
-          >
-            {/* Left Page */}
-            <div className="w-[440px] min-h-[600px] bg-white border border-[#E5DFD3] rounded-sm p-10 shadow-lg flex flex-col justify-between text-xs leading-relaxed text-[#292524]">
-              <div className="flex-1">
-                {renderPageBody(leftPdfPageData, leftPageNum)}
-              </div>
-
-              <div className="text-center font-mono text-[10px] text-[#78716C] pt-4 border-t border-[#F2ECE2] mt-6">
-                {leftPageNum}
+          <div className="flex gap-6 items-start transition-transform duration-150">
+            {/* Left Page Canvas */}
+            <div className="flex flex-col items-center">
+              <PdfPageCanvas
+                pdfDoc={pdfDoc}
+                pageNum={leftPageNum}
+                zoom={zoom}
+                fallbackText={leftPdfPageData?.text_content}
+                hasTextLayer={leftPdfPageData?.has_text_layer}
+              />
+              <div className="text-center font-mono text-[10px] text-[#78716C] pt-2">
+                Page {leftPageNum}
               </div>
             </div>
 
-            {/* Right Page (Only in Dual Spread Mode) */}
+            {/* Right Page Canvas (Only in Dual Spread Mode) */}
             {isDualSpread && rightPageNum <= totalPages && (
-              <div className="w-[440px] min-h-[600px] bg-white border border-[#E5DFD3] rounded-sm p-10 shadow-lg flex flex-col justify-between text-xs leading-relaxed text-[#292524]">
-                <div className="flex-1">
-                  {renderPageBody(rightPdfPageData, rightPageNum)}
-                </div>
-
-                <div className="text-center font-mono text-[10px] text-[#78716C] pt-4 border-t border-[#F2ECE2] mt-6">
-                  {rightPageNum}
+              <div className="flex flex-col items-center">
+                <PdfPageCanvas
+                  pdfDoc={pdfDoc}
+                  pageNum={rightPageNum}
+                  zoom={zoom}
+                  fallbackText={rightPdfPageData?.text_content}
+                  hasTextLayer={rightPdfPageData?.has_text_layer}
+                />
+                <div className="text-center font-mono text-[10px] text-[#78716C] pt-2">
+                  Page {rightPageNum}
                 </div>
               </div>
             )}
-
           </div>
         </div>
       </div>

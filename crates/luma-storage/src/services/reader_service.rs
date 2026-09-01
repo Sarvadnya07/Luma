@@ -195,4 +195,28 @@ impl ReaderService {
             _ => Ok(Vec::new()),
         }
     }
+
+    pub fn get_file_bytes(&self, book_id: &BookId, file_id: Option<&FileId>) -> Result<Vec<u8>> {
+        let file_repo = BookFileRepository::new(self.db.clone());
+        let file = if let Some(fid) = file_id {
+            file_repo
+                .get_by_id(fid)
+                .map_err(|e| LumaError::StorageError(e.to_string()))?
+                .ok_or_else(|| LumaError::NotFound {
+                    entity_type: "BookFile".to_string(),
+                    id: fid.to_string(),
+                })?
+        } else {
+            let files = file_repo
+                .list_by_book_id(book_id)
+                .map_err(|e| LumaError::StorageError(e.to_string()))?;
+            files.into_iter().next().ok_or_else(|| LumaError::NotFound {
+                entity_type: "BookFile".to_string(),
+                id: book_id.to_string(),
+            })?
+        };
+
+        std::fs::read(&file.relative_path)
+            .map_err(|e| LumaError::StorageError(format!("Failed to read file bytes: {}", e)))
+    }
 }

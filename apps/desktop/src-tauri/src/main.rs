@@ -68,6 +68,7 @@ fn main() {
             commands::open_reader_document,
             commands::get_reader_chapter,
             commands::get_reader_pdf_page,
+            commands::get_book_file_bytes,
             commands::search_document,
             // Reading Progress
             commands::get_reading_progress,

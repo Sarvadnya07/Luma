@@ -68,3 +68,19 @@ pub fn search_document(
         .search_document(&bid, &query)
         .map_err(BackendError::from)
 }
+
+#[tauri::command]
+pub fn get_book_file_bytes(
+    ctx: State<'_, LumaAppContext>,
+    book_id: String,
+    file_id: Option<String>,
+) -> Result<Vec<u8>, BackendError> {
+    let bid = book_id
+        .parse::<BookId>()
+        .map_err(|_| BackendError::validation("Invalid book_id format"))?;
+    let fid = file_id.and_then(|s| s.parse::<FileId>().ok());
+
+    ctx.reader_service
+        .get_file_bytes(&bid, fid.as_ref())
+        .map_err(BackendError::from)
+}

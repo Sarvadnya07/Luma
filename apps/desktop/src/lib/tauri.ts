@@ -284,6 +284,15 @@ export const LumaApi = {
     };
   },
 
+  async getBookFileBytes(bookId: string, fileId?: string): Promise<Uint8Array> {
+    if (isTauri()) {
+      const { invoke } = await import("@tauri-apps/api/core");
+      const bytes = await invoke<number[]>("get_book_file_bytes", { bookId, fileId });
+      return new Uint8Array(bytes);
+    }
+    return new Uint8Array();
+  },
+
   async searchDocument(bookId: string, query: string): Promise<DocumentSearchMatch[]> {
     if (isTauri()) {
       const { invoke } = await import("@tauri-apps/api/core");
