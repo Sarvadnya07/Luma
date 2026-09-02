@@ -3,6 +3,34 @@ use serde::{Deserialize, Serialize};
 
 use crate::ids::{BookId, CoverImageId, FileId, ImportJobId};
 
+// ============================================================================
+// Constants – centralised serialization names and messages
+// ============================================================================
+
+// DuplicateMatchLevel variants
+pub const DUPLICATE_EXACT: &str = "exact_duplicate";
+pub const DUPLICATE_LIKELY: &str = "likely_duplicate";
+pub const DUPLICATE_POSSIBLE: &str = "possible_duplicate";
+pub const DUPLICATE_UNRELATED: &str = "unrelated";
+
+// ImportSource variants
+pub const SOURCE_USER_IMPORT: &str = "user_import";
+pub const SOURCE_DRAG_AND_DROP: &str = "drag_and_drop";
+pub const SOURCE_DIRECTORY_SCAN: &str = "directory_scan";
+pub const SOURCE_RECONCILE: &str = "reconcile";
+
+// ImportJobStatus variants
+pub const JOB_STATUS_QUEUED: &str = "queued";
+pub const JOB_STATUS_PROCESSING: &str = "processing";
+pub const JOB_STATUS_COMPLETED: &str = "completed";
+pub const JOB_STATUS_PARTIAL_SUCCESS: &str = "partial_success";
+pub const JOB_STATUS_FAILED: &str = "failed";
+pub const JOB_STATUS_CANCELLED: &str = "cancelled";
+
+// ============================================================================
+// DuplicateMatchLevel
+// ============================================================================
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum DuplicateMatchLevel {
@@ -12,14 +40,22 @@ pub enum DuplicateMatchLevel {
     Unrelated,
 }
 
+// ============================================================================
+// DuplicateAssessment
+// ============================================================================
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct DuplicateAssessment {
     pub level: DuplicateMatchLevel,
     pub existing_book_id: Option<BookId>,
     pub existing_file_id: Option<FileId>,
     pub confidence_score: f32,
-    pub reason: String,
+    pub reason: String, // this is user-provided; no hardcoded default
 }
+
+// ============================================================================
+// ImportSource
+// ============================================================================
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -29,6 +65,10 @@ pub enum ImportSource {
     DirectoryScan,
     Reconcile,
 }
+
+// ============================================================================
+// ImportJobStatus
+// ============================================================================
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -41,16 +81,24 @@ pub enum ImportJobStatus {
     Cancelled,
 }
 
+// ============================================================================
+// ImportJobItem
+// ============================================================================
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ImportJobItem {
     pub source_path: String,
     pub original_filename: String,
-    pub status: String,
+    pub status: String, // Could be a string; no enum in original code.
     pub book_id: Option<BookId>,
     pub file_id: Option<FileId>,
     pub duplicate_level: Option<DuplicateMatchLevel>,
     pub error_message: Option<String>,
 }
+
+// ============================================================================
+// ImportJob
+// ============================================================================
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ImportJob {
@@ -91,6 +139,10 @@ impl ImportJob {
         };
     }
 }
+
+// ============================================================================
+// CoverImage
+// ============================================================================
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CoverImage {

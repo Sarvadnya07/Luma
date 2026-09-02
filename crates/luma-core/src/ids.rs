@@ -5,7 +5,22 @@ use uuid::Uuid;
 
 use crate::error::LumaError;
 
+
+
+// ============================================================================
+// ID Macro
+// ============================================================================
+
+/// Defines a newtype wrapper around `Uuid` with a given prefix for display and parsing.
+///
+/// # Example
+/// ```rust,ignore
+/// define_id!(BookId, "book");
+/// let id = BookId::new();
+/// assert_eq!(id.to_string(), format!("book_{}", id.as_uuid().simple()));
+/// ```
 macro_rules! define_id {
+
     ($name:ident, $prefix:literal) => {
         #[derive(
             Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
@@ -14,17 +29,17 @@ macro_rules! define_id {
         pub struct $name(pub Uuid);
 
         impl $name {
-            /// Generate a new unique time-ordered ID (UUID v7)
+            /// Generate a new unique time-ordered ID (UUID v7).
             pub fn new() -> Self {
                 Self(Uuid::now_v7())
             }
 
-            /// Wrap an existing UUID
+            /// Wrap an existing UUID.
             pub fn from_uuid(uuid: Uuid) -> Self {
                 Self(uuid)
             }
 
-            /// Retrieve the underlying UUID
+            /// Retrieve the underlying UUID.
             pub fn as_uuid(&self) -> &Uuid {
                 &self.0
             }
@@ -52,14 +67,11 @@ macro_rules! define_id {
                     s
                 };
 
-                Uuid::parse_str(trimmed).map(Self).map_err(|e| {
-                    LumaError::InvalidId(format!(
-                        "Invalid ID format for {}: {}",
-                        stringify!($name),
-                        e
-                    ))
-                })
+                Uuid::parse_str(trimmed)
+                    .map(Self)
+                    .map_err(|e| LumaError::InvalidId(format!("Invalid ID format for {}: {}", stringify!($name), e)))
             }
+
         }
 
         impl From<Uuid> for $name {
@@ -69,6 +81,10 @@ macro_rules! define_id {
         }
     };
 }
+
+// ============================================================================
+// ID Definitions
+// ============================================================================
 
 define_id!(BookId, "book");
 define_id!(FileId, "file");
@@ -83,6 +99,10 @@ define_id!(SessionId, "sess");
 define_id!(ChangeRecordId, "cr");
 define_id!(CoverImageId, "cov");
 define_id!(ImportJobId, "job");
+
+// ============================================================================
+// Tests
+// ============================================================================
 
 #[cfg(test)]
 mod tests {
@@ -111,4 +131,4 @@ mod tests {
         let err = "invalid-uuid-string".parse::<BookId>();
         assert!(err.is_err());
     }
-}
+}   

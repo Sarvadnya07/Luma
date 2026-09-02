@@ -96,6 +96,7 @@ impl AnnotationService {
         document_text: &str,
     ) -> ResolutionResult {
         let anchor = TextQuoteAnchor::new(quote, prefix, suffix);
-        AnchorEngine::resolve_quote(&anchor, document_text)
+        AnchorEngine::default().resolve_quote(&anchor, document_text)
     }
 }
+

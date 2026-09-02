@@ -4,6 +4,12 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
+description = "AI integration layer for Luma – abstracts LLM providers for summarisation and embeddings."
+homepage = "https://luma.reader"
+repository = "https://github.com/luma/luma"
+readme = "README.md"
+keywords = ["ai", "llm", "summarisation", "embeddings", "luma"]
+categories = ["artificial-intelligence", "text-processing"]
 
 [dependencies]
 luma-core = { workspace = true }
@@ -14,3 +20,8 @@ async-trait = { workspace = true }
 
 [dev-dependencies]
 tokio = { workspace = true }
+
+[features]
+default = []
+# Optional: add a "mock" feature for testing without real providers
+mock = []

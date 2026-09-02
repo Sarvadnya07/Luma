@@ -7,6 +7,47 @@ use crate::error::LumaError;
 use crate::ids::{AuthorId, BookId, CoverImageId, DeviceId, FileId, SeriesId};
 use crate::version::SyncMetadata;
 
+// ============================================================================
+// Constants – centralised strings
+// ============================================================================
+
+// DocumentFormat string representations
+pub const FORMAT_EPUB: &str = "epub";
+pub const FORMAT_PDF: &str = "pdf";
+pub const FORMAT_CBZ: &str = "cbz";
+pub const FORMAT_CBR: &str = "cbr";
+pub const FORMAT_TXT: &str = "txt";
+pub const FORMAT_MD: &str = "md";
+pub const FORMAT_HTML: &str = "html";
+
+// Alternative aliases
+pub const FORMAT_MARKDOWN: &str = "markdown";
+pub const FORMAT_HTM: &str = "htm";
+pub const FORMAT_XHTML: &str = "xhtml";
+
+
+
+// ReadingStatus string representations
+pub const STATUS_UNREAD: &str = "unread";
+pub const STATUS_READING: &str = "reading";
+pub const STATUS_COMPLETED: &str = "completed";
+pub const STATUS_ARCHIVED: &str = "archived";
+
+// LibraryState string representations
+pub const STATE_ACTIVE: &str = "active";
+pub const STATE_ARCHIVED: &str = "archived";
+pub const STATE_TRASHED: &str = "trashed";
+
+// FileAvailability string representations
+pub const AVAIL_AVAILABLE: &str = "available";
+pub const AVAIL_MISSING: &str = "missing";
+pub const AVAIL_CHANGED: &str = "changed";
+pub const AVAIL_INVALID: &str = "invalid";
+
+// ============================================================================
+// DocumentFormat
+// ============================================================================
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum DocumentFormat {
@@ -22,15 +63,16 @@ pub enum DocumentFormat {
 
 impl fmt::Display for DocumentFormat {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            DocumentFormat::Epub => write!(f, "epub"),
-            DocumentFormat::Pdf => write!(f, "pdf"),
-            DocumentFormat::Cbz => write!(f, "cbz"),
-            DocumentFormat::Cbr => write!(f, "cbr"),
-            DocumentFormat::Txt => write!(f, "txt"),
-            DocumentFormat::Md => write!(f, "md"),
-            DocumentFormat::Html => write!(f, "html"),
-        }
+        let s = match self {
+            DocumentFormat::Epub => FORMAT_EPUB,
+            DocumentFormat::Pdf => FORMAT_PDF,
+            DocumentFormat::Cbz => FORMAT_CBZ,
+            DocumentFormat::Cbr => FORMAT_CBR,
+            DocumentFormat::Txt => FORMAT_TXT,
+            DocumentFormat::Md => FORMAT_MD,
+            DocumentFormat::Html => FORMAT_HTML,
+        };
+        write!(f, "{}", s)
     }
 }
 
@@ -39,17 +81,24 @@ impl FromStr for DocumentFormat {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().trim() {
-            "epub" => Ok(DocumentFormat::Epub),
-            "pdf" => Ok(DocumentFormat::Pdf),
-            "cbz" => Ok(DocumentFormat::Cbz),
-            "cbr" => Ok(DocumentFormat::Cbr),
-            "txt" => Ok(DocumentFormat::Txt),
-            "md" | "markdown" => Ok(DocumentFormat::Md),
-            "html" | "htm" | "xhtml" => Ok(DocumentFormat::Html),
-            other => Err(LumaError::UnsupportedFormat(other.to_string())),
+            FORMAT_EPUB => Ok(DocumentFormat::Epub),
+            FORMAT_PDF => Ok(DocumentFormat::Pdf),
+            FORMAT_CBZ => Ok(DocumentFormat::Cbz),
+            FORMAT_CBR => Ok(DocumentFormat::Cbr),
+            FORMAT_TXT => Ok(DocumentFormat::Txt),
+            FORMAT_MD | FORMAT_MARKDOWN => Ok(DocumentFormat::Md),
+            FORMAT_HTML | FORMAT_HTM | FORMAT_XHTML => Ok(DocumentFormat::Html),
+            other => Err(LumaError::UnsupportedFormat(format!(
+                "Unsupported format: {}",
+                other
+            ))),
         }
     }
 }
+
+// ============================================================================
+// ReadingStatus
+// ============================================================================
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
 #[serde(rename_all = "lowercase")]
@@ -63,12 +112,13 @@ pub enum ReadingStatus {
 
 impl fmt::Display for ReadingStatus {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            ReadingStatus::Unread => write!(f, "unread"),
-            ReadingStatus::Reading => write!(f, "reading"),
-            ReadingStatus::Completed => write!(f, "completed"),
-            ReadingStatus::Archived => write!(f, "archived"),
-        }
+        let s = match self {
+            ReadingStatus::Unread => STATUS_UNREAD,
+            ReadingStatus::Reading => STATUS_READING,
+            ReadingStatus::Completed => STATUS_COMPLETED,
+            ReadingStatus::Archived => STATUS_ARCHIVED,
+        };
+        write!(f, "{}", s)
     }
 }
 
@@ -77,10 +127,10 @@ impl FromStr for ReadingStatus {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().trim() {
-            "unread" => Ok(ReadingStatus::Unread),
-            "reading" => Ok(ReadingStatus::Reading),
-            "completed" => Ok(ReadingStatus::Completed),
-            "archived" => Ok(ReadingStatus::Archived),
+            STATUS_UNREAD => Ok(ReadingStatus::Unread),
+            STATUS_READING => Ok(ReadingStatus::Reading),
+            STATUS_COMPLETED => Ok(ReadingStatus::Completed),
+            STATUS_ARCHIVED => Ok(ReadingStatus::Archived),
             other => Err(LumaError::ValidationError(format!(
                 "Invalid reading status: {}",
                 other
@@ -88,6 +138,10 @@ impl FromStr for ReadingStatus {
         }
     }
 }
+
+// ============================================================================
+// LibraryState
+// ============================================================================
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
 #[serde(rename_all = "lowercase")]
@@ -100,11 +154,12 @@ pub enum LibraryState {
 
 impl fmt::Display for LibraryState {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            LibraryState::Active => write!(f, "active"),
-            LibraryState::Archived => write!(f, "archived"),
-            LibraryState::Trashed => write!(f, "trashed"),
-        }
+        let s = match self {
+            LibraryState::Active => STATE_ACTIVE,
+            LibraryState::Archived => STATE_ARCHIVED,
+            LibraryState::Trashed => STATE_TRASHED,
+        };
+        write!(f, "{}", s)
     }
 }
 
@@ -113,9 +168,9 @@ impl FromStr for LibraryState {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().trim() {
-            "active" => Ok(LibraryState::Active),
-            "archived" => Ok(LibraryState::Archived),
-            "trashed" => Ok(LibraryState::Trashed),
+            STATE_ACTIVE => Ok(LibraryState::Active),
+            STATE_ARCHIVED => Ok(LibraryState::Archived),
+            STATE_TRASHED => Ok(LibraryState::Trashed),
             other => Err(LumaError::ValidationError(format!(
                 "Invalid library state: {}",
                 other
@@ -123,6 +178,10 @@ impl FromStr for LibraryState {
         }
     }
 }
+
+// ============================================================================
+// FileAvailability
+// ============================================================================
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
 #[serde(rename_all = "lowercase")]
@@ -136,12 +195,13 @@ pub enum FileAvailability {
 
 impl fmt::Display for FileAvailability {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            FileAvailability::Available => write!(f, "available"),
-            FileAvailability::Missing => write!(f, "missing"),
-            FileAvailability::Changed => write!(f, "changed"),
-            FileAvailability::Invalid => write!(f, "invalid"),
-        }
+        let s = match self {
+            FileAvailability::Available => AVAIL_AVAILABLE,
+            FileAvailability::Missing => AVAIL_MISSING,
+            FileAvailability::Changed => AVAIL_CHANGED,
+            FileAvailability::Invalid => AVAIL_INVALID,
+        };
+        write!(f, "{}", s)
     }
 }
 
@@ -150,10 +210,10 @@ impl FromStr for FileAvailability {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().trim() {
-            "available" => Ok(FileAvailability::Available),
-            "missing" => Ok(FileAvailability::Missing),
-            "changed" => Ok(FileAvailability::Changed),
-            "invalid" => Ok(FileAvailability::Invalid),
+            AVAIL_AVAILABLE => Ok(FileAvailability::Available),
+            AVAIL_MISSING => Ok(FileAvailability::Missing),
+            AVAIL_CHANGED => Ok(FileAvailability::Changed),
+            AVAIL_INVALID => Ok(FileAvailability::Invalid),
             other => Err(LumaError::ValidationError(format!(
                 "Invalid file availability: {}",
                 other
@@ -162,7 +222,11 @@ impl FromStr for FileAvailability {
     }
 }
 
-/// Physical representation of a document on disk
+
+// ============================================================================
+// BookFile
+// ============================================================================
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BookFile {
     pub id: FileId,
@@ -205,7 +269,10 @@ impl BookFile {
     }
 }
 
-/// Logical publication representation
+// ============================================================================
+// Book
+// ============================================================================
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Book {
     pub id: BookId,

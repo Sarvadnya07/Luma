@@ -32,11 +32,11 @@ fn test_database_foreign_key_cascade_deletion() {
     let annotation = Annotation::new(
         book_id,
         AnnotationType::Highlight,
-        "#FFDD00".to_string(),
         "Crucial insight".to_string(),
         "{}".to_string(),
         device_id,
-    );
+    ).with_color("#FFDD00");
+
 
     book_repo.insert(&book).expect("insert book");
     file_repo.insert(&file).expect("insert file");

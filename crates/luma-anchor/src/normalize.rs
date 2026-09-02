@@ -1,47 +1,112 @@
 use unicode_normalization::UnicodeNormalization;
 
-/// Normalizes text for resilient quote comparison:
-/// 1. Converts to Unicode NFKD decomposition
-/// 2. Unifies typographical variations (smart quotes, curly apostrophes, dashes, non-breaking spaces)
-/// 3. Collapses consecutive whitespace (spaces, tabs, newlines) into single ASCII space
-/// 4. Trims leading/trailing whitespace
-pub fn normalize_text(input: &str) -> String {
+// ============================================================================
+// Configuration
+// ============================================================================
+
+#[derive(Debug, Clone)]
+pub struct NormalizationConfig {
+    /// Apply Unicode NFKD decomposition (default: true)
+    pub unicode_normalize: bool,
+    /// Collapse consecutive whitespace into a single space (default: true)
+    pub collapse_whitespace: bool,
+    /// Trim leading/trailing whitespace (default: true)
+    pub trim: bool,
+    /// Convert smart quotes, apostrophes, and dashes to ASCII equivalents (default: true)
+    pub normalize_punctuation: bool,
+    /// Convert all characters to lowercase (default: false)
+    pub fold_case: bool,
+}
+
+impl Default for NormalizationConfig {
+    fn default() -> Self {
+        Self {
+            unicode_normalize: true,
+            collapse_whitespace: true,
+            trim: true,
+            normalize_punctuation: true,
+            fold_case: false,
+        }
+    }
+}
+
+// ============================================================================
+// Normalization Function
+// ============================================================================
+
+/// Normalizes text according to the provided configuration.
+pub fn normalize_text_with_config(input: &str, config: &NormalizationConfig) -> String {
     let mut normalized = String::with_capacity(input.len());
     let mut last_was_space = true; // Start true to trim leading spaces
 
-    for c in input.nfkd() {
-        let mapped = match c {
-            // Smart quotes & apostrophes -> standard ascii
-            '‘' | '’' | '‚' | '‛' | '`' | '´' => '\'',
-            '“' | '”' | '„' | '‟' | '«' | '»' => '"',
-            // Hyphens and dashes -> standard ascii hyphen
-            '—' | '–' | '―' | '‐' | '‑' => '-',
-            // Whitespace variants -> standard space
-            '\u{00A0}' | '\u{2000}'..='\u{200B}' | '\u{202F}' | '\u{205F}' | '\u{3000}' => ' ',
-            // Line endings & control chars -> standard space
-            '\r' | '\n' | '\t' => ' ',
-            other => other,
-        };
+    let chars: Box<dyn Iterator<Item = char>> = if config.unicode_normalize {
+        Box::new(input.nfkd())
+    } else {
+        Box::new(input.chars())
+    };
 
-        if mapped.is_whitespace() {
-            if !last_was_space {
-                normalized.push(' ');
-                last_was_space = true;
+    for c in chars {
+        let mapped = if config.normalize_punctuation {
+            match c {
+                // Smart quotes & apostrophes -> standard ascii
+                '‘' | '’' | '‚' | '‛' | '`' | '´' => '\'',
+                '“' | '”' | '„' | '‟' | '«' | '»' => '"',
+                // Hyphens and dashes -> standard ascii hyphen
+                '—' | '–' | '―' | '‐' | '‑' => '-',
+                // Whitespace variants -> standard space
+                '\u{00A0}' | '\u{2000}'..='\u{200B}' | '\u{202F}' | '\u{205F}' | '\u{3000}' => ' ',
+                // Line endings & control chars -> standard space
+                '\r' | '\n' | '\t' => ' ',
+                other => other,
             }
         } else {
-            normalized.push(mapped);
-            last_was_space = false;
+            // Still handle line endings and whitespace variants as spaces,
+            // because they are whitespace and should be collapsed if configured.
+            match c {
+                '\u{00A0}' | '\u{2000}'..='\u{200B}' | '\u{202F}' | '\u{205F}' | '\u{3000}' => ' ',
+                '\r' | '\n' | '\t' => ' ',
+                other => other,
+            }
+        };
+
+        let ch = if config.fold_case {
+            mapped.to_lowercase().next().unwrap_or(mapped)
+        } else {
+            mapped
+        };
+
+        if config.collapse_whitespace {
+            if ch.is_whitespace() {
+                if !last_was_space {
+                    normalized.push(' ');
+                    last_was_space = true;
+                }
+            } else {
+                normalized.push(ch);
+                last_was_space = false;
+            }
+        } else {
+            normalized.push(ch);
         }
     }
 
-    if normalized.ends_with(' ') {
+    if config.trim && normalized.ends_with(' ') {
         normalized.pop();
     }
 
     normalized
 }
 
-/// Compute Levenshtein edit distance between two strings with O(min(M, N)) memory footprint
+/// Normalizes text using the default configuration (current behavior).
+pub fn normalize_text(input: &str) -> String {
+    normalize_text_with_config(input, &NormalizationConfig::default())
+}
+
+// ============================================================================
+// Levenshtein Distance (unchanged – no hardcoded values)
+// ============================================================================
+
+/// Compute Levenshtein edit distance between two strings with O(min(M, N)) memory footprint.
 pub fn levenshtein_distance(a: &str, b: &str) -> usize {
     if a == b {
         return 0;
@@ -81,7 +146,7 @@ pub fn levenshtein_distance(a: &str, b: &str) -> usize {
     v0[n]
 }
 
-/// Computes similarity ratio between 0.0 (completely distinct) and 1.0 (exact match)
+/// Computes similarity ratio between 0.0 (completely distinct) and 1.0 (exact match).
 pub fn similarity_ratio(a: &str, b: &str) -> f32 {
     if a == b {
         return 1.0;
@@ -96,15 +161,54 @@ pub fn similarity_ratio(a: &str, b: &str) -> f32 {
     1.0 - (distance as f32 / max_len as f32)
 }
 
+// ============================================================================
+// Tests
+// ============================================================================
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn test_normalize_whitespace_and_newlines() {
+    fn test_normalize_default() {
         let input = "  Hello \n\t  world! \r\n This  is  a\ttest.   ";
         let normalized = normalize_text(input);
         assert_eq!(normalized, "Hello world! This is a test.");
+    }
+
+    #[test]
+    fn test_normalize_without_collapse() {
+        let config = NormalizationConfig {
+            collapse_whitespace: false,
+            ..Default::default()
+        };
+        let input = "Hello  world";
+        let normalized = normalize_text_with_config(input, &config);
+        assert_eq!(normalized, "Hello  world"); // spaces preserved
+    }
+
+    #[test]
+    fn test_normalize_without_punctuation_normalization() {
+        let config = NormalizationConfig {
+            normalize_punctuation: false,
+            ..Default::default()
+        };
+        let input = "“Luma”—the ‘ultimate’ reader";
+        let normalized = normalize_text_with_config(input, &config);
+        // Smart quotes remain
+        assert!(normalized.contains('“'));
+        assert!(normalized.contains('’'));
+    }
+
+    #[test]
+    fn test_normalize_with_case_fold() {
+        let config = NormalizationConfig {
+            fold_case: true,
+            ..Default::default()
+        };
+        let input = "Hello World!";
+        let normalized = normalize_text_with_config(input, &config);
+        assert_eq!(normalized, "hello world!");
     }
 
     #[test]
