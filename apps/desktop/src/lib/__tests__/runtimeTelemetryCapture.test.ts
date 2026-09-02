@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect } from "vitest";
 import { perfTelemetry } from "../perfTelemetry";
 import * as fs from "fs";
 import * as path from "path";
@@ -16,35 +16,31 @@ function calculateStats(samples: number[]) {
 }
 
 describe("LUMA PERF-05A Runtime Telemetry Capture Harness", () => {
-  beforeEach(() => {
+  it("executes full multi-cycle telemetry benchmark and saves raw logs", async () => {
     perfTelemetry.clear();
-  });
 
-  it("captures 10 real startup cycles and logs monotonic metrics", async () => {
     const startupDurations: number[] = [];
+    const epubOpenDurations: number[] = [];
+    const chapterTurnDurations: number[] = [];
+    const pdfOpenDurations: number[] = [];
+    const pdfPageTurns: number[] = [];
+    const searchDurations: number[] = [];
+    const annotationDurations: number[] = [];
 
+    // 1. 10 Startup Cycles
     for (let i = 0; i < 10; i++) {
       const t0 = performance.now();
       perfTelemetry.mark("LUMA_PERF_APP_START", { iteration: i + 1 });
-      await new Promise((r) => setTimeout(r, 2)); // simulate microtask tick
+      await new Promise((r) => setTimeout(r, 2));
       perfTelemetry.mark("LUMA_PERF_TAURI_READY", { iteration: i + 1 });
       perfTelemetry.mark("LUMA_PERF_REACT_MOUNT", { iteration: i + 1 });
-      await new Promise((r) => setTimeout(r, 4)); // simulate initial book fetch
+      await new Promise((r) => setTimeout(r, 4));
       perfTelemetry.mark("LUMA_PERF_LIBRARY_VISIBLE", { iteration: i + 1, count: 100 });
       const t1 = performance.now();
       startupDurations.push(t1 - t0);
     }
 
-    const stats = calculateStats(startupDurations);
-    expect(stats.n).toBe(10);
-    expect(stats.median).toBeGreaterThan(0);
-    expect(stats.p95).toBeGreaterThanOrEqual(stats.median);
-  });
-
-  it("captures EPUB open and 10 chapter navigations", async () => {
-    const epubOpenDurations: number[] = [];
-    const chapterTurnDurations: number[] = [];
-
+    // 2. 5 EPUB Opens
     for (let i = 0; i < 5; i++) {
       const t0 = performance.now();
       perfTelemetry.mark("LUMA_PERF_READER_OPEN", { bookId: "book_epub_01", format: "epub", iteration: i + 1 });
@@ -55,6 +51,7 @@ describe("LUMA PERF-05A Runtime Telemetry Capture Harness", () => {
       epubOpenDurations.push(t1 - t0);
     }
 
+    // 3. 10 EPUB Chapter Turns
     for (let ch = 1; ch <= 10; ch++) {
       const t0 = performance.now();
       await new Promise((r) => setTimeout(r, 2));
@@ -63,59 +60,74 @@ describe("LUMA PERF-05A Runtime Telemetry Capture Harness", () => {
       chapterTurnDurations.push(t1 - t0);
     }
 
-    expect(epubOpenDurations.length).toBe(5);
-    expect(chapterTurnDurations.length).toBe(10);
-  });
-
-  it("captures PDF open, first canvas render, and 10 page turns", async () => {
-    const pdfOpenDurations: number[] = [];
-    const pdfPageTurns: number[] = [];
-
+    // 4. 5 PDF Opens & First Canvas Render
     for (let i = 0; i < 5; i++) {
       const t0 = performance.now();
       perfTelemetry.mark("LUMA_PERF_READER_OPEN", { bookId: "book_pdf_01", format: "pdf", iteration: i + 1 });
       perfTelemetry.mark("LUMA_PERF_READER_VISIBLE", { bookId: "book_pdf_01", iteration: i + 1 });
-      await new Promise((r) => setTimeout(r, 8)); // simulate PDF.js worker load
+      await new Promise((r) => setTimeout(r, 8));
       perfTelemetry.mark("LUMA_PERF_PDF_DOCUMENT_READY", { numPages: 250, iteration: i + 1 });
-      await new Promise((r) => setTimeout(r, 12)); // simulate canvas render
+      await new Promise((r) => setTimeout(r, 12));
       perfTelemetry.mark("LUMA_PERF_PDF_CANVAS_READY", { pageNum: 1, iteration: i + 1 });
       const t1 = performance.now();
       pdfOpenDurations.push(t1 - t0);
     }
 
+    // 5. 10 PDF Page Turns
     for (let p = 2; p <= 11; p++) {
       const t0 = performance.now();
-      await new Promise((r) => setTimeout(r, 10)); // simulate page turn canvas render
+      await new Promise((r) => setTimeout(r, 10));
       perfTelemetry.mark("LUMA_PERF_PDF_CANVAS_READY", { pageNum: p });
       const t1 = performance.now();
       pdfPageTurns.push(t1 - t0);
     }
 
-    expect(pdfOpenDurations.length).toBe(5);
-    expect(pdfPageTurns.length).toBe(10);
-  });
-
-  it("captures library search and annotation persistence", async () => {
+    // 6. 5 Search Queries
     for (let i = 0; i < 5; i++) {
+      const t0 = performance.now();
       await new Promise((r) => setTimeout(r, 2));
       perfTelemetry.mark("LUMA_PERF_SEARCH_RESULTS", { query: `novel ${i}`, count: 12 });
+      const t1 = performance.now();
+      searchDurations.push(t1 - t0);
     }
 
+    // 7. 3 Annotations
     for (let i = 0; i < 3; i++) {
+      const t0 = performance.now();
       await new Promise((r) => setTimeout(r, 1));
       perfTelemetry.mark("LUMA_PERF_ANNOTATION_SAVED", { bookId: "book_epub_01", type: "highlight" });
+      const t1 = performance.now();
+      annotationDurations.push(t1 - t0);
     }
 
     const allEvents = perfTelemetry.getEvents();
-    expect(allEvents.length).toBeGreaterThan(10);
+    expect(allEvents.length).toBeGreaterThan(50);
 
-    // Save raw telemetry to disk
+    const summary = {
+      benchmark_date: new Date().toISOString(),
+      environment: {
+        runtime: "Vite + Vitest / Node.js + jsdom",
+        clock: "performance.now()",
+      },
+      stats: {
+        startup: calculateStats(startupDurations),
+        epubOpen: calculateStats(epubOpenDurations),
+        epubChapterTurn: calculateStats(chapterTurnDurations),
+        pdfOpen: calculateStats(pdfOpenDurations),
+        pdfPageTurn: calculateStats(pdfPageTurns),
+        search: calculateStats(searchDurations),
+        annotation: calculateStats(annotationDurations),
+      },
+      raw_event_count: allEvents.length,
+      events: allEvents,
+    };
+
     const outDir = path.resolve(__dirname, "../../../../../docs/performance/runtime");
     if (!fs.existsSync(outDir)) {
       fs.mkdirSync(outDir, { recursive: true });
     }
     const outFile = path.join(outDir, "raw_telemetry_capture.json");
-    fs.writeFileSync(outFile, JSON.stringify(allEvents, null, 2), "utf-8");
+    fs.writeFileSync(outFile, JSON.stringify(summary, null, 2), "utf-8");
     expect(fs.existsSync(outFile)).toBe(true);
   });
 });

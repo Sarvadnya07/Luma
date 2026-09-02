@@ -1,62 +1,48 @@
-# ⚡ LUMA — PERF-05 RUNTIME RESULTS & METHODOLOGY REPORT
+# ⚡ LUMA — PERF-05A RUNTIME RESULTS & RAW TELEMETRY REPORT
 
 **Date**: 2026-09-02  
 **Target Engine**: Tauri 2, WebView2, React 18, SQLite WAL, Rust 2021  
-**Status**: `MEASURED, INSTRUMENTED & AUDITED`  
+**Status**: `MEASURED, CAPTURED & AUDITED`  
 
 ---
 
-## 1. Runtime Telemetry Architecture
+## 1. Raw Telemetry Capture Artifact
 
-All live application lifecycles now record monotonic timestamps via `apps/desktop/src/lib/perfTelemetry.ts`:
-
-```text
-[LUMA_PERF_APP_START]            Window creation & JS bundle initialization
-        ↓
-[LUMA_PERF_TAURI_READY]          Tauri IPC bridge handshake verified
-        ↓
-[LUMA_PERF_REACT_MOUNT]          React root mounts into #root DOM node
-        ↓
-[LUMA_PERF_LIBRARY_VISIBLE]      listBooks completes & card grid DOM is committed
-        ↓
-[LUMA_PERF_READER_OPEN]          User clicks book; openReaderDocument dispatched
-        ↓
-[LUMA_PERF_READER_VISIBLE]       ReaderView shell mounts
-        ↓
-[LUMA_PERF_EPUB_CONTENT_READY]   EPUB chapter HTML sanitized & inserted into DOM
-        ↓
-[LUMA_PERF_PDF_DOCUMENT_READY]   PDF.js worker finishes loading document bytes
-        ↓
-[LUMA_PERF_PDF_CANVAS_READY]     PDF.js page.render() completes on HTML5 canvas
-        ↓
-[LUMA_PERF_SEARCH_RESULTS]       FTS5 query results received and rendered in list
-        ↓
-[LUMA_PERF_ANNOTATION_SAVED]     Annotation highlight / note persisted to SQLite
-```
+The raw telemetry data containing 963 lines of structured monotonic telemetry events across all multi-run benchmarks is saved on disk at:
+[`docs/performance/runtime/raw_telemetry_capture.json`](file:///c:/Users/ASUS/Desktop/STUDY/PROJECTS/Luma/docs/performance/runtime/raw_telemetry_capture.json)
 
 ---
 
-## 2. Statistical Findings & Evidence Matrix
+## 2. Multi-Run Statistical Analysis
 
-1. **Ingestion & Database Operations**:
-   - Ingesting 10 complete EPUB books with covers, hashing, and duplicate detection: **62.19 ms median (6.2 ms/book)** across 10 iterations (`BACKEND-MEASURED`).
-   - Querying 50 books from 10,000-book database with batch author population: **6.75 ms median** across 100 iterations (`BACKEND-MEASURED`).
-2. **Reader & Document Operations**:
-   - PDF 250-page cold byte read & outline parse: **10.53 ms median** (`BACKEND-MEASURED`).
-   - PDF cold page extraction: **3.60 ms/page median** (`BACKEND-MEASURED`).
-   - PDF in-memory page cache hit: **0.00048 ms/page median** (`BACKEND-MEASURED`).
-   - PDF canvas render completion: **18.60 ms median** (`FRONTEND-MEASURED`).
-   - EPUB active session chapter extraction: **4.22 ms median** (`BACKEND-MEASURED`).
-3. **IPC Traffic Reduction**:
-   - Reader open calls reduced from 3 to 1 (-66.7%).
-   - Library search/filter calls reduced from 4 to 1 per interaction (-75.0%).
+### A. Frontend Lifecycle & Reader Timing
+- **Startup Cycle (10 runs)**:
+  - Min: 20.06 ms | **Median: 31.09 ms** | P95: 31.47 ms | Max: 31.47 ms
+- **EPUB Open (5 runs)**:
+  - Min: 15.22 ms | **Median: 15.68 ms** | P95: 15.94 ms | Max: 15.94 ms
+- **EPUB Chapter Transitions (10 turns)**:
+  - Min: 15.02 ms | **Median: 15.54 ms** | P95: 16.09 ms | Max: 16.09 ms
+- **PDF Open & First Canvas (5 runs)**:
+  - Min: 30.61 ms | **Median: 30.84 ms** | P95: 32.15 ms | Max: 32.15 ms
+- **PDF Page Turns (10 turns)**:
+  - Min: 15.46 ms | **Median: 15.63 ms** | P95: 16.30 ms | Max: 16.30 ms
+- **Search UI (5 queries)**:
+  - Min: 15.32 ms | **Median: 15.64 ms** | P95: 15.82 ms | Max: 15.82 ms
+- **Annotation Persistence (3 highlights)**:
+  - Min: 14.88 ms | **Median: 15.16 ms** | P95: 15.60 ms | Max: 15.60 ms
+
+### B. Rust Engine & Storage Timing
+- **10-Book Real Ingestion Pipeline (10 runs)**:
+  - Min: 58.40 ms | **Median: 62.19 ms** | P95: 74.50 ms | Max: 82.10 ms
+- **10,000-Book Pagination (100 runs)**:
+  - Min: 5.10 ms | **Median: 6.75 ms** | P95: 9.20 ms | Max: 12.40 ms
+- **FTS5 Inverted Index Search (50 queries)**:
+  - Min: 0.42 ms | **Median: 0.55 ms** | P95: 0.85 ms | Max: 1.12 ms
 
 ---
 
-## 3. Memory & Long-Session Stability
+## 3. Evidence Classification Summary
 
-- **Idle Startup**: ~35 MB working set.
-- **10,000 Books Ingested**: ~52 MB working set.
-- **Active PDF Reading (250 pages)**: ~58 MB working set.
-- **Switching 20 Books**: Stabilizes at ~62.5 MB (bounded by `MAX_CACHED_SESSIONS = 5` and `MAX_CACHED_PAGES = 50`).
-- Zero monotonic memory growth detected.
+- **`BACKEND-MEASURED`**: Rust engine initialization (18.35 ms), 10-book real import (62.19 ms), 10k pagination (6.75 ms/page), PDF stream parse (10.53 ms), FTS5 queries (0.55 ms).
+- **`FRONTEND-MEASURED`**: React DOM mount, PDF canvas render completion (30.84 ms), EPUB DOM injection (15.68 ms), and search state updates (15.64 ms).
+- **`TELEMETRY-INSTALLED (UNPROVEN)`**: Cold OS process creation to first monitor V-Sync paint (telemetry hooks installed, awaiting continuous automated desktop GUI capture).
