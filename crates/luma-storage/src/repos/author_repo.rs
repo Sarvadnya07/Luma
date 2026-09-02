@@ -7,54 +7,24 @@ use crate::db::Database;
 use crate::error::StorageResult;
 
 // ============================================================================
-// Constants – table and column names, SQL templates, fallback values
+// SQL query templates
 // ============================================================================
 
-const TABLE_AUTHORS: &str = "authors";
-const TABLE_BOOK_AUTHORS: &str = "book_authors";
-
-// Column names
-const COL_ID: &str = "id";
-const COL_NAME: &str = "name";
-const COL_SORT_NAME: &str = "sort_name";
-const COL_VERSION: &str = "version";
-const COL_CREATED_AT: &str = "created_at";
-const COL_UPDATED_AT: &str = "updated_at";
-const COL_DEVICE_ID: &str = "device_id";
-const COL_IS_DELETED: &str = "is_deleted";
-const COL_DELETED_AT: &str = "deleted_at";
-const COL_BOOK_ID: &str = "book_id";
-const COL_AUTHOR_ID: &str = "author_id";
-const COL_POSITION: &str = "position";
-
 // SQL query templates (with placeholders)
-const SQL_SELECT_AUTHOR_BY_NAME: &str = r#"
-    SELECT id, name, sort_name, version, created_at, updated_at, device_id, is_deleted, deleted_at
-    FROM authors
-    WHERE name = ?1 AND is_deleted = 0
-"#;
+#[allow(dead_code)]
+const SQL_SELECT_AUTHOR_BY_NAME: &str = "SELECT id, name, sort_name, version, created_at, updated_at, device_id, is_deleted, deleted_at FROM authors WHERE name = ?1 AND is_deleted = 0";
 
-const SQL_INSERT_AUTHOR: &str = r#"
-    INSERT INTO authors (id, name, sort_name, version, created_at, updated_at, device_id, is_deleted)
-    VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
-"#;
+#[allow(dead_code)]
+const SQL_INSERT_AUTHOR: &str = "INSERT INTO authors (id, name, sort_name, version, created_at, updated_at, device_id, is_deleted) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)";
 
-const SQL_SELECT_ALL_AUTHORS: &str = r#"
-    SELECT id, name, sort_name, version, created_at, updated_at, device_id, is_deleted, deleted_at
-    FROM authors
-    WHERE is_deleted = 0
-    ORDER BY name ASC
-"#;
+#[allow(dead_code)]
+const SQL_SELECT_ALL_AUTHORS: &str = "SELECT id, name, sort_name, version, created_at, updated_at, device_id, is_deleted, deleted_at FROM authors WHERE is_deleted = 0 ORDER BY name ASC";
 
-const SQL_SELECT_AUTHORS_FOR_BOOK: &str = r#"
-    SELECT a.id, a.name, a.sort_name, a.version, a.created_at, a.updated_at, a.device_id, a.is_deleted, a.deleted_at
-    FROM authors a
-    JOIN book_authors ba ON a.id = ba.author_id
-    WHERE ba.book_id = ?1 AND a.is_deleted = 0
-    ORDER BY ba.position ASC
-"#;
+#[allow(dead_code)]
+const SQL_SELECT_AUTHORS_FOR_BOOK: &str = "SELECT a.id, a.name, a.sort_name, a.version, a.created_at, a.updated_at, a.device_id, a.is_deleted, a.deleted_at FROM authors a JOIN book_authors ba ON a.id = ba.author_id WHERE ba.book_id = ?1 AND a.is_deleted = 0 ORDER BY ba.position ASC";
 
 // Fallback values for parsing errors
+#[allow(dead_code)]
 pub const FALLBACK_VERSION: u64 = 1;
 
 // ============================================================================

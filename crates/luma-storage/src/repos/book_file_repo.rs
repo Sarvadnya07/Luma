@@ -6,25 +6,8 @@ use crate::db::Database;
 use crate::error::StorageResult;
 
 // ============================================================================
-// Constants – table name, column names, and SQL templates
+// SQL query templates
 // ============================================================================
-
-const TABLE_BOOK_FILES: &str = "book_files";
-
-// Column names (for documentation and future use)
-const COL_ID: &str = "id";
-const COL_BOOK_ID: &str = "book_id";
-const COL_ORIGINAL_FILENAME: &str = "original_filename";
-const COL_RELATIVE_PATH: &str = "relative_path";
-const COL_CANONICAL_PATH: &str = "canonical_path";
-const COL_FORMAT: &str = "format";
-const COL_MIME_TYPE: &str = "mime_type";
-const COL_FILE_SIZE_BYTES: &str = "file_size_bytes";
-const COL_SHA256_HASH: &str = "sha256_hash";
-const COL_IMPORTED_AT: &str = "imported_at";
-const COL_CREATED_AT: &str = "created_at";
-const COL_MODIFIED_AT: &str = "modified_at";
-const COL_AVAILABILITY: &str = "availability";
 
 // SQL query templates (with placeholders)
 const SQL_INSERT_BOOK_FILE: &str = r#"

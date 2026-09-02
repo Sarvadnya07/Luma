@@ -179,7 +179,8 @@ pub async fn import_file_bytes(
     debug!(%filename, "Importing file from bytes");
 
     let device_id = DeviceId::new();
-    let staging_dir = ctx.file_service.staging_dir();
+    // Ensure we have an owned PathBuf so we can use it after borrows/moves
+    let staging_dir = ctx.file_service.staging_dir().to_path_buf();
 
     std::fs::create_dir_all(&staging_dir).map_err(|e| {
         error!(error = %e, STAGING_DIR_CREATE_FAILED_MSG);

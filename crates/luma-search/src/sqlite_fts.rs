@@ -29,14 +29,14 @@ pub const DEFAULT_MATCH_FIELD: &str = "metadata";
 pub const FTS_SEARCH_SQL_BASE: &str = r#"
     SELECT book_id, snippet(books_fts, 1, '<b>', '</b>', '...', 15), rank
     FROM books_fts
-    WHERE books_fts MATCH ?1
+    WHERE books_fts MATCH ?
 "#;
 
 /// Additional clause for book filter.
-pub const FTS_BOOK_FILTER_CLAUSE: &str = " AND book_id = ?2";
+pub const FTS_BOOK_FILTER_CLAUSE: &str = " AND book_id = ?";
 
 /// Order by rank and limit.
-pub const FTS_ORDER_LIMIT_CLAUSE: &str = " ORDER BY rank LIMIT ?3";
+pub const FTS_ORDER_LIMIT_CLAUSE: &str = " ORDER BY rank LIMIT ?";
 
 /// SQL for removing a book from the FTS index.
 pub const FTS_DELETE_BOOK_SQL: &str = "DELETE FROM books_fts WHERE book_id = ?1";
@@ -193,15 +193,6 @@ mod tests {
     async fn test_index_and_search() -> Result<()> {
         let db = Database::open_in_memory()
             .map_err(|e| LumaError::StorageError(e.to_string()))?;
-        // Create FTS table
-        db.with_conn(|conn| {
-            conn.execute(
-                "CREATE VIRTUAL TABLE books_fts USING fts5(book_id, title, subtitle, authors, series, tags, description, isbn)",
-                [],
-            )?;
-            Ok(())
-        })
-        .map_err(|e| LumaError::StorageError(e.to_string()))?;
 
         let engine = SqliteFtsSearchEngine::new(db);
         let book_id = BookId::new();

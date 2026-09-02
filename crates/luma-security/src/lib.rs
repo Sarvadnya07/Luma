@@ -77,9 +77,10 @@ impl Default for SanitizerConfig {
 impl SanitizerConfig {
     /// Creates a new config with custom tag pairs.
     pub fn with_tag_pairs(pairs: Vec<(String, String)>) -> Self {
-        let mut config = Self::default();
-        config.dangerous_tag_pairs = pairs;
-        config
+        Self {
+            dangerous_tag_pairs: pairs,
+            ..Default::default()
+        }
     }
 }
 

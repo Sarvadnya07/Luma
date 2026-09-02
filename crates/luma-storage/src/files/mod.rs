@@ -187,10 +187,8 @@ impl FileService {
             if let Ok(entries) = fs::read_dir(&staging) {
                 for entry in entries.flatten() {
                     if let Ok(file_type) = entry.file_type() {
-                        if file_type.is_file() {
-                            if fs::remove_file(entry.path()).is_ok() {
-                                count += 1;
-                            }
+                        if file_type.is_file() && fs::remove_file(entry.path()).is_ok() {
+                            count += 1;
                         }
                     }
                 }

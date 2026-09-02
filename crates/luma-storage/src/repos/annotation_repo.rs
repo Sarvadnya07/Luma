@@ -7,28 +7,11 @@ use crate::db::Database;
 use crate::error::StorageResult;
 
 // ============================================================================
-// Constants – table and column names, SQL templates, fallback values
+// SQL query templates
 // ============================================================================
 
-const TABLE_ANNOTATIONS: &str = "annotations";
-const TABLE_CHANGE_RECORDS: &str = "change_records";
-
-// Column names used in queries
-const COL_ID: &str = "id";
-const COL_BOOK_ID: &str = "book_id";
-const COL_ANNOTATION_TYPE: &str = "annotation_type";
-const COL_COLOR_HEX: &str = "color_hex";
-const COL_QUOTE: &str = "quote";
-const COL_NOTE: &str = "note";
-const COL_ANCHOR_PAYLOAD: &str = "anchor_payload_json";
-const COL_VERSION: &str = "version";
-const COL_CREATED_AT: &str = "created_at";
-const COL_UPDATED_AT: &str = "updated_at";
-const COL_DEVICE_ID: &str = "device_id";
-const COL_IS_DELETED: &str = "is_deleted";
-const COL_DELETED_AT: &str = "deleted_at";
-
 // SQL query templates (with placeholders)
+#[allow(dead_code)]
 const SQL_INSERT_ANNOTATION: &str = r#"
     INSERT INTO annotations (
         id, book_id, annotation_type, color_hex, quote, note,
@@ -37,12 +20,14 @@ const SQL_INSERT_ANNOTATION: &str = r#"
     ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)
 "#;
 
+#[allow(dead_code)]
 const SQL_INSERT_CHANGE_RECORD: &str = r#"
     INSERT INTO change_records (
         id, entity_type, entity_id, version, device_id, operation, payload_json, occurred_at
     ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, datetime('now'))
 "#;
 
+#[allow(dead_code)]
 const SQL_SELECT_ALL_ANNOTATIONS: &str = r#"
     SELECT id, book_id, annotation_type, color_hex, quote, note,
            anchor_payload_json, version, created_at, updated_at,
@@ -52,6 +37,7 @@ const SQL_SELECT_ALL_ANNOTATIONS: &str = r#"
     ORDER BY created_at ASC
 "#;
 
+#[allow(dead_code)]
 const SQL_SELECT_BY_BOOK: &str = r#"
     SELECT id, book_id, annotation_type, color_hex, quote, note,
            anchor_payload_json, version, created_at, updated_at,
@@ -61,12 +47,14 @@ const SQL_SELECT_BY_BOOK: &str = r#"
     ORDER BY created_at ASC
 "#;
 
+#[allow(dead_code)]
 const SQL_SOFT_DELETE_ANNOTATION: &str = r#"
     UPDATE annotations
     SET is_deleted = 1, deleted_at = datetime('now'), updated_at = datetime('now'), version = version + 1
     WHERE id = ?1
 "#;
 
+#[allow(dead_code)]
 const SQL_UPDATE_NOTE: &str = r#"
     UPDATE annotations
     SET note = ?1, updated_at = datetime('now'), version = version + 1
@@ -74,11 +62,15 @@ const SQL_UPDATE_NOTE: &str = r#"
 "#;
 
 // Entity and operation strings
+#[allow(dead_code)]
 const ENTITY_TYPE_ANNOTATION: &str = "annotation";
+#[allow(dead_code)]
 const OPERATION_CREATE: &str = "create";
 
 // Fallback values for parsing errors
+#[allow(dead_code)]
 pub const FALLBACK_ANNOTATION_TYPE: AnnotationType = AnnotationType::Highlight;
+#[allow(dead_code)]
 pub const FALLBACK_VERSION: u64 = 1;
 
 // ============================================================================

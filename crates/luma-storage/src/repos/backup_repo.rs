@@ -4,10 +4,8 @@ use rusqlite::params;
 use serde::{Deserialize, Serialize};
 
 // ============================================================================
-// Constants – table name and SQL templates
+// Constants – SQL templates
 // ============================================================================
-
-const TABLE_BACKUP_RECORDS: &str = "backup_records";
 
 // SQL query templates (with placeholders)
 const SQL_INSERT_BACKUP_RECORD: &str = r#"

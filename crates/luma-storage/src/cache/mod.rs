@@ -53,6 +53,7 @@ pub struct BoundedCache<K, V> {
     entries: Arc<RwLock<HashMap<K, CacheEntry<V>>>>,
     hits: Arc<AtomicU64>,
     misses: Arc<AtomicU64>,
+    access_counter: Arc<AtomicU64>,
 }
 
 impl<K: std::hash::Hash + Eq + Clone + Send + Sync + 'static, V: Clone + Send + Sync + 'static>
@@ -71,23 +72,16 @@ impl<K: std::hash::Hash + Eq + Clone + Send + Sync + 'static, V: Clone + Send + 
             entries: Arc::new(RwLock::new(HashMap::new())),
             hits: Arc::new(AtomicU64::new(0)),
             misses: Arc::new(AtomicU64::new(0)),
+            access_counter: Arc::new(AtomicU64::new(1)),
         }
     }
 
-    fn current_timestamp_ms() -> u64 {
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_millis() as u64
-    }
-
-    /// Retrieves a value from the cache, updating the last‑accessed timestamp.
+    /// Retrieves a value from the cache, updating the last‑accessed sequence counter.
     pub async fn get(&self, key: &K) -> Option<V> {
         let lock = self.entries.read().await;
         if let Some(entry) = lock.get(key) {
-            entry
-                .last_accessed
-                .store(Self::current_timestamp_ms(), Ordering::Relaxed);
+            let next_seq = self.access_counter.fetch_add(1, Ordering::SeqCst);
+            entry.last_accessed.store(next_seq, Ordering::SeqCst);
             self.hits.fetch_add(1, Ordering::Relaxed);
             Some(entry.value.clone())
         } else {
@@ -100,10 +94,10 @@ impl<K: std::hash::Hash + Eq + Clone + Send + Sync + 'static, V: Clone + Send + 
     pub async fn insert(&self, key: K, value: V) {
         let mut lock = self.entries.write().await;
         if lock.len() >= self.max_capacity && !lock.contains_key(&key) {
-            // Evict the entry with the oldest last‑accessed timestamp.
+            // Evict the entry with the oldest last‑accessed sequence counter.
             if let Some(oldest_key) = lock
                 .iter()
-                .min_by_key(|(_, v)| v.last_accessed.load(Ordering::Relaxed))
+                .min_by_key(|(_, v)| v.last_accessed.load(Ordering::SeqCst))
                 .map(|(k, _)| k.clone())
             {
                 lock.remove(&oldest_key);
@@ -111,13 +105,13 @@ impl<K: std::hash::Hash + Eq + Clone + Send + Sync + 'static, V: Clone + Send + 
         }
 
         let now = Instant::now();
-        let now_ms = Self::current_timestamp_ms();
+        let next_seq = self.access_counter.fetch_add(1, Ordering::SeqCst);
         lock.insert(
             key,
             CacheEntry {
                 value,
                 created_at: now,
-                last_accessed: Arc::new(AtomicU64::new(now_ms)),
+                last_accessed: Arc::new(AtomicU64::new(next_seq)),
             },
         );
     }

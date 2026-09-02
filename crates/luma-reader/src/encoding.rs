@@ -191,12 +191,9 @@ pub fn decode_text_bytes_with_config(bytes: &[u8], config: &TextDecoderConfig) -
         if let Ok(header_str) = std::str::from_utf8(header) {
             let lower = header_str.to_lowercase();
             for (pattern, encoding) in ENCODING_PATTERNS {
-                if lower.contains(pattern) {
-                    if encoding == "iso-8859-1" || encoding == "windows-1252" {
-                        // Map each byte directly to Unicode char
-                        return bytes.iter().map(|&b| b as char).collect();
-                    }
-                    // Could add other encodings here (e.g., GBK, Shift-JIS)
+                if lower.contains(pattern) && (encoding == "iso-8859-1" || encoding == "windows-1252") {
+                    // Map each byte directly to Unicode char
+                    return bytes.iter().map(|&b| b as char).collect();
                 }
             }
         }
@@ -315,7 +312,7 @@ pub fn is_binary_resource_with_config(
     let lower_path = file_path.to_lowercase();
 
     // Check exact MIME matches
-    if config.mime_exact.iter().any(|m| lower_mime == *m) {
+    if config.mime_exact.contains(&lower_mime) {
         return true;
     }
 
@@ -326,7 +323,7 @@ pub fn is_binary_resource_with_config(
 
     // Check file extensions
     if let Some(ext) = lower_path.rsplit('.').next() {
-        if config.extensions.iter().any(|e| ext == *e) {
+        if config.extensions.contains(&ext.to_string()) {
             return true;
         }
     }
