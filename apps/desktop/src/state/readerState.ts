@@ -12,6 +12,8 @@ import {
 } from "@luma/shared-types";
 import { DEFAULT_READER_SETTINGS } from "@luma/reader-ui";
 import { LumaApi } from "../lib/tauri";
+import { perfTelemetry } from "../lib/perfTelemetry";
+
 
 export type ReaderSidebarTab = "toc" | "annotations" | "bookmarks" | "search" | null;
 
@@ -100,6 +102,7 @@ export const useReaderStore = create<ReaderStoreState>((set, get) => ({
 
   openBook: async (book: Book, fileId?: string) => {
     set({ loading: true, currentBook: book, activeTab: "reader" });
+    perfTelemetry.mark("LUMA_PERF_READER_OPEN", { bookId: book.id, title: book.title });
     try {
       const docData = await LumaApi.openReaderDocument(book.id, fileId);
       const annotations = docData.annotations || [];
@@ -111,6 +114,7 @@ export const useReaderStore = create<ReaderStoreState>((set, get) => ({
         bookmarks,
         readingProgress: docData.initial_progress || null,
       });
+
 
 
       // Restore initial position or load first chapter/page
@@ -186,8 +190,10 @@ export const useReaderStore = create<ReaderStoreState>((set, get) => ({
         readingProgress: progress,
       });
 
+      perfTelemetry.mark("LUMA_PERF_EPUB_CONTENT_READY", { spineIndex, title: chapter.title });
       debouncedSaveProgress(progress);
     } catch (err) {
+
       console.error("Failed to load chapter:", err);
     }
   },
@@ -304,7 +310,9 @@ export const useReaderStore = create<ReaderStoreState>((set, get) => ({
 
     await LumaApi.saveAnnotation(newAnn);
     const updated = await LumaApi.listAnnotations(currentBook.id);
+    perfTelemetry.mark("LUMA_PERF_ANNOTATION_SAVED", { bookId: currentBook.id });
     set({ annotations: updated, statusMessage: "Highlight created & anchored." });
+
     setTimeout(() => set({ statusMessage: null }), 3000);
   },
 

@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
 import type { PDFDocumentProxy } from "pdfjs-dist";
 import { Loader2, BookOpen, FileText } from "lucide-react";
+import { perfTelemetry } from "../../lib/perfTelemetry";
+
 
 interface PdfPageCanvasProps {
   pdfDoc: PDFDocumentProxy | null;
@@ -41,16 +43,40 @@ export const PdfPageCanvas: React.FC<PdfPageCanvasProps> = ({
     height: isThumbnail ? 220 : 600,
   });
   const [isScannedOnly, setIsScannedOnly] = useState<boolean>(false);
+  const [isVisible, setIsVisible] = useState<boolean>(!isThumbnail);
+
+  useEffect(() => {
+    if (!isThumbnail || !containerRef.current) {
+      setIsVisible(true);
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            setIsVisible(true);
+            observer.disconnect();
+            break;
+          }
+        }
+      },
+      { rootMargin: "100px" }
+    );
+
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, [isThumbnail]);
 
   useEffect(() => {
     let isCancelled = false;
     let renderTask: { cancel: () => void; promise: Promise<unknown> } | null = null;
 
     async function renderPage() {
-      if (!pdfDoc || pageNum < 1 || pageNum > pdfDoc.numPages) {
-        setRenderState("loading");
+      if (!isVisible || !pdfDoc || pageNum < 1 || pageNum > pdfDoc.numPages) {
         return;
       }
+
 
       try {
         setRenderState("loading");
@@ -138,7 +164,11 @@ export const PdfPageCanvas: React.FC<PdfPageCanvasProps> = ({
         await renderTask.promise;
         if (!isCancelled) {
           setRenderState("rendered");
+          if (!isThumbnail) {
+            perfTelemetry.mark("LUMA_PERF_PDF_CANVAS_READY", { pageNum });
+          }
         }
+
       } catch (err: unknown) {
         if (err && typeof err === "object" && "name" in err && err.name === "RenderingCancelledException") {
           return;

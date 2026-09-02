@@ -23,6 +23,8 @@ import { IntegrationsPluginsView } from "../plugins/IntegrationsPluginsView";
 import { CommandPaletteModal } from "../palette/CommandPaletteModal";
 import { SettingsModal } from "../settings/SettingsModal";
 import { BookOpen, Loader2, AlertCircle } from "lucide-react";
+import { perfTelemetry } from "../../lib/perfTelemetry";
+
 
 // ------------------------------------------------------------------
 // Types
@@ -281,7 +283,13 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
 
       setBooks(fetchedBooks || []);
       setAuthorMap(aMap);
+      perfTelemetry.mark("LUMA_PERF_LIBRARY_VISIBLE", { count: fetchedBooks?.length || 0 });
+      if (searchQuery && searchQuery.trim().length > 0) {
+        perfTelemetry.mark("LUMA_PERF_SEARCH_RESULTS", { query: searchQuery, count: fetchedBooks?.length || 0 });
+      }
     } catch (err) {
+
+
       console.error("Failed to load books:", err);
       setError(labels.errorMessage);
     } finally {

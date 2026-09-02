@@ -16,13 +16,19 @@ import { TypographySettingsDrawer } from "./TypographySettingsDrawer";
 import { EpubReaderView } from "./EpubReaderView";
 import { PdfReaderView } from "./PdfReaderView";
 import { EInkReaderView } from "./EInkReaderView";
+import { perfTelemetry } from "../../lib/perfTelemetry";
 
 export interface ReaderViewProps {
   book: Book;
 }
 
 export const ReaderView: React.FC<ReaderViewProps> = ({ book }) => {
+  useEffect(() => {
+    perfTelemetry.mark("LUMA_PERF_READER_VISIBLE", { bookId: book.id });
+  }, [book.id]);
+
   const closeReader = useReaderStore((s) => s.closeReader);
+
   const documentData = useReaderStore((s) => s.documentData);
   const readingProgress = useReaderStore((s) => s.readingProgress);
   const bookmarks = useReaderStore((s) => s.bookmarks);

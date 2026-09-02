@@ -15,6 +15,8 @@ import { LumaApi } from "../../lib/tauri";
 import { TextSelectionToolbar } from "./TextSelectionToolbar";
 import { PdfPageCanvas } from "./PdfPageCanvas";
 import { pdfjsLib } from "./pdfWorker";
+import { perfTelemetry } from "../../lib/perfTelemetry";
+
 
 export const PdfReaderView: React.FC = () => {
   const currentBook = useReaderStore((s) => s.currentBook);
@@ -58,7 +60,9 @@ export const PdfReaderView: React.FC = () => {
           const doc = await loadingTask.promise;
           if (!isCancelled) {
             setPdfDoc(doc);
+            perfTelemetry.mark("LUMA_PERF_PDF_DOCUMENT_READY", { numPages: doc.numPages });
           }
+
         }
       } catch (err) {
         console.warn("[PdfReaderView] Failed to load PDF file bytes for PDF.js:", err);

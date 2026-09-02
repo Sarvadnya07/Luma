@@ -22,9 +22,13 @@ pub struct PdfDocument {
     file_path: PathBuf,
     page_count: u32,
     toc: Vec<TocItem>,
+    raw_bytes: std::sync::Arc<Vec<u8>>,
+    page_cache: std::sync::RwLock<std::collections::HashMap<u32, PdfPageData>>,
 }
 
 impl PdfDocument {
+    pub const MAX_CACHED_PAGES: usize = 50;
+
     pub fn open<P: AsRef<Path>>(path: P) -> Result<Self> {
         let p = path.as_ref().to_path_buf();
         let mut file = File::open(&p)
@@ -96,6 +100,8 @@ impl PdfDocument {
             file_path: p,
             page_count,
             toc,
+            raw_bytes: std::sync::Arc::new(buffer),
+            page_cache: std::sync::RwLock::new(std::collections::HashMap::new()),
         })
     }
 
@@ -103,9 +109,14 @@ impl PdfDocument {
         self.page_count
     }
 
+    pub fn file_path(&self) -> &Path {
+        &self.file_path
+    }
+
     pub fn toc(&self) -> &[TocItem] {
         &self.toc
     }
+
 
     pub fn get_page(&self, page_number: u32) -> Result<PdfPageData> {
         if page_number == 0 || page_number > self.page_count {
@@ -115,26 +126,42 @@ impl PdfDocument {
             )));
         }
 
-        let mut text_content = String::new();
-        let mut has_text_layer = false;
-
-        if let Ok(buffer) = std::fs::read(&self.file_path) {
-            let extracted =
-                Self::extract_page_content_stream(&buffer, page_number, self.page_count);
-            if Self::is_valid_printable_text(&extracted) && !extracted.trim().is_empty() {
-                text_content = extracted;
-                has_text_layer = true;
+        // Fast path: Check in-memory page cache
+        if let Ok(guard) = self.page_cache.read() {
+            if let Some(cached) = guard.get(&page_number) {
+                return Ok(cached.clone());
             }
         }
 
-        Ok(PdfPageData {
+        let mut text_content = String::new();
+        let mut has_text_layer = false;
+
+        let extracted =
+            Self::extract_page_content_stream(&self.raw_bytes, page_number, self.page_count);
+        if Self::is_valid_printable_text(&extracted) && !extracted.trim().is_empty() {
+            text_content = extracted;
+            has_text_layer = true;
+        }
+
+        let page_data = PdfPageData {
             page_number,
             width_pt: 595.0,  // Standard A4 width pt
             height_pt: 842.0, // Standard A4 height pt
             text_content,
             has_text_layer,
-        })
+        };
+
+        // Cache page data with bounded size
+        if let Ok(mut guard) = self.page_cache.write() {
+            if guard.len() >= Self::MAX_CACHED_PAGES {
+                guard.clear();
+            }
+            guard.insert(page_number, page_data.clone());
+        }
+
+        Ok(page_data)
     }
+
 
     /// Safely isolates content streams for the page and extracts text strictly from BT ... ET operators
     fn extract_page_content_stream(buffer: &[u8], target_page: u32, total_pages: u32) -> String {
