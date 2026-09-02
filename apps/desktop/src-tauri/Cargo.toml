@@ -4,12 +4,16 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
+description = "Luma – a modern, privacy-first digital reading and annotation platform."
+homepage = "https://luma.reader"
+repository = "https://github.com/luma/luma"
 
 [build-dependencies]
 tauri-build = { workspace = true }
 
 [dependencies]
-tauri = { workspace = true, default-features = true }
+tauri = { workspace = true, features = ["wry"] }
+
 chrono = { workspace = true }
 luma-core = { workspace = true }
 luma-anchor = { workspace = true }
@@ -17,6 +21,8 @@ luma-reader = { workspace = true }
 luma-storage = { workspace = true }
 luma-search = { workspace = true }
 luma-security = { workspace = true }
+rfd = "0.15"
+
 serde = { workspace = true }
 serde_json = { workspace = true }
 base64 = { workspace = true }
@@ -25,5 +31,3 @@ tokio = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 uuid = { workspace = true }
-rfd = "0.15"
-

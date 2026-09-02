@@ -1,173 +1,194 @@
+/* stylelint-disable at-rule-no-unknown */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+/* stylelint-enable at-rule-no-unknown */
 
+/* ============================================================================
+   1. CSS Custom Properties (Light theme defaults)
+   ============================================================================ */
 :root {
+  /* Color scheme (affects native UI) */
   color-scheme: light;
+
+  /* --- Backgrounds --- */
+  --bg-primary: #FAF7F2;
+  --bg-secondary: #F3EFE6;
+  --bg-surface: #FFFFFF;
+  --bg-surface-muted: #FAF7F2;
+  --bg-elevated: #F7F3EB;
+  --bg-hover: #EFEAE1;
+  --bg-active: #E4DED3;
+  --bg-highlight: #E2E8F0;
+  --bg-amber-highlight: #FDE68A;
+  --bg-drawer: #FAF7F2;
+  --bg-overlay: rgba(0, 0, 0, 0.4);
+  --bg-scrollbar-track: transparent;
+  --bg-scrollbar-thumb: #D6CEC2;
+  --bg-scrollbar-thumb-hover: #BAAF9F;
+
+  /* --- Text --- */
+  --text-primary: #1C1917;
+  --text-secondary: #57534E;
+  --text-muted: #78716C;
+  --text-subtle: #8C8275;
+  --text-inverse: #FFFFFF;
+  --text-amber: #B45309;
+
+  /* --- Borders --- */
+  --border-light: #E5DFD3;
+  --border-medium: #DDD5C7;
+  --border-heavy: #D6CEC2;
+  --border-amber: #E8DFC8;
+
+  /* --- Accents --- */
+  --accent-primary: #18181B;
+  --accent-rose: #E11D48;
+  --accent-emerald: #059669;
+  --accent-teal: #0D9488;
+
+  /* --- Shadows --- */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+
+  /* --- Typography (reader) --- */
+  --reader-blockquote-border: #D6CEC2;
+  --reader-blockquote-text: #57534E;
 }
 
+/* ============================================================================
+   2. Dark Theme Overrides
+   ============================================================================ */
 .dark {
   color-scheme: dark;
+
+  --bg-primary: #141312;
+  --bg-secondary: #1A1816;
+  --bg-surface: #201E1B;
+  --bg-surface-muted: #141312;
+  --bg-elevated: #1A1816;
+  --bg-hover: #2A2622;
+  --bg-active: #2A2622;
+  --bg-highlight: #3A3530;
+  --bg-amber-highlight: #B45309;
+  --bg-drawer: #141312;
+  --bg-overlay: rgba(0, 0, 0, 0.6);
+  --bg-scrollbar-thumb: #4B443D;
+  --bg-scrollbar-thumb-hover: #6E6258;
+
+  --text-primary: #F5F1EA;
+  --text-secondary: #B8AEA2;
+  --text-muted: #B8AEA2;
+  --text-subtle: #8F8478;
+  --text-inverse: #1C1917;
+  --text-amber: #FCD34D;
+
+  --border-light: #3B3630;
+  --border-medium: #3B3630;
+  --border-heavy: #4B443D;
+  --border-amber: #4B443D;
+
+  --accent-primary: #F5F1EA;
+  --accent-rose: #F43F5E;
+  --accent-emerald: #34D399;
+  --accent-teal: #2DD4BF;
+
+  --reader-blockquote-border: #4B443D;
+  --reader-blockquote-text: #B8AEA2;
 }
 
+/* ============================================================================
+   3. Base Styles
+   ============================================================================ */
 body {
   margin: 0;
   padding: 0;
-  background-color: #FAF7F2;
-  color: #1C1917;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  transition: background-color 0.2s, color 0.2s;
 }
 
-.dark body {
-  background-color: #141312;
-  color: #F5F1EA;
+input,
+textarea,
+select {
+  color-scheme: light;
 }
-
-.dark .bg-\[\#FAF7F2\],
-.dark .bg-\[\#F7F3EB\]\/90,
-.dark .bg-\[\#FBF6EE\] {
-  background-color: #141312;
-}
-
-.dark .bg-\[\#F3EFE6\],
-.dark .bg-\[\#F5EFE4\],
-.dark .hover\:bg-\[\#F3EFE6\]:hover,
-.dark .hover\:bg-\[\#FAF7F2\]:hover {
-  background-color: #1A1816;
-}
-
-.dark .bg-\[\#FFFFFF\],
-.dark .bg-\[\#FFFFFF\]\/50 {
-  background-color: #201E1B;
-}
-
-.dark .bg-\[\#EAE4DA\],
-.dark .bg-\[\#E4DED3\],
-.dark .bg-\[\#E5DFD3\],
-.dark .bg-\[\#EFEAE1\],
-.dark .hover\:bg-\[\#EFEAE1\]:hover,
-.dark .hover\:bg-\[\#EBE5DB\]:hover,
-.dark .hover\:bg-\[\#EAE4DA\]:hover,
-.dark .hover\:bg-\[\#FFFFFF\]:hover {
-  background-color: #2A2622;
-}
-
-.dark .border-\[\#E5DFD3\],
-.dark .border-\[\#DDD5C7\],
-.dark .border-\[\#EFEAE1\],
-.dark .border-\[\#F2ECE2\],
-.dark .border-\[\#E8DFC8\],
-.dark .hover\:border-\[\#DDD5C7\]:hover {
-  border-color: #3B3630;
-}
-
-.dark .text-\[\#1C1917\],
-.dark .text-\[\#18181B\],
-.dark .text-\[\#2E2924\],
-.dark .text-\[\#3D3833\],
-.dark .text-black,
-.dark .hover\:text-\[\#1C1917\]:hover,
-.dark .hover\:text-\[\#18181B\]:hover,
-.dark .group:hover .group-hover\:text-black {
-  color: #F5F1EA;
-}
-
-.dark .text-\[\#57534E\],
-.dark .text-\[\#6B6358\],
-.dark .text-\[\#78716C\],
-.dark .text-\[\#8C8275\],
-.dark .text-\[\#A8A29E\] {
-  color: #B8AEA2;
-}
-
-.dark .bg-gradient-to-b.from-\[\#F2ECE0\].to-\[\#E3DACB\],
-.dark .bg-gradient-to-b.from-\[\#F5EFE6\].to-\[\#EAE2D5\] {
-  background-image: linear-gradient(to bottom, #2A2622, #1D1B18);
-}
-
 .dark input,
 .dark textarea,
 .dark select {
   color-scheme: dark;
 }
 
-/* Custom minimal parchment scrollbar */
+/* ============================================================================
+   4. Scrollbar Styling (using CSS variables)
+   ============================================================================ */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
-
 ::-webkit-scrollbar-track {
-  background: transparent;
+  background: var(--bg-scrollbar-track);
 }
-
 ::-webkit-scrollbar-thumb {
-  background: #D6CEC2;
+  background: var(--bg-scrollbar-thumb);
   border-radius: 9999px;
 }
-
 ::-webkit-scrollbar-thumb:hover {
-  background: #BAAF9F;
+  background: var(--bg-scrollbar-thumb-hover);
 }
 
-.dark ::-webkit-scrollbar-thumb {
-  background: #4B443D;
-}
-
-.dark ::-webkit-scrollbar-thumb:hover {
-  background: #6E6258;
-}
-
-/* Reader Prose Styles */
+/* ============================================================================
+   5. Reader Prose Styles
+   ============================================================================ */
 .prose-reader {
   font-feature-settings: "kern" 1, "liga" 1;
   text-rendering: optimizeLegibility;
 }
-
 .prose-reader p {
   margin-bottom: 1.5em;
   text-align: justify;
   text-justify: inter-word;
 }
-
 .prose-reader blockquote {
   margin: 2em 0;
   padding-left: 1.25rem;
-  border-left: 2px solid #D6CEC2;
+  border-left: 2px solid var(--reader-blockquote-border);
   font-style: italic;
-  color: #57534E;
+  color: var(--reader-blockquote-text);
 }
-
 .prose-reader h1 {
   font-family: "Playfair Display", Georgia, serif;
   font-weight: 700;
   text-align: center;
   margin-bottom: 2rem;
-  color: #1C1917;
+  color: var(--text-primary);
 }
-
 .prose-reader h2 {
   font-family: "Playfair Display", Georgia, serif;
   font-weight: 600;
   margin-top: 2rem;
   margin-bottom: 1rem;
-  color: #1C1917;
+  color: var(--text-primary);
 }
 
-/* Highlight styling */
+/* ============================================================================
+   6. Highlight Styling
+   ============================================================================ */
 .reader-highlight {
-  background-color: #E2E8F0;
-  border-bottom: 1.5px solid #94A3B8;
+  background-color: var(--bg-highlight);
+  border-bottom: 1.5px solid var(--border-heavy);
   border-radius: 2px;
   padding: 1px 2px;
 }
-
 .reader-highlight-amber {
-  background-color: #FDE68A;
+  background-color: var(--bg-amber-highlight);
   border-radius: 2px;
   padding: 1px 2px;
 }
 
-/* Drop Cap Styling */
+/* ============================================================================
+   7. Drop Cap
+   ============================================================================ */
 .drop-cap {
   float: left;
   font-family: "Playfair Display", Georgia, serif;
@@ -177,16 +198,12 @@ body {
   padding-top: 4px;
   padding-right: 8px;
   padding-bottom: 2px;
-  color: #1C1917;
+  color: var(--text-primary);
 }
 
-.dark .drop-cap,
-.dark .prose-reader h1,
-.dark .prose-reader h2 {
-  color: #F5F1EA;
-}
-
-.dark .prose-reader blockquote {
-  border-left-color: #4B443D;
-  color: #B8AEA2;
+/* ============================================================================
+   8. Utility overrides (for Tailwind classes that use custom properties)
+   ============================================================================ */
+@layer utilities {
+  /* You can define @apply rules here if needed */
 }

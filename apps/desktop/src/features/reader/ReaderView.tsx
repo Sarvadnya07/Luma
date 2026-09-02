@@ -39,6 +39,8 @@ export const ReaderView: React.FC<ReaderViewProps> = ({ book }) => {
   const statusMessage = useReaderStore((s) => s.statusMessage);
   const loadChapter = useReaderStore((s) => s.loadChapter);
   const currentSpineIndex = useReaderStore((s) => s.currentSpineIndex);
+  const currentPdfPage = useReaderStore((s) => s.currentPdfPage);
+  const loadPdfPage = useReaderStore((s) => s.loadPdfPage);
   const settings = useReaderStore((s) => s.settings);
 
   const [isFullscreen, setIsFullscreen] = React.useState(false);
@@ -71,19 +73,31 @@ export const ReaderView: React.FC<ReaderViewProps> = ({ book }) => {
           setSidebarTab(sidebarTab === "search" ? null : "search");
           break;
         case "arrowleft":
-          if (currentSpineIndex > 0) loadChapter(currentSpineIndex - 1);
-          break;
-        case "arrowright":
-          if (documentData && currentSpineIndex < (documentData.total_pages_or_spines || 1) - 1) {
-            loadChapter(currentSpineIndex + 1);
+          if (documentData?.file.format === "pdf") {
+            if (currentPdfPage > 1) loadPdfPage(currentPdfPage - 1);
+          } else {
+            if (currentSpineIndex > 0) loadChapter(currentSpineIndex - 1);
           }
           break;
+        case "arrowright":
+          if (documentData?.file.format === "pdf") {
+            if (documentData && currentPdfPage < (documentData.total_pages_or_spines || 1)) {
+              loadPdfPage(currentPdfPage + 1);
+            }
+          } else {
+            if (documentData && currentSpineIndex < (documentData.total_pages_or_spines || 1) - 1) {
+              loadChapter(currentSpineIndex + 1);
+            }
+          }
+          break;
+
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [sidebarTab, currentSpineIndex, documentData]);
+  }, [sidebarTab, currentSpineIndex, currentPdfPage, documentData]);
+
 
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {

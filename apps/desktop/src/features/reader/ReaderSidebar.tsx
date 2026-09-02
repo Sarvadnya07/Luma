@@ -25,7 +25,9 @@ export const ReaderSidebar: React.FC = () => {
   const searchInDoc = useReaderStore((s) => s.searchInDoc);
   const jumpToLocator = useReaderStore((s) => s.jumpToLocator);
   const loadChapter = useReaderStore((s) => s.loadChapter);
+  const loadPdfPage = useReaderStore((s) => s.loadPdfPage);
   const deleteAnnotation = useReaderStore((s) => s.deleteAnnotation);
+
   const deleteBookmark = useReaderStore((s) => s.deleteBookmark);
 
   const [expandedNodes, setExpandedNodes] = useState<Record<string, boolean>>({
@@ -60,9 +62,13 @@ export const ReaderSidebar: React.FC = () => {
                 setActiveSectionId(item.title);
                 if (item.locator.startsWith("epubcfi") || item.locator.startsWith("page=")) {
                   jumpToLocator(item.locator);
+                } else if (documentData?.file.format === "pdf") {
+                  loadPdfPage(idx + 1);
                 } else {
                   loadChapter(idx);
                 }
+
+
               }
             }}
           >
@@ -212,12 +218,15 @@ export const ReaderSidebar: React.FC = () => {
                   onJumpTo={(a) => {
                     try {
                       const payload = JSON.parse(a.anchor_payload_json);
-                      if (payload.spine_index !== undefined) {
+                      if (payload.page_number !== undefined) {
+                        loadPdfPage(payload.page_number);
+                      } else if (payload.spine_index !== undefined) {
                         loadChapter(payload.spine_index);
                       }
                     } catch (e) {
                       console.error("Invalid anchor payload:", e);
                     }
+
                   }}
                   onDelete={deleteAnnotation}
                 />

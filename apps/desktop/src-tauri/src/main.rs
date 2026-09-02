@@ -1,34 +1,73 @@
 mod commands;
 mod context;
 
-use context::LumaAppContext;
+use context::{LumaAppContext, LumaAppContextConfig};
 use tauri::Manager;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
+// ============================================================================
+// Constants – configuration defaults
+// ============================================================================
+
+const DEFAULT_RUST_LOG: &str = "info,luma=debug";
+const DEFAULT_DATA_DIR_NAME: &str = "data";
+const INIT_LOG_MESSAGE: &str = "Luma Backend-01 Application Services and Event Bridge active";
+const DATA_DIR_ENV_VAR: &str = "LUMA_DATA_DIR";
+
+// ============================================================================
+// Application Configuration
+// ============================================================================
+
+struct AppConfig {
+    data_dir: std::path::PathBuf,
+    log_filter: String,
+}
+
+impl AppConfig {
+    fn from_env() -> Self {
+        let log_filter = std::env::var("RUST_LOG")
+            .unwrap_or_else(|_| DEFAULT_RUST_LOG.to_string());
+
+        let data_dir = std::env::var(DATA_DIR_ENV_VAR)
+            .ok()
+            .map(std::path::PathBuf::from)
+            .unwrap_or_else(|| {
+                std::env::current_dir()
+                    .unwrap_or_else(|_| std::path::PathBuf::from("."))
+                    .join(DEFAULT_DATA_DIR_NAME)
+            });
+
+        Self { data_dir, log_filter }
+
+    }
+}
+
+// ============================================================================
+// Main
+// ============================================================================
 
 fn main() {
+    let config = AppConfig::from_env();
+
+    // Setup logging
     tracing_subscriber::registry()
-        .with(tracing_subscriber::EnvFilter::new(
-            std::env::var("RUST_LOG").unwrap_or_else(|_| "info,luma=debug".into()),
-        ))
+        .with(tracing_subscriber::EnvFilter::new(&config.log_filter))
         .with(tracing_subscriber::fmt::layer())
         .init();
 
-    // Resolve persistent local data directory for SQLite, library, staging, and backups
-    let data_dir = std::env::var("LUMA_DATA_DIR")
-        .ok()
-        .map(std::path::PathBuf::from)
-        .unwrap_or_else(|| std::env::current_dir().unwrap_or_default().join("data"));
+    tracing::info!("Initializing LumaAppContext at: {}", config.data_dir.display());
 
-    tracing::info!("Initializing LumaAppContext at: {}", data_dir.display());
-    let context = LumaAppContext::new(&data_dir);
+    let context_config = LumaAppContextConfig::new(&config.data_dir);
+    let context = LumaAppContext::new(context_config);
     let app_ctx = context.clone();
 
     tauri::Builder::default()
         .manage(context)
         .setup(move |app| {
+
+
             app_ctx.spawn_event_bridge(app.handle().clone());
-            tracing::info!("Luma Backend-01 Application Services and Event Bridge active");
+            tracing::info!("{}", INIT_LOG_MESSAGE);
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

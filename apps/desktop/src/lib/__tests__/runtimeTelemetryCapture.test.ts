@@ -6,14 +6,15 @@ import * as path from "path";
 function calculateStats(samples: number[]) {
   if (samples.length === 0) return { n: 0, min: 0, median: 0, p95: 0, max: 0 };
   const sorted = [...samples].sort((a, b) => a - b);
-  const min = sorted[0];
-  const max = sorted[sorted.length - 1];
+  const min = sorted[0] ?? 0;
+  const max = sorted[sorted.length - 1] ?? 0;
   const mid = Math.floor(sorted.length / 2);
-  const median = sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+  const median = sorted.length % 2 !== 0 ? (sorted[mid] ?? 0) : ((sorted[mid - 1] ?? 0) + (sorted[mid] ?? 0)) / 2;
   const p95Index = Math.min(sorted.length - 1, Math.floor(sorted.length * 0.95));
-  const p95 = sorted[p95Index];
+  const p95 = sorted[p95Index] ?? 0;
   return { n: samples.length, min, median, p95, max };
 }
+
 
 describe("LUMA PERF-05A Runtime Telemetry Capture Harness", () => {
   it("executes full multi-cycle telemetry benchmark and saves raw logs", async () => {

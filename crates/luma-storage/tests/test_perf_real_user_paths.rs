@@ -1,37 +1,72 @@
+use anyhow::{Context, Result};
 use luma_core::ids::DeviceId;
 use luma_storage::cache::CacheManager;
 use luma_storage::db::Database;
-
 use luma_storage::events::EventBus;
 use luma_storage::files::FileService;
 use luma_storage::jobs::JobManager;
-use luma_storage::repos::JobRepository;
+use luma_storage::repos::{BookRepository, JobRepository, LibraryFilterOptions, LibrarySortOptions};
 use luma_storage::services::{ImportService, ReaderService, ReadingProgressService, SearchService};
+use serde_json::json;
 use std::fs::File;
 use std::io::Write;
-use std::time::Instant;
-use zip::write::SimpleFileOptions;
-use zip::ZipWriter;
+use std::path::{Path, PathBuf};
+use std::time::{Duration, Instant};
+use zip::write::{SimpleFileOptions, ZipWriter};
 
-fn create_realistic_epub(title: &str, author: &str, num_chapters: usize) -> tempfile::NamedTempFile {
-    let temp_file = tempfile::NamedTempFile::new().expect("temp file");
-    let file = File::create(temp_file.path()).expect("create");
+// ============================================================================
+// Configuration
+// ============================================================================
+
+#[derive(Debug, Clone)]
+pub struct BenchmarkConfig {
+    pub num_books: usize,
+    pub num_chapters_per_book: usize,
+    pub title_prefix: String,
+    pub author_prefix: String,
+    pub search_query: String,
+    pub max_search_results: usize,
+    pub page_size: usize,
+}
+
+impl Default for BenchmarkConfig {
+    fn default() -> Self {
+        Self {
+            num_books: 10,
+            num_chapters_per_book: 12,
+            title_prefix: "Masterpiece Novel Volume".to_string(),
+            author_prefix: "Author Surname".to_string(),
+            search_query: "Novel Volume".to_string(),
+            max_search_results: 50,
+            page_size: 50,
+        }
+    }
+}
+
+// ============================================================================
+// EPUB Generator
+// ============================================================================
+
+fn create_epub(dest_path: &Path, title: &str, author: &str, num_chapters: usize) -> Result<()> {
+    let file = File::create(dest_path).context("Failed to open file for EPUB creation")?;
     let mut zip = ZipWriter::new(file);
     let options = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
     let raw_options = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
 
-    zip.start_file("mimetype", raw_options).expect("mimetype");
-    zip.write_all(b"application/epub+zip").expect("write");
+    zip.start_file("mimetype", raw_options)?;
+    zip.write_all(b"application/epub+zip")?;
 
-    zip.start_file("META-INF/container.xml", options).expect("container");
-    zip.write_all(br#"<?xml version="1.0"?>
+    zip.start_file("META-INF/container.xml", options)?;
+    zip.write_all(
+        br#"<?xml version="1.0"?>
 <container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
   <rootfiles>
-    <rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/>
+    <rootfile full-path="EPUB/package.opf" media-type="application/oebps-package+xml"/>
   </rootfiles>
-</container>"#).expect("write");
+</container>"#,
+    )?;
 
-    zip.start_file("OEBPS/content.opf", options).expect("opf");
+    zip.start_file("EPUB/package.opf", options)?;
     let mut manifest = format!(
         r#"<?xml version="1.0" encoding="utf-8"?>
 <package xmlns="http://www.idpf.org/2007/opf" version="3.0">
@@ -57,31 +92,92 @@ fn create_realistic_epub(title: &str, author: &str, num_chapters: usize) -> temp
     }
     manifest.push_str("  </manifest>\n");
     spine.push_str("  </spine>\n</package>");
-    zip.write_all(format!("{}{}", manifest, spine).as_bytes()).expect("write");
+    zip.write_all(format!("{}{}", manifest, spine).as_bytes())?;
 
     for i in 0..num_chapters {
-        zip.start_file(format!("OEBPS/ch{}.xhtml", i), options).expect("ch");
-        zip.write_all(format!(
-            r#"<!DOCTYPE html><html><body><h1>Chapter {}</h1><p>Realistic body paragraph with text for search indexing and reading evaluation.</p></body></html>"#,
-            i + 1
-        ).as_bytes()).expect("write");
+        zip.start_file(format!("EPUB/ch{}.xhtml", i), options)?;
+        zip.write_all(
+            format!(
+                r#"<!DOCTYPE html><html><body><h1>Chapter {}</h1><p>Realistic body paragraph with Novel Volume text for search indexing and reading evaluation.</p></body></html>"#,
+                i + 1
+            )
+            .as_bytes(),
+        )?;
     }
 
-    zip.finish().expect("finish");
-    temp_file
+    zip.finish()?;
+    Ok(())
 }
 
+fn generate_epub_files(dir: &Path, config: &BenchmarkConfig) -> Result<Vec<PathBuf>> {
+    let mut files = Vec::with_capacity(config.num_books);
+    for i in 0..config.num_books {
+        let title = format!("{} {:02}", config.title_prefix, i);
+        let author = format!("{} {:02}", config.author_prefix, i % 3);
+        let file_path = dir.join(format!("book_{:02}.epub", i));
+        create_epub(&file_path, &title, &author, config.num_chapters_per_book)
+            .with_context(|| format!("Failed to create EPUB for '{}'", title))?;
+        files.push(file_path);
+    }
+    Ok(files)
+}
+
+// ============================================================================
+// Benchmark Result
+// ============================================================================
+
+#[derive(Debug, Clone)]
+pub struct BenchmarkResult {
+    pub import_duration: Duration,
+    pub open_duration: Duration,
+    pub chapter_duration: Duration,
+    pub search_duration: Duration,
+    pub progress_duration: Duration,
+    pub num_books: usize,
+    pub num_chapters: usize,
+}
+
+impl BenchmarkResult {
+    pub fn to_json(&self) -> serde_json::Value {
+        json!({
+            "import_duration_ms": self.import_duration.as_millis(),
+            "open_duration_ms": self.open_duration.as_millis(),
+            "chapter_duration_ms": self.chapter_duration.as_millis(),
+            "search_duration_ms": self.search_duration.as_millis(),
+            "progress_duration_ms": self.progress_duration.as_millis(),
+            "num_books": self.num_books,
+            "num_chapters": self.num_chapters,
+            "import_duration_sec": self.import_duration.as_secs_f64(),
+            "open_duration_sec": self.open_duration.as_secs_f64(),
+            "chapter_duration_sec": self.chapter_duration.as_secs_f64(),
+            "search_duration_sec": self.search_duration.as_secs_f64(),
+            "progress_duration_sec": self.progress_duration.as_secs_f64(),
+        })
+    }
+}
+
+// ============================================================================
+// Main Test
+// ============================================================================
+
 #[tokio::test]
-async fn test_benchmark_end_to_end_real_import_pipeline() {
-    let temp_dir = tempfile::tempdir().expect("temp dir");
+async fn test_benchmark_end_to_end_real_import_pipeline() -> Result<()> {
+    let _ = env_logger::builder().is_test(true).try_init();
+
+    let config = BenchmarkConfig::default();
+    let temp_dir = tempfile::tempdir().context("Failed to create temp dir")?;
     let data_path = temp_dir.path().to_path_buf();
-    let db = Database::open(data_path.join("luma_bench.db")).expect("open db");
+    let fixtures_dir = data_path.join("fixtures");
+    std::fs::create_dir_all(&fixtures_dir)?;
+
+    let db = Database::open(data_path.join("luma_bench.db")).context("Failed to open database")?;
     let event_bus = EventBus::default();
     let file_service = FileService::new(&data_path);
     let cache = CacheManager::new();
     let job_repo = JobRepository::new(db.clone());
     let job_manager = JobManager::new(job_repo, event_bus.clone());
 
+    let search_service = SearchService::new(db.clone(), event_bus.clone(), cache.clone());
     let import_service = ImportService::new(
         db.clone(),
         file_service.clone(),
@@ -90,97 +186,126 @@ async fn test_benchmark_end_to_end_real_import_pipeline() {
         cache.clone(),
     );
 
-    let search_service = SearchService::new(db.clone(), event_bus.clone(), cache.clone());
     let reader_service = ReaderService::new(db.clone(), cache.clone());
     let progress_service = ReadingProgressService::new(db.clone(), event_bus.clone());
 
-    // Generate 10 realistic EPUB files on disk
-    let mut files = Vec::new();
-    for i in 0..10 {
-        let epub = create_realistic_epub(
-            &format!("Masterpiece Novel Volume {:02}", i),
-            &format!("Author Surname {:02}", i % 3),
-            12,
-        );
-        files.push(epub);
-    }
-    let file_paths: Vec<std::path::PathBuf> = files.iter().map(|f| f.path().to_path_buf()).collect();
-
+    // Generate EPUB files
+    let file_paths = generate_epub_files(&fixtures_dir, &config)?;
     let device_id = DeviceId::new();
 
-    // 1. Measure Real End-to-End Import Pipeline (10 Books)
+    // 1. Import
     let import_start = Instant::now();
     let import_job = import_service
         .import_files(&file_paths, device_id)
         .await
-        .expect("import");
+        .context("Import failed")?;
     let import_duration = import_start.elapsed();
 
-    println!(
-        "Real E2E Import Pipeline (10 EPUBs with 12 chapters each, metadata, hashing, duplicate detection, DB tx, events): {:?}",
-        import_duration
+    eprintln!(
+        "Real E2E Import Pipeline ({} EPUBs with {} chapters each): {:?}",
+        config.num_books, config.num_chapters_per_book, import_duration
     );
-    assert_eq!(import_job.total_files, 10);
-    assert_eq!(import_job.completed_count, 10);
+    assert_eq!(import_job.total_files as usize, config.num_books);
+    assert_eq!(import_job.completed_count as usize, config.num_books);
 
-    let book_repo = luma_storage::repos::BookRepository::new(db.clone());
+    // 2. List books
+    let book_repo = BookRepository::new(db.clone());
     let all_books = book_repo
         .list(
-            &luma_storage::repos::LibraryFilterOptions::default(),
-            &luma_storage::repos::LibrarySortOptions::default(),
+            &LibraryFilterOptions::default(),
+            &LibrarySortOptions::default(),
             0,
-            50,
+            config.page_size,
         )
-        .expect("list books");
-    assert_eq!(all_books.len(), 10);
+        .context("Failed to list books")?;
+    assert_eq!(
+        all_books.len(),
+        config.num_books,
+        "Expected {} books, got {}",
+        config.num_books,
+        all_books.len()
+    );
 
     let first_book_id = all_books[0].id;
 
-    // 2. Measure Real Reader Open Flow (Consolidated Payload: Metadata + TOC + Progress + Annotations + Bookmarks + Session Cache)
+    // 3. Open document
     let open_start = Instant::now();
     let doc_data = reader_service
         .open_document(&first_book_id, None)
         .await
-        .expect("open document");
+        .context("Failed to open document")?;
     let open_duration = open_start.elapsed();
-    println!("Real Backend Open Document Pipeline (Consolidated Payload): {:?}", open_duration);
-    assert_eq!(doc_data.total_pages_or_spines, 12);
+    eprintln!("Real Backend Open Document Pipeline (Consolidated Payload): {:?}", open_duration);
+    assert_eq!(
+        doc_data.total_pages_or_spines,
+        config.num_chapters_per_book as u32,
+        "Expected {} pages/spines, got {}",
+        config.num_chapters_per_book,
+        doc_data.total_pages_or_spines
+    );
 
-    // 3. Measure Chapter Retrieval from Session Cache
+    // 4. Retrieve chapter
     let chapter_start = Instant::now();
     let ch0 = reader_service
         .get_chapter(&first_book_id, 0)
         .await
-        .expect("chapter");
+        .context("Failed to get chapter 0")?;
     let chapter_duration = chapter_start.elapsed();
-    println!("Real Chapter 0 Retrieval (Session cached): {:?}", chapter_duration);
-    assert!(ch0.html_content.contains("Chapter 1"));
+    eprintln!("Real Chapter 0 Retrieval (Session cached): {:?}", chapter_duration);
+    assert!(
+        ch0.html_content.contains("Chapter 1"),
+        "Chapter content missing expected text"
+    );
 
-    // 4. Measure FTS5 Search across Real Ingested Books
-    let _ = search_service.rebuild_index().await;
+    // 5. Search
+    search_service
+        .rebuild_index()
+        .await
+        .context("Failed to rebuild search index")?;
     let search_start = Instant::now();
     let search_res = search_service
-        .search_library("Novel Volume", None, 50)
+        .search_library(&config.search_query, None, config.max_search_results)
         .await
-        .expect("search");
+        .context("Search failed")?;
     let search_duration = search_start.elapsed();
-    println!("Real FTS5 Search Query Duration (10 books): {:?}", search_duration);
-    assert!(!search_res.hits.is_empty());
+    eprintln!(
+        "Real FTS5 Search Query Duration ({} books): {:?}",
+        config.num_books, search_duration
+    );
+    assert!(!search_res.hits.is_empty(), "Search returned no results");
 
-    // 5. Measure Reading Progress Save
-    let mut prog = luma_core::models::reading::ReadingProgress::new(
+    // 6. Save reading progress
+    let mut progress = luma_core::models::reading::ReadingProgress::new(
         first_book_id,
         "epubcfi(/6/4[ch0]!/4/2/1:0)".to_string(),
         device_id,
     );
-    prog.progress_percentage = 0.25;
-    prog.current_chapter_title = Some("Chapter 1".to_string());
-    prog.current_page_number = Some(1);
-    prog.total_pages = Some(12);
+    progress.progress_percentage = 0.25;
+    progress.current_chapter_title = Some("Chapter 1".to_string());
+    progress.current_page_number = Some(1);
+    progress.total_pages = Some(config.num_chapters_per_book as u32);
 
-    let prog_start = Instant::now();
-    progress_service.save_progress(&prog).expect("save progress");
-    let prog_duration = prog_start.elapsed();
-    println!("Reading Progress SQLite Transaction Duration: {:?}", prog_duration);
+    let progress_start = Instant::now();
+    progress_service
+        .save_progress(&progress)
+        .context("Failed to save progress")?;
+    let progress_duration = progress_start.elapsed();
+    eprintln!(
+        "Reading Progress SQLite Transaction Duration: {:?}",
+        progress_duration
+    );
 
+    // 7. Output results
+    let result = BenchmarkResult {
+        import_duration,
+        open_duration,
+        chapter_duration,
+        search_duration,
+        progress_duration,
+        num_books: config.num_books,
+        num_chapters: config.num_chapters_per_book,
+    };
+
+    println!("{}", serde_json::to_string_pretty(&result.to_json())?);
+    Ok(())
 }
