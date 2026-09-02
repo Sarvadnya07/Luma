@@ -192,7 +192,7 @@ export const PdfPageCanvas: React.FC<PdfPageCanvasProps> = ({
         }
       }
     };
-  }, [pdfDoc, pageNum, zoom, isThumbnail, onPageLoaded]);
+  }, [pdfDoc, pageNum, zoom, isThumbnail, isVisible, onPageLoaded]);
 
   // Thumbnail Render Mode
   if (isThumbnail) {

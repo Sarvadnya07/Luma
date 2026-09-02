@@ -233,6 +233,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
 
   // Data loading
   const [authors, setAuthors] = useState<any[]>([]);
+  const [globalAnnotations, setGlobalAnnotations] = useState<AnnotationItem[]>([]);
 
   const loadMetadata = useCallback(async () => {
     try {
@@ -288,6 +289,30 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
 
       setBooks(fetchedBooks || []);
       setAuthorMap(aMap);
+
+      // Load real annotations from SQLite
+      try {
+        const rawAnns = await LumaApi.listAllAnnotations();
+        const bookMap = new Map((fetchedBooks || []).map((b) => [b.id, b]));
+        const mappedAnns: AnnotationItem[] = rawAnns.map((a) => {
+          const bk = bookMap.get(a.book_id);
+          return {
+            id: a.id,
+            book_id: a.book_id,
+            book_title: bk?.title || "Unknown Document",
+            author: (bk && aMap[bk.id]) || "Unknown Author",
+            quote: a.quote || "",
+            note: a.note || null,
+            created_at: a.sync.created_at,
+            color: a.color_hex || "#fef08a",
+            type: (a.annotation_type as "highlight" | "note" | "bookmark") || "highlight",
+          };
+        });
+        setGlobalAnnotations(mappedAnns);
+      } catch {
+        // fallback
+      }
+
       perfTelemetry.mark("LUMA_PERF_LIBRARY_VISIBLE", { count: fetchedBooks?.length || 0 });
       if (searchQuery && searchQuery.trim().length > 0) {
         perfTelemetry.mark("LUMA_PERF_SEARCH_RESULTS", { query: searchQuery, count: fetchedBooks?.length || 0 });
@@ -599,23 +624,9 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
     if (currentSection === "devices") return <SyncDeviceCenter devices={[]} />;
     if (currentSection === "plugins") return <IntegrationsPluginsView />;
     if (currentSection === "annotations") {
-      const derivedAnnotations: AnnotationItem[] = books.flatMap((b) => [
-        {
-          id: `ann_${b.id}_1`,
-          book_id: b.id,
-          book_title: b.title,
-          author: authorMap[b.id] || "Unknown Author",
-          quote: `Key insight from ${b.title}: foundational concept in modern study.`,
-          note: "Personal reflection on chapter structure.",
-          created_at: new Date().toISOString(),
-          color: "#fef08a",
-          type: "highlight" as const,
-        },
-      ]);
-
       return (
         <GlobalAnnotationCenter
-          annotations={derivedAnnotations}
+          annotations={globalAnnotations}
           onOpenBook={(bookId) => {
             const b = books.find((x) => x.id === bookId);
             if (b) setCurrentBook(b);

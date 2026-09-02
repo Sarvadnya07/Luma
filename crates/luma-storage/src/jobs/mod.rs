@@ -7,6 +7,70 @@ use crate::events::{DomainEvent, EventBus};
 use crate::repos::{JobProgressUpdate, JobRecord, JobRepository, PersistentJobStatus};
 use serde::{Deserialize, Serialize};
 
+// ============================================================================
+// Constants – job type string representations
+// ============================================================================
+
+pub const JOB_TYPE_IMPORT: &str = "import";
+pub const JOB_TYPE_DIRECTORY_SCAN: &str = "directory_scan";
+pub const JOB_TYPE_FILE_RECONCILIATION: &str = "file_reconciliation";
+pub const JOB_TYPE_INDEX_REBUILD: &str = "index_rebuild";
+pub const JOB_TYPE_BACKUP: &str = "backup";
+pub const JOB_TYPE_RESTORE: &str = "restore";
+pub const JOB_TYPE_MAINTENANCE: &str = "maintenance";
+pub const JOB_TYPE_OTHER: &str = "other";
+
+// ============================================================================
+// Constants – job status string representations
+// ============================================================================
+
+pub const JOB_STATUS_QUEUED: &str = "queued";
+pub const JOB_STATUS_RUNNING: &str = "running";
+pub const JOB_STATUS_PAUSED: &str = "paused";
+pub const JOB_STATUS_COMPLETED: &str = "completed";
+pub const JOB_STATUS_FAILED: &str = "failed";
+pub const JOB_STATUS_CANCELLED: &str = "cancelled";
+
+// ============================================================================
+// Constants – default stage names
+// ============================================================================
+
+pub const STAGE_QUEUED: &str = "queued";
+pub const STAGE_RUNNING: &str = "running";
+pub const STAGE_COMPLETED: &str = "completed";
+pub const STAGE_FAILED: &str = "failed";
+pub const STAGE_CANCELLED: &str = "cancelled";
+
+// ============================================================================
+// Constants – error messages and defaults
+// ============================================================================
+
+pub const ERR_CANCELLED_BY_USER: &str = "Job cancelled by user";
+pub const UNKNOWN_JOB_TYPE: &str = "unknown";
+
+// ============================================================================
+// JobManagerConfig
+// ============================================================================
+
+/// Configuration for the job manager.
+#[derive(Debug, Clone)]
+pub struct JobManagerConfig {
+    /// Minimum time between progress events (milliseconds).
+    pub progress_throttle_ms: u64,
+}
+
+impl Default for JobManagerConfig {
+    fn default() -> Self {
+        Self {
+            progress_throttle_ms: 50,
+        }
+    }
+}
+
+// ============================================================================
+// JobType
+// ============================================================================
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum JobType {
     Import,
@@ -21,34 +85,40 @@ pub enum JobType {
 
 impl std::fmt::Display for JobType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            JobType::Import => write!(f, "import"),
-            JobType::DirectoryScan => write!(f, "directory_scan"),
-            JobType::FileReconciliation => write!(f, "file_reconciliation"),
-            JobType::IndexRebuild => write!(f, "index_rebuild"),
-            JobType::Backup => write!(f, "backup"),
-            JobType::Restore => write!(f, "restore"),
-            JobType::Maintenance => write!(f, "maintenance"),
-            JobType::Other(s) => write!(f, "{}", s),
-        }
+        let s = match self {
+            JobType::Import => JOB_TYPE_IMPORT,
+            JobType::DirectoryScan => JOB_TYPE_DIRECTORY_SCAN,
+            JobType::FileReconciliation => JOB_TYPE_FILE_RECONCILIATION,
+            JobType::IndexRebuild => JOB_TYPE_INDEX_REBUILD,
+            JobType::Backup => JOB_TYPE_BACKUP,
+            JobType::Restore => JOB_TYPE_RESTORE,
+            JobType::Maintenance => JOB_TYPE_MAINTENANCE,
+            JobType::Other(s) => s,
+        };
+        write!(f, "{}", s)
     }
 }
 
 impl std::str::FromStr for JobType {
     type Err = std::convert::Infallible;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_lowercase().as_str() {
-            "import" => Ok(JobType::Import),
-            "directory_scan" => Ok(JobType::DirectoryScan),
-            "file_reconciliation" => Ok(JobType::FileReconciliation),
-            "index_rebuild" => Ok(JobType::IndexRebuild),
-            "backup" => Ok(JobType::Backup),
-            "restore" => Ok(JobType::Restore),
-            "maintenance" => Ok(JobType::Maintenance),
+        let lower = s.to_lowercase();
+        match lower.as_str() {
+            JOB_TYPE_IMPORT => Ok(JobType::Import),
+            JOB_TYPE_DIRECTORY_SCAN => Ok(JobType::DirectoryScan),
+            JOB_TYPE_FILE_RECONCILIATION => Ok(JobType::FileReconciliation),
+            JOB_TYPE_INDEX_REBUILD => Ok(JobType::IndexRebuild),
+            JOB_TYPE_BACKUP => Ok(JobType::Backup),
+            JOB_TYPE_RESTORE => Ok(JobType::Restore),
+            JOB_TYPE_MAINTENANCE => Ok(JobType::Maintenance),
             other => Ok(JobType::Other(other.to_string())),
         }
     }
 }
+
+// ============================================================================
+// JobStatus
+// ============================================================================
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum JobStatus {
@@ -58,6 +128,20 @@ pub enum JobStatus {
     Completed,
     Failed,
     Cancelled,
+}
+
+impl JobStatus {
+    /// Returns the string representation of the status.
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            JobStatus::Queued => JOB_STATUS_QUEUED,
+            JobStatus::Running => JOB_STATUS_RUNNING,
+            JobStatus::Paused => JOB_STATUS_PAUSED,
+            JobStatus::Completed => JOB_STATUS_COMPLETED,
+            JobStatus::Failed => JOB_STATUS_FAILED,
+            JobStatus::Cancelled => JOB_STATUS_CANCELLED,
+        }
+    }
 }
 
 impl From<PersistentJobStatus> for JobStatus {
@@ -86,6 +170,10 @@ impl From<JobStatus> for PersistentJobStatus {
     }
 }
 
+// ============================================================================
+// JobProgress
+// ============================================================================
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JobProgress {
     pub job_id: String,
@@ -97,6 +185,10 @@ pub struct JobProgress {
     pub message: Option<String>,
     pub status: JobStatus,
 }
+
+// ============================================================================
+// CancellationToken
+// ============================================================================
 
 #[derive(Clone)]
 pub struct CancellationToken {
@@ -125,6 +217,10 @@ impl CancellationToken {
     }
 }
 
+// ============================================================================
+// ActiveJobState
+// ============================================================================
+
 #[derive(Clone)]
 pub struct ActiveJobState {
     pub id: String,
@@ -139,25 +235,35 @@ pub struct ActiveJobState {
     pub last_event_emitted_at: Option<std::time::Instant>,
 }
 
+// ============================================================================
+// JobManager
+// ============================================================================
+
 #[derive(Clone)]
 pub struct JobManager {
     repo: JobRepository,
     event_bus: EventBus,
     active_jobs: Arc<RwLock<HashMap<String, ActiveJobState>>>,
+    config: JobManagerConfig,
 }
 
 impl JobManager {
-    pub const PROGRESS_THROTTLE_MS: u64 = 50;
-
+    /// Creates a new job manager with the default configuration.
     pub fn new(repo: JobRepository, event_bus: EventBus) -> Self {
+        Self::with_config(repo, event_bus, JobManagerConfig::default())
+    }
+
+    /// Creates a new job manager with a custom configuration.
+    pub fn with_config(repo: JobRepository, event_bus: EventBus, config: JobManagerConfig) -> Self {
         Self {
             repo,
             event_bus,
             active_jobs: Arc::new(RwLock::new(HashMap::new())),
+            config,
         }
     }
 
-    /// Create and register a new job
+    /// Create and register a new job.
     pub async fn create_job(
         &self,
         job_type: JobType,
@@ -174,7 +280,7 @@ impl JobManager {
             total_units,
             completed_units: 0,
             failed_units: 0,
-            stage: "queued".to_string(),
+            stage: STAGE_QUEUED.to_string(),
             message: message.map(|s| s.to_string()),
             cancellation_token: cancellation_token.clone(),
             last_event_emitted_at: Some(std::time::Instant::now()),
@@ -206,7 +312,7 @@ impl JobManager {
         self.event_bus.publish(DomainEvent::JobProgressUpdated {
             job_id: id.clone(),
             job_type: job_type.to_string(),
-            status: "queued".to_string(),
+            status: JOB_STATUS_QUEUED.to_string(),
             completed: 0,
             total: total_units,
             message: message.map(|s| s.to_string()),
@@ -215,7 +321,7 @@ impl JobManager {
         (id, cancellation_token)
     }
 
-    /// Mark job as running and update progress stage with 50ms time-based throttling
+    /// Mark job as running and update progress stage with time‑based throttling.
     pub async fn update_progress(
         &self,
         job_id: &str,
@@ -224,7 +330,7 @@ impl JobManager {
         failed: u32,
         message: Option<&str>,
     ) {
-        let mut job_type_str = "unknown".to_string();
+        let mut job_type_str = UNKNOWN_JOB_TYPE.to_string();
         let mut total = 0;
         let mut should_emit = false;
 
@@ -242,7 +348,7 @@ impl JobManager {
                 let now = std::time::Instant::now();
                 if let Some(last_time) = state.last_event_emitted_at {
                     if now.duration_since(last_time).as_millis()
-                        >= Self::PROGRESS_THROTTLE_MS as u128
+                        >= self.config.progress_throttle_ms as u128
                         || completed >= total
                         || failed > 0
                     {
@@ -272,7 +378,7 @@ impl JobManager {
             self.event_bus.publish(DomainEvent::JobProgressUpdated {
                 job_id: job_id.to_string(),
                 job_type: job_type_str,
-                status: "running".to_string(),
+                status: JOB_STATUS_RUNNING.to_string(),
                 completed,
                 total,
                 message: message.map(|s| s.to_string()),
@@ -280,9 +386,9 @@ impl JobManager {
         }
     }
 
-    /// Mark job as completed
+    /// Mark job as completed.
     pub async fn complete_job(&self, job_id: &str, message: Option<&str>) {
-        let mut job_type_str = "unknown".to_string();
+        let mut job_type_str = UNKNOWN_JOB_TYPE.to_string();
         let mut completed = 0;
         let mut total = 0;
 
@@ -290,7 +396,7 @@ impl JobManager {
             let mut lock = self.active_jobs.write().await;
             if let Some(state) = lock.get_mut(job_id) {
                 state.status = JobStatus::Completed;
-                state.stage = "completed".to_string();
+                state.stage = STAGE_COMPLETED.to_string();
                 state.message = message.map(|s| s.to_string());
                 job_type_str = state.job_type.to_string();
                 completed = state.completed_units;
@@ -319,16 +425,16 @@ impl JobManager {
         self.event_bus.publish(DomainEvent::JobProgressUpdated {
             job_id: job_id.to_string(),
             job_type: job_type_str,
-            status: "completed".to_string(),
+            status: JOB_STATUS_COMPLETED.to_string(),
             completed: if total > 0 { total } else { completed },
             total,
             message: message.map(|s| s.to_string()),
         });
     }
 
-    /// Mark job as failed
+    /// Mark job as failed.
     pub async fn fail_job(&self, job_id: &str, error: &str) {
-        let mut job_type_str = "unknown".to_string();
+        let mut job_type_str = UNKNOWN_JOB_TYPE.to_string();
         let mut completed = 0;
         let mut failed = 1;
         let mut total = 0;
@@ -337,7 +443,7 @@ impl JobManager {
             let mut lock = self.active_jobs.write().await;
             if let Some(state) = lock.get_mut(job_id) {
                 state.status = JobStatus::Failed;
-                state.stage = "failed".to_string();
+                state.stage = STAGE_FAILED.to_string();
                 state.message = Some(error.to_string());
                 job_type_str = state.job_type.to_string();
                 completed = state.completed_units;
@@ -368,16 +474,16 @@ impl JobManager {
         self.event_bus.publish(DomainEvent::JobProgressUpdated {
             job_id: job_id.to_string(),
             job_type: job_type_str,
-            status: "failed".to_string(),
+            status: JOB_STATUS_FAILED.to_string(),
             completed,
             total,
             message: Some(error.to_string()),
         });
     }
 
-    /// Cancel a running job cooperatively
+    /// Cancel a running job cooperatively.
     pub async fn cancel_job(&self, job_id: &str) -> bool {
-        let mut job_type_str = "unknown".to_string();
+        let mut job_type_str = UNKNOWN_JOB_TYPE.to_string();
         let mut found = false;
 
         {
@@ -385,7 +491,7 @@ impl JobManager {
             if let Some(state) = lock.get_mut(job_id) {
                 state.cancellation_token.cancel();
                 state.status = JobStatus::Cancelled;
-                state.stage = "cancelled".to_string();
+                state.stage = STAGE_CANCELLED.to_string();
                 job_type_str = state.job_type.to_string();
                 found = true;
             }
@@ -399,7 +505,7 @@ impl JobManager {
                     status: PersistentJobStatus::Cancelled,
                     completed_units: 0,
                     failed_units: 0,
-                    message: Some("Job cancelled by user"),
+                    message: Some(ERR_CANCELLED_BY_USER),
                     error_details: None,
                     ended_at: Some(&now),
                 },
@@ -408,17 +514,17 @@ impl JobManager {
             self.event_bus.publish(DomainEvent::JobProgressUpdated {
                 job_id: job_id.to_string(),
                 job_type: job_type_str,
-                status: "cancelled".to_string(),
+                status: JOB_STATUS_CANCELLED.to_string(),
                 completed: 0,
                 total: 0,
-                message: Some("Job cancelled by user".to_string()),
+                message: Some(ERR_CANCELLED_BY_USER.to_string()),
             });
         }
 
         found
     }
 
-    /// Query active job progress or fall back to repository
+    /// Query active job progress or fall back to repository.
     pub async fn get_job_progress(&self, job_id: &str) -> Option<JobProgress> {
         {
             let lock = self.active_jobs.read().await;
@@ -469,7 +575,7 @@ impl JobManager {
         }
     }
 
-    /// List recent jobs
+    /// List recent jobs.
     pub fn list_recent_jobs(&self, limit: usize) -> Vec<JobProgress> {
         self.repo
             .list_recent(limit)

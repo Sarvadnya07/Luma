@@ -4,6 +4,12 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
+description = "Document parsing and reading engine for EPUB, PDF, and other formats."
+homepage = "https://luma.reader"
+repository = "https://github.com/luma/luma"
+readme = "README.md"
+keywords = ["reader", "epub", "pdf", "document", "luma"]
+categories = ["parser-implementations", "text-processing"]
 
 [dependencies]
 luma-core = { workspace = true }
@@ -16,7 +22,6 @@ async-trait = { workspace = true }
 zip = { workspace = true }
 miniz_oxide = { workspace = true }
 quick-xml = { workspace = true }
-
 regex = { workspace = true }
 sha2 = { workspace = true }
 hex = { workspace = true }
@@ -25,3 +30,8 @@ unicode-normalization = { workspace = true }
 
 [dev-dependencies]
 tempfile = "3.12"
+
+[features]
+default = []
+# Optional: enable additional format support or advanced features.
+# Example: "image-support" = [...]

@@ -4,6 +4,12 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
+description = "Security utilities for the Luma application – hashing, sanitisation, and path validation."
+homepage = "https://luma.reader"
+repository = "https://github.com/luma/luma"
+readme = "README.md"
+keywords = ["security", "sanitisation", "hashing", "validation", "luma"]
+categories = ["security", "text-processing"]
 
 [dependencies]
 luma-core = { workspace = true }
@@ -17,3 +23,10 @@ regex = { workspace = true }
 [dev-dependencies]
 tokio = { workspace = true }
 
+[features]
+default = []
+# Optional: enable additional security hardening features.
+# Example: "hardened-mode" = []
+
+[package.metadata.docs.rs]
+all-features = true

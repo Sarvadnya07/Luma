@@ -5,6 +5,82 @@ use rusqlite::params;
 use crate::db::Database;
 use crate::error::StorageResult;
 
+// ============================================================================
+// Constants – table name, column names, and SQL templates
+// ============================================================================
+
+const TABLE_BOOK_FILES: &str = "book_files";
+
+// Column names (for documentation and future use)
+const COL_ID: &str = "id";
+const COL_BOOK_ID: &str = "book_id";
+const COL_ORIGINAL_FILENAME: &str = "original_filename";
+const COL_RELATIVE_PATH: &str = "relative_path";
+const COL_CANONICAL_PATH: &str = "canonical_path";
+const COL_FORMAT: &str = "format";
+const COL_MIME_TYPE: &str = "mime_type";
+const COL_FILE_SIZE_BYTES: &str = "file_size_bytes";
+const COL_SHA256_HASH: &str = "sha256_hash";
+const COL_IMPORTED_AT: &str = "imported_at";
+const COL_CREATED_AT: &str = "created_at";
+const COL_MODIFIED_AT: &str = "modified_at";
+const COL_AVAILABILITY: &str = "availability";
+
+// SQL query templates (with placeholders)
+const SQL_INSERT_BOOK_FILE: &str = r#"
+    INSERT INTO book_files (
+        id, book_id, original_filename, relative_path, canonical_path,
+        format, mime_type, file_size_bytes, sha256_hash, imported_at,
+        created_at, modified_at, availability
+    ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?10, ?11, ?12)
+"#;
+
+const SQL_SELECT_BOOK_FILE_BY_ID: &str = r#"
+    SELECT id, book_id, original_filename, relative_path, canonical_path,
+           format, mime_type, file_size_bytes, sha256_hash, imported_at,
+           modified_at, availability
+    FROM book_files
+    WHERE id = ?1
+"#;
+
+const SQL_SELECT_BOOK_FILE_BY_HASH: &str = r#"
+    SELECT id, book_id, original_filename, relative_path, canonical_path,
+           format, mime_type, file_size_bytes, sha256_hash, imported_at,
+           modified_at, availability
+    FROM book_files
+    WHERE sha256_hash = ?1
+"#;
+
+const SQL_SELECT_BOOK_FILES_BY_BOOK: &str = r#"
+    SELECT id, book_id, original_filename, relative_path, canonical_path,
+           format, mime_type, file_size_bytes, sha256_hash, imported_at,
+           modified_at, availability
+    FROM book_files
+    WHERE book_id = ?1
+    ORDER BY imported_at ASC
+"#;
+
+const SQL_SELECT_ALL_BOOK_FILES: &str = r#"
+    SELECT id, book_id, original_filename, relative_path, canonical_path,
+           format, mime_type, file_size_bytes, sha256_hash, imported_at,
+           modified_at, availability
+    FROM book_files
+"#;
+
+const SQL_UPDATE_AVAILABILITY: &str = r#"
+    UPDATE book_files
+    SET availability = ?1, modified_at = datetime('now')
+    WHERE id = ?2
+"#;
+
+// Fallback values for parsing errors
+const FALLBACK_FORMAT: DocumentFormat = DocumentFormat::Epub;
+const FALLBACK_AVAILABILITY: FileAvailability = FileAvailability::Available;
+
+// ============================================================================
+// BookFileRepository
+// ============================================================================
+
 pub struct BookFileRepository {
     db: Database,
 }
@@ -17,13 +93,7 @@ impl BookFileRepository {
     pub fn insert(&self, file: &BookFile) -> StorageResult<()> {
         self.db.with_conn(|conn| {
             conn.execute(
-                r#"
-                INSERT INTO book_files (
-                    id, book_id, original_filename, relative_path, canonical_path,
-                    format, mime_type, file_size_bytes, sha256_hash, imported_at,
-                    created_at, modified_at, availability
-                ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?10, ?11, ?12)
-                "#,
+                SQL_INSERT_BOOK_FILE,
                 params![
                     file.id.to_string(),
                     file.book_id.to_string(),
@@ -45,16 +115,7 @@ impl BookFileRepository {
 
     pub fn get_by_id(&self, id: &FileId) -> StorageResult<Option<BookFile>> {
         self.db.with_read_conn(|conn| {
-            let mut stmt = conn.prepare(
-                r#"
-                SELECT id, book_id, original_filename, relative_path, canonical_path,
-                       format, mime_type, file_size_bytes, sha256_hash, imported_at,
-                       modified_at, availability
-                FROM book_files
-                WHERE id = ?1
-                "#,
-            )?;
-
+            let mut stmt = conn.prepare(SQL_SELECT_BOOK_FILE_BY_ID)?;
             let mut rows = stmt.query(params![id.to_string()])?;
             if let Some(row) = rows.next()? {
                 Ok(Some(Self::row_to_book_file(row)?))
@@ -66,16 +127,7 @@ impl BookFileRepository {
 
     pub fn get_by_hash(&self, sha256_hash: &str) -> StorageResult<Option<BookFile>> {
         self.db.with_read_conn(|conn| {
-            let mut stmt = conn.prepare(
-                r#"
-                SELECT id, book_id, original_filename, relative_path, canonical_path,
-                       format, mime_type, file_size_bytes, sha256_hash, imported_at,
-                       modified_at, availability
-                FROM book_files
-                WHERE sha256_hash = ?1
-                "#,
-            )?;
-
+            let mut stmt = conn.prepare(SQL_SELECT_BOOK_FILE_BY_HASH)?;
             let mut rows = stmt.query(params![sha256_hash])?;
             if let Some(row) = rows.next()? {
                 Ok(Some(Self::row_to_book_file(row)?))
@@ -87,17 +139,7 @@ impl BookFileRepository {
 
     pub fn list_by_book_id(&self, book_id: &BookId) -> StorageResult<Vec<BookFile>> {
         self.db.with_read_conn(|conn| {
-            let mut stmt = conn.prepare(
-                r#"
-                SELECT id, book_id, original_filename, relative_path, canonical_path,
-                       format, mime_type, file_size_bytes, sha256_hash, imported_at,
-                       modified_at, availability
-                FROM book_files
-                WHERE book_id = ?1
-                ORDER BY imported_at ASC
-                "#,
-            )?;
-
+            let mut stmt = conn.prepare(SQL_SELECT_BOOK_FILES_BY_BOOK)?;
             let rows = stmt.query_map(params![book_id.to_string()], Self::row_to_book_file)?;
             let mut files = Vec::new();
             for r in rows {
@@ -109,15 +151,7 @@ impl BookFileRepository {
 
     pub fn list_all(&self) -> StorageResult<Vec<BookFile>> {
         self.db.with_read_conn(|conn| {
-            let mut stmt = conn.prepare(
-                r#"
-                SELECT id, book_id, original_filename, relative_path, canonical_path,
-                       format, mime_type, file_size_bytes, sha256_hash, imported_at,
-                       modified_at, availability
-                FROM book_files
-                "#,
-            )?;
-
+            let mut stmt = conn.prepare(SQL_SELECT_ALL_BOOK_FILES)?;
             let rows = stmt.query_map([], Self::row_to_book_file)?;
             let mut files = Vec::new();
             for r in rows {
@@ -134,12 +168,16 @@ impl BookFileRepository {
     ) -> StorageResult<()> {
         self.db.with_conn(|conn| {
             conn.execute(
-                "UPDATE book_files SET availability = ?1, modified_at = datetime('now') WHERE id = ?2",
+                SQL_UPDATE_AVAILABILITY,
                 params![availability.to_string(), id.to_string()],
             )?;
             Ok(())
         })
     }
+
+    // ------------------------------------------------------------------------
+    // Helper: Row to BookFile mapping
+    // ------------------------------------------------------------------------
 
     fn row_to_book_file(row: &rusqlite::Row) -> rusqlite::Result<BookFile> {
         let id_str: String = row.get(0)?;
@@ -157,8 +195,8 @@ impl BookFileRepository {
 
         let id: FileId = id_str.parse().unwrap_or_default();
         let book_id: BookId = book_id_str.parse().unwrap_or_default();
-        let format = format_str.parse().unwrap_or(DocumentFormat::Epub);
-        let availability = availability_str.parse().unwrap_or_default();
+        let format = format_str.parse().unwrap_or(FALLBACK_FORMAT);
+        let availability = availability_str.parse().unwrap_or(FALLBACK_AVAILABILITY);
 
         let imported_at = chrono::DateTime::parse_from_rfc3339(&imported_at_str)
             .map(|d| d.with_timezone(&chrono::Utc))

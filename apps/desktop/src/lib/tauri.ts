@@ -447,18 +447,16 @@ export class LumaApiClient {
   }
 
   async getBookFileBytes(bookId: string, fileId?: string): Promise<Uint8Array> {
-    return this._call(
+    const res = await this._call<number[] | Uint8Array | ArrayBuffer>(
       "get_book_file_bytes",
       { bookId, fileId },
-      async () => {
-        if (isTauri()) {
-          const { invoke } = await import("@tauri-apps/api/core");
-          const bytes = await invoke<number[]>("get_book_file_bytes", { bookId, fileId });
-          return new Uint8Array(bytes);
-        }
-        return new Uint8Array();
-      }
+      () => new Uint8Array()
     );
+    if (!res) return new Uint8Array();
+    if (res instanceof Uint8Array) return res;
+    if (res instanceof ArrayBuffer) return new Uint8Array(res);
+    if (Array.isArray(res)) return new Uint8Array(res);
+    return new Uint8Array();
   }
 
   async searchDocument(bookId: string, query: string): Promise<DocumentSearchMatch[]> {
@@ -532,6 +530,14 @@ export class LumaApiClient {
       "list_annotations",
       { bookId },
       () => this.mockStore.annotations.filter((a) => a.book_id === bookId)
+    );
+  }
+
+  async listAllAnnotations(): Promise<Annotation[]> {
+    return this._call(
+      "list_all_annotations",
+      undefined,
+      () => [...this.mockStore.annotations]
     );
   }
 

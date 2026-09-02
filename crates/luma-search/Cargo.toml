@@ -4,6 +4,12 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
+description = "Full‑text search engine abstraction and SQLite FTS5 implementation."
+homepage = "https://luma.reader"
+repository = "https://github.com/luma/luma"
+readme = "README.md"
+keywords = ["search", "fts5", "fulltext", "luma"]
+categories = ["database", "text-processing"]
 
 [dependencies]
 luma-core = { workspace = true }
@@ -17,3 +23,11 @@ chrono = { workspace = true }
 
 [dev-dependencies]
 tokio = { workspace = true }
+
+[features]
+default = []
+# Optional: enable additional search backends (e.g., Tantivy) in the future.
+# tantivy = ["dep:tantivy"]
+
+[package.metadata.docs.rs]
+all-features = true

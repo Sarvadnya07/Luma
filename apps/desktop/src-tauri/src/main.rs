@@ -118,6 +118,7 @@ fn main() {
             commands::delete_bookmark,
             // Annotations & Anchor
             commands::list_annotations,
+            commands::list_all_annotations,
             commands::save_annotation,
             commands::update_annotation_note,
             commands::delete_annotation,

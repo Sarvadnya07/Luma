@@ -3,6 +3,18 @@ use luma_core::models::book::DocumentFormat;
 use serde::{Deserialize, Serialize};
 use tokio::sync::broadcast;
 
+// ============================================================================
+// Constants – default channel capacity
+// ============================================================================
+
+/// Default capacity for the broadcast channel.
+/// This allows up to 256 events to be buffered before subscribers start lagging.
+pub const DEFAULT_EVENT_CHANNEL_CAPACITY: usize = 256;
+
+// ============================================================================
+// DomainEvent Enum
+// ============================================================================
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "type", content = "payload")]
 pub enum DomainEvent {
@@ -82,6 +94,11 @@ pub enum DomainEvent {
     },
 }
 
+// ============================================================================
+// EventBus
+// ============================================================================
+
+/// An event bus that broadcasts domain events to multiple subscribers.
 #[derive(Clone)]
 pub struct EventBus {
     sender: broadcast::Sender<DomainEvent>,
@@ -89,21 +106,29 @@ pub struct EventBus {
 
 impl Default for EventBus {
     fn default() -> Self {
-        Self::new(256)
+        Self::with_capacity(DEFAULT_EVENT_CHANNEL_CAPACITY)
     }
 }
 
 impl EventBus {
-    pub fn new(capacity: usize) -> Self {
+    /// Creates a new event bus with the default channel capacity.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Creates a new event bus with a custom channel capacity.
+    pub fn with_capacity(capacity: usize) -> Self {
         let (sender, _) = broadcast::channel(capacity);
         Self { sender }
     }
 
+    /// Publishes an event to all active subscribers.
+    /// If there are no receivers, the send is ignored.
     pub fn publish(&self, event: DomainEvent) {
-        // broadcast sends to all active subscribers. If there are no receivers, Ok is ignored.
         let _ = self.sender.send(event);
     }
 
+    /// Subscribes to the event bus, returning a receiver that will receive future events.
     pub fn subscribe(&self) -> broadcast::Receiver<DomainEvent> {
         self.sender.subscribe()
     }

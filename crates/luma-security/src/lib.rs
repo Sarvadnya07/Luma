@@ -3,14 +3,91 @@ use std::path::{Component, Path, PathBuf};
 
 use luma_core::error::{LumaError, Result};
 
-/// Maximum allowed uncompressed size for a single document component (500 MB)
+// ============================================================================
+// Constants – archive safety limits
+// ============================================================================
+
+/// Maximum allowed uncompressed size for a single document component (500 MB).
 pub const MAX_UNCOMPRESSED_FILE_SIZE_BYTES: u64 = 500 * 1024 * 1024;
-/// Maximum archive entry count (100,000 files)
+
+/// Maximum archive entry count (100,000 files).
 pub const MAX_ARCHIVE_ENTRY_COUNT: usize = 100_000;
-/// Maximum compression expansion ratio (100:1) to prevent zip bombs
+
+/// Maximum compression expansion ratio (100:1) to prevent zip bombs.
 pub const MAX_COMPRESSION_RATIO: u64 = 100;
 
-/// Validates that a path is safe and does not escape the designated base directory via `..` or root absolute paths
+// ============================================================================
+// Constants – HTML sanitisation
+// ============================================================================
+
+/// Dangerous HTML/XML tag pairs to remove.
+pub const DANGEROUS_TAG_PAIRS: &[(&str, &str)] = &[
+    ("<script", "</script>"),
+    ("<iframe", "</iframe>"),
+    ("<object", "</object>"),
+    ("<embed", "</embed>"),
+    ("<applet", "</applet>"),
+    ("<form", "</form>"),
+];
+
+/// Regex pattern to match inline event handlers (case‑insensitive).
+pub const EVENT_HANDLER_REGEX_STR: &str = r#"(?i)\s+on[a-z]+\s*=\s*(?:'[^']*'|"[^"]*"|[^\s>]+)"#;
+
+/// Regex pattern to match `javascript:` URIs (case‑insensitive).
+pub const JS_PROTO_REGEX_STR: &str = r#"(?i)javascript:\s*"#;
+
+/// Replacement string for blocked `javascript:` URIs.
+pub const BLOCKED_JS_URI_REPLACEMENT: &str = "blocked-javascript:";
+
+// ============================================================================
+// HTML Sanitizer Configuration
+// ============================================================================
+
+/// Configuration for the HTML sanitizer.
+#[derive(Debug, Clone)]
+pub struct SanitizerConfig {
+    /// List of dangerous tag pairs to remove.
+    pub dangerous_tag_pairs: Vec<(String, String)>,
+    /// Compiled regex for event handlers.
+    pub event_handler_regex: regex::Regex,
+    /// Compiled regex for `javascript:` URIs.
+    pub js_proto_regex: regex::Regex,
+    /// Replacement string for blocked URIs.
+    pub js_replacement: String,
+}
+
+impl Default for SanitizerConfig {
+    fn default() -> Self {
+        // Build vectors from the constants.
+        let pairs = DANGEROUS_TAG_PAIRS
+            .iter()
+            .map(|(start, end)| (start.to_string(), end.to_string()))
+            .collect();
+        Self {
+            dangerous_tag_pairs: pairs,
+            event_handler_regex: regex::Regex::new(EVENT_HANDLER_REGEX_STR)
+                .expect("Valid regex"),
+            js_proto_regex: regex::Regex::new(JS_PROTO_REGEX_STR)
+                .expect("Valid regex"),
+            js_replacement: BLOCKED_JS_URI_REPLACEMENT.to_string(),
+        }
+    }
+}
+
+impl SanitizerConfig {
+    /// Creates a new config with custom tag pairs.
+    pub fn with_tag_pairs(pairs: Vec<(String, String)>) -> Self {
+        let mut config = Self::default();
+        config.dangerous_tag_pairs = pairs;
+        config
+    }
+}
+
+// ============================================================================
+// Core Functions (using constants and config)
+// ============================================================================
+
+/// Validates that a path is safe and does not escape the designated base directory.
 pub fn sanitize_relative_path(base_dir: &Path, untrusted_rel_path: &str) -> Result<PathBuf> {
     let rel_path = Path::new(untrusted_rel_path);
 
@@ -18,14 +95,12 @@ pub fn sanitize_relative_path(base_dir: &Path, untrusted_rel_path: &str) -> Resu
         match component {
             Component::ParentDir => {
                 return Err(LumaError::SecurityError(format!(
-                    "Path traversal attempt detected: '{}'",
-                    untrusted_rel_path
+                    "Path traversal attempt detected: '{untrusted_rel_path}'"
                 )));
             }
             Component::RootDir | Component::Prefix(_) => {
                 return Err(LumaError::SecurityError(format!(
-                    "Absolute or rooted path not allowed in relative context: '{}'",
-                    untrusted_rel_path
+                    "Absolute or rooted path not allowed in relative context: '{untrusted_rel_path}'"
                 )));
             }
             Component::Normal(_) | Component::CurDir => {}
@@ -36,14 +111,14 @@ pub fn sanitize_relative_path(base_dir: &Path, untrusted_rel_path: &str) -> Resu
     Ok(joined)
 }
 
-/// Compute SHA-256 hash of bytes
+/// Compute SHA-256 hash of bytes.
 pub fn compute_sha256(bytes: &[u8]) -> String {
     let mut hasher = Sha256::new();
     hasher.update(bytes);
     format!("{:x}", hasher.finalize())
 }
 
-/// Compute SHA-256 hash and total size in constant O(1) memory from a stream reader
+/// Compute SHA-256 hash and total size in constant O(1) memory from a stream reader.
 pub fn compute_sha256_reader<R: std::io::Read>(mut reader: R) -> Result<(String, u64)> {
     let mut hasher = Sha256::new();
     let mut buffer = [0u8; 64 * 1024];
@@ -51,7 +126,7 @@ pub fn compute_sha256_reader<R: std::io::Read>(mut reader: R) -> Result<(String,
 
     loop {
         let bytes_read = reader.read(&mut buffer).map_err(|e| {
-            LumaError::StorageError(format!("Failed to stream read for hashing: {}", e))
+            LumaError::StorageError(format!("Failed to stream read for hashing: {e}"))
         })?;
         if bytes_read == 0 {
             break;
@@ -63,7 +138,7 @@ pub fn compute_sha256_reader<R: std::io::Read>(mut reader: R) -> Result<(String,
     Ok((format!("{:x}", hasher.finalize()), total_bytes))
 }
 
-/// Verify decompression safety parameters against zip-bomb heuristics
+/// Verify decompression safety parameters against zip‑bomb heuristics.
 pub fn verify_archive_safety(
     compressed_size: u64,
     uncompressed_size: u64,
@@ -71,15 +146,13 @@ pub fn verify_archive_safety(
 ) -> Result<()> {
     if entry_count > MAX_ARCHIVE_ENTRY_COUNT {
         return Err(LumaError::SecurityError(format!(
-            "Archive exceeds maximum allowed entry count: {}",
-            entry_count
+            "Archive exceeds maximum allowed entry count: {entry_count}"
         )));
     }
 
     if uncompressed_size > MAX_UNCOMPRESSED_FILE_SIZE_BYTES {
         return Err(LumaError::SecurityError(format!(
-            "Uncompressed file size exceeds limit: {} bytes",
-            uncompressed_size
+            "Uncompressed file size exceeds limit: {uncompressed_size} bytes"
         )));
     }
 
@@ -93,32 +166,25 @@ pub fn verify_archive_safety(
     Ok(())
 }
 
-static EVENT_HANDLER_REGEX: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
-    regex::Regex::new(r#"(?i)\s+on[a-z]+\s*=\s*(?:'[^']*'|"[^"]*"|[^\s>]+)"#).expect("Valid regex")
-});
+// ============================================================================
+// HTML Sanitizer (default & configurable)
+// ============================================================================
 
-static JS_PROTO_REGEX: std::sync::LazyLock<regex::Regex> =
-    std::sync::LazyLock::new(|| regex::Regex::new(r#"(?i)javascript:\s*"#).expect("Valid regex"));
-
-/// Strip executable script tags and hazardous inline handlers from untrusted HTML/SVG strings
+/// Sanitizes untrusted HTML using the default configuration.
 pub fn sanitize_untrusted_html(input: &str) -> String {
+    sanitize_untrusted_html_with_config(input, &SanitizerConfig::default())
+}
+
+/// Sanitizes untrusted HTML using a custom configuration.
+pub fn sanitize_untrusted_html_with_config(input: &str, config: &SanitizerConfig) -> String {
     let mut cleaned = input.to_string();
 
-    let dangerous_tag_pairs = [
-        ("<script", "</script>"),
-        ("<iframe", "</iframe>"),
-        ("<object", "</object>"),
-        ("<embed", "</embed>"),
-        ("<applet", "</applet>"),
-        ("<form", "</form>"),
-    ];
-
-    // 1. Recursive removal of dangerous tag pairs until fixed-point (prevents <scr<script>ipt> evasion)
+    // 1. Recursive removal of dangerous tag pairs (prevents nested evasion)
     let mut changed = true;
     while changed {
         let before_len = cleaned.len();
         let lower = cleaned.to_lowercase();
-        for (start_tag, end_tag) in dangerous_tag_pairs {
+        for (start_tag, end_tag) in &config.dangerous_tag_pairs {
             if let Some(start_pos) = lower.find(start_tag) {
                 if let Some(end_pos) = lower[start_pos..].find(end_tag) {
                     let full_end = start_pos + end_pos + end_tag.len();
@@ -134,14 +200,18 @@ pub fn sanitize_untrusted_html(input: &str) -> String {
         changed = cleaned.len() != before_len;
     }
 
-    // 2. Neutralize inline event handlers (e.g. `onload=`, `onerror=`, `onclick=`)
-    let cleaned = EVENT_HANDLER_REGEX.replace_all(&cleaned, " ");
+    // 2. Neutralize inline event handlers
+    let cleaned = config.event_handler_regex.replace_all(&cleaned, " ");
 
-    // 3. Neutralize `javascript:` pseudo-protocol URIs in attributes
-    let cleaned = JS_PROTO_REGEX.replace_all(&cleaned, "blocked-javascript:");
+    // 3. Neutralize `javascript:` URIs
+    let cleaned = config.js_proto_regex.replace_all(&cleaned, config.js_replacement.as_str());
 
     cleaned.into_owned()
 }
+
+// ============================================================================
+// Tests
+// ============================================================================
 
 #[cfg(test)]
 mod tests {
@@ -157,10 +227,7 @@ mod tests {
 
     #[test]
     fn test_archive_safety_limits() {
-        // Normal archive: 10MB compressed -> 25MB uncompressed (ratio 2.5)
         assert!(verify_archive_safety(10_000_000, 25_000_000, 50).is_ok());
-
-        // Zip bomb: 10KB compressed -> 200MB uncompressed (ratio 20,000)
         assert!(verify_archive_safety(10_000, 200_000_000, 10).is_err());
     }
 
@@ -199,5 +266,17 @@ mod tests {
         let cleaned = sanitize_untrusted_html(dirty_link);
         assert!(!cleaned.contains("href=\"javascript:"));
         assert!(cleaned.contains("Click Here"));
+    }
+
+    #[test]
+    fn test_custom_sanitizer_config() {
+        let custom_pairs = vec![
+            ("<evil".to_string(), "</evil>".to_string()),
+        ];
+        let config = SanitizerConfig::with_tag_pairs(custom_pairs);
+        let input = "<evil>bad</evil>Hello World";
+        let cleaned = sanitize_untrusted_html_with_config(input, &config);
+        assert!(!cleaned.contains("evil"));
+        assert!(cleaned.contains("Hello World"));
     }
 }

@@ -1,3 +1,33 @@
+//! # Luma Reader
+//!
+//! Core document parsing and reading engine for the Luma application.
+//! This crate provides:
+//!
+//! - EPUB and PDF document parsing (`EpubDocument`, `PdfDocument`)
+//! - Text extraction, search, and anchor resolution
+//! - Table of Contents (TOC) extraction
+//! - Format detection and metadata extraction
+//! - Cover image management (`CoverStore`)
+//! - Session management (`DocumentSession`)
+//!
+//! ## Modules
+//!
+//! - `cover` – Cover image storage and retrieval.
+//! - `detector` – File format detection.
+//! - `encoding` – Text decoding and entity handling.
+//! - `epub_doc` – EPUB document parsing and navigation.
+//! - `extractors` – Format‑specific extractors (EPUB, PDF, etc.).
+//! - `pdf_doc` – PDF document parsing and rendering.
+//! - `session` – Document session caching and state.
+//!
+//! ## Prelude
+//!
+//! For convenience, you can import the most common types via the prelude:
+//!
+//! ```
+//! use luma_reader::prelude::*;
+//! ```
+
 pub mod cover;
 pub mod detector;
 pub mod encoding;
@@ -13,6 +43,7 @@ use std::path::Path;
 use luma_core::error::Result;
 use luma_core::models::book::DocumentFormat;
 
+// Re‑export core types for easy access.
 pub use cover::CoverStore;
 pub use detector::FormatDetector;
 pub use epub_doc::{ChapterContent, DocumentSearchMatch, EpubDocument, SpineItem};
@@ -20,6 +51,11 @@ pub use extractors::*;
 pub use pdf_doc::{PdfDocument, PdfPageData};
 pub use session::DocumentSession;
 
+// ============================================================================
+// Shared Types
+// ============================================================================
+
+/// Table of Contents item.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TocItem {
     pub title: String,
@@ -28,6 +64,7 @@ pub struct TocItem {
     pub children: Vec<TocItem>,
 }
 
+/// Metadata extracted from a document.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub struct DocumentMetadata {
     pub title: String,
@@ -40,6 +77,7 @@ pub struct DocumentMetadata {
     pub total_pages_or_spines: Option<u32>,
 }
 
+/// Capabilities of a document format.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FormatCapabilities {
     pub supports_reflow: bool,
@@ -51,6 +89,7 @@ pub struct FormatCapabilities {
 }
 
 impl FormatCapabilities {
+    /// Returns the capabilities for a given document format.
     pub fn for_format(format: DocumentFormat) -> Self {
         match format {
             DocumentFormat::Epub => Self {
@@ -89,18 +128,37 @@ impl FormatCapabilities {
     }
 }
 
-/// Abstract contract for reading engines
+// ============================================================================
+// Document Engine Trait
+// ============================================================================
+
+/// Abstract contract for reading engines.
 #[async_trait]
 pub trait DocumentEngine: Send + Sync {
-    /// Inspect and extract metadata from document file
+    /// Inspect and extract metadata from document file.
     async fn parse_metadata(&self, file_path: &Path) -> Result<DocumentMetadata>;
 
-    /// Extract hierarchical Table of Contents
+    /// Extract hierarchical Table of Contents.
     async fn extract_toc(&self, file_path: &Path) -> Result<Vec<TocItem>>;
 
-    /// Extract raw text from a given locator/spine/page for search or anchoring
+    /// Extract raw text from a given locator/spine/page for search or anchoring.
     async fn extract_text(&self, file_path: &Path, locator: &str) -> Result<String>;
 
-    /// Return format capabilities
+    /// Return format capabilities.
     fn capabilities(&self) -> FormatCapabilities;
+}
+
+// ============================================================================
+// Prelude
+// ============================================================================
+
+/// Convenience prelude module: imports the most frequently used types.
+pub mod prelude {
+    pub use super::{
+        ChapterContent, CoverStore, DocumentEngine, DocumentMetadata, DocumentSearchMatch,
+        EpubDocument, FormatCapabilities, FormatDetector, PdfDocument, PdfPageData,
+        TocItem,
+    };
+    pub use super::epub_doc::SpineItem;
+    pub use super::session::DocumentSession;
 }

@@ -3,6 +3,34 @@ use crate::error::StorageResult;
 use rusqlite::params;
 use serde::{Deserialize, Serialize};
 
+// ============================================================================
+// Constants – table name and SQL templates
+// ============================================================================
+
+const TABLE_BACKUP_RECORDS: &str = "backup_records";
+
+// SQL query templates (with placeholders)
+const SQL_INSERT_BACKUP_RECORD: &str = r#"
+    INSERT INTO backup_records (
+        id, backup_name, file_path, file_size_bytes, sha256_hash,
+        books_count, annotations_count, bookmarks_count, created_at
+    )
+    VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
+"#;
+
+const SQL_SELECT_ALL_BACKUP_RECORDS: &str = r#"
+    SELECT id, backup_name, file_path, file_size_bytes, sha256_hash,
+           books_count, annotations_count, bookmarks_count, created_at
+    FROM backup_records
+    ORDER BY created_at DESC
+"#;
+
+const SQL_DELETE_BACKUP_RECORD: &str = "DELETE FROM backup_records WHERE id = ?1";
+
+// ============================================================================
+// BackupRecord
+// ============================================================================
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BackupRecord {
     pub id: String,
@@ -15,6 +43,10 @@ pub struct BackupRecord {
     pub bookmarks_count: u32,
     pub created_at: String,
 }
+
+// ============================================================================
+// BackupRecordRepository
+// ============================================================================
 
 #[derive(Clone)]
 pub struct BackupRecordRepository {
@@ -29,13 +61,7 @@ impl BackupRecordRepository {
     pub fn insert(&self, record: &BackupRecord) -> StorageResult<()> {
         self.db.with_conn(|conn| {
             conn.execute(
-                r#"
-                INSERT INTO backup_records (
-                    id, backup_name, file_path, file_size_bytes, sha256_hash,
-                    books_count, annotations_count, bookmarks_count, created_at
-                )
-                VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
-                "#,
+                SQL_INSERT_BACKUP_RECORD,
                 params![
                     record.id,
                     record.backup_name,
@@ -54,14 +80,7 @@ impl BackupRecordRepository {
 
     pub fn list_all(&self) -> StorageResult<Vec<BackupRecord>> {
         self.db.with_conn(|conn| {
-            let mut stmt = conn.prepare(
-                r#"
-                SELECT id, backup_name, file_path, file_size_bytes, sha256_hash,
-                       books_count, annotations_count, bookmarks_count, created_at
-                FROM backup_records
-                ORDER BY created_at DESC
-                "#,
-            )?;
+            let mut stmt = conn.prepare(SQL_SELECT_ALL_BACKUP_RECORDS)?;
 
             let rows = stmt.query_map([], |r| {
                 Ok(BackupRecord {
@@ -87,7 +106,7 @@ impl BackupRecordRepository {
 
     pub fn delete(&self, id: &str) -> StorageResult<()> {
         self.db.with_conn(|conn| {
-            conn.execute("DELETE FROM backup_records WHERE id = ?1", [id])?;
+            conn.execute(SQL_DELETE_BACKUP_RECORD, [id])?;
             Ok(())
         })
     }

@@ -1,5 +1,5 @@
 {
-  "benchmark_date": "2026-09-02T12:27:39.082Z",
+  "benchmark_date": "2026-09-02T12:30:55.665Z",
   "environment": {
     "runtime": "Vite + Vitest / Node.js + jsdom",
     "clock": "performance.now()"
@@ -7,84 +7,84 @@
   "stats": {
     "startup": {
       "n": 10,
-      "min": 20.588599999999985,
-      "median": 29.014749999999992,
-      "p95": 29.802999999999997,
-      "max": 29.802999999999997
+      "min": 25.57189999999997,
+      "median": 30.911999999999978,
+      "p95": 31.664499999999975,
+      "max": 31.664499999999975
     },
     "epubOpen": {
       "n": 5,
-      "min": 14.71309999999994,
-      "median": 14.927500000000009,
-      "p95": 15.35940000000005,
-      "max": 15.35940000000005
+      "min": 15.074499999999944,
+      "median": 15.204700000000003,
+      "p95": 15.977499999999964,
+      "max": 15.977499999999964
     },
     "epubChapterTurn": {
       "n": 10,
-      "min": 11.744699999999966,
-      "median": 14.654099999999971,
-      "p95": 14.975900000000024,
-      "max": 14.975900000000024
+      "min": 15.01520000000005,
+      "median": 15.590649999999982,
+      "p95": 16.059799999999996,
+      "max": 16.059799999999996
     },
     "pdfOpen": {
       "n": 5,
-      "min": 28.106599999999958,
-      "median": 29.360100000000102,
-      "p95": 29.83510000000001,
-      "max": 29.83510000000001
+      "min": 30.04430000000002,
+      "median": 31.310799999999972,
+      "p95": 31.368399999999838,
+      "max": 31.368399999999838
     },
     "pdfPageTurn": {
       "n": 10,
-      "min": 13.779300000000148,
-      "median": 14.544200000000046,
-      "p95": 15.71939999999995,
-      "max": 15.71939999999995
+      "min": 15.06820000000016,
+      "median": 15.460900000000038,
+      "p95": 16.119899999999916,
+      "max": 16.119899999999916
     },
     "search": {
       "n": 5,
-      "min": 14.276399999999967,
-      "median": 14.431500000000142,
-      "p95": 15.144800000000032,
-      "max": 15.144800000000032
+      "min": 15.111100000000079,
+      "median": 15.485500000000002,
+      "p95": 15.983499999999822,
+      "max": 15.983499999999822
     },
     "annotation": {
       "n": 3,
-      "min": 0.4591000000000349,
-      "median": 1.1848999999999705,
-      "p95": 15.089599999999791,
-      "max": 15.089599999999791
+      "min": 15.366100000000188,
+      "median": 15.732899999999972,
+      "p95": 16.247699999999895,
+      "max": 16.247699999999895
     }
   },
   "raw_event_count": 103,
   "events": [
     {
       "event": "LUMA_PERF_APP_START",
-      "timestamp": 447.4437,
-      "elapsedSinceStartMs": 6.8476,
+      "timestamp": 480.3174,
+      "elapsedSinceStartMs": 33.77660000000003,
       "metadata": {
         "iteration": 1
       }
     },
     {
       "event": "LUMA_PERF_TAURI_READY",
-      "timestamp": 453.2114,
-      "elapsedSinceStartMs": 12.615300000000047,
+      "timestamp": 490.3211,
+      "elapsedSinceStartMs": 43.78030000000001,
       "metadata": {
         "iteration": 1
       }
     },
     {
       "event": "LUMA_PERF_REACT_MOUNT",
-      "timestamp": 453.3877,
-      "elapsedSinceStartMs": 12.791600000000017,
+      "timestamp": 490.5945,
+      "elapsedSinceStartMs": 44.05369999999999,
       "metadata": {
         "iteration": 1
       }
     },
     {
       "event": "LUMA_PERF_LIBRARY_VISIBLE",
-      "timestamp": 467.8277,
-      "elapsedSinceStartMs": 27.231600000000014,
+      "timestamp": 505.6998,
+      "elapsedSinceStartMs": 59.15899999999999,
       "metadata": {
         "iteration": 1,
         "count": 100
@@ -92,32 +92,32 @@
     },
     {
       "event": "LUMA_PERF_APP_START",
-      "timestamp": 468.0307,
-      "elapsedSinceStartMs": 27.434600000000046,
+      "timestamp": 505.8848,
+      "elapsedSinceStartMs": 59.343999999999994,
       "metadata": {
         "iteration": 2
       }
     },
     {
       "event": "LUMA_PERF_TAURI_READY",
-      "timestamp": 482.5611,
-      "elapsedSinceStartMs": 41.96500000000003,
+      "timestamp": 521.1611,
+      "elapsedSinceStartMs": 74.62030000000004,
       "metadata": {
         "iteration": 2
       }
     },
     {
       "event": "LUMA_PERF_REACT_MOUNT",
-      "timestamp": 482.7532,
-      "elapsedSinceStartMs": 42.157100000000014,
+      "timestamp": 521.359,
+      "elapsedSinceStartMs": 74.81820000000005,
       "metadata": {
         "iteration": 2
       }
     },
     {
       "event": "LUMA_PERF_LIBRARY_VISIBLE",
-      "timestamp": 496.6775,
-      "elapsedSinceStartMs": 56.08140000000003,
+      "timestamp": 536.2338,
+      "elapsedSinceStartMs": 89.69299999999998,
       "metadata": {
         "iteration": 2,
         "count": 100
@@ -125,32 +125,32 @@
     },
     {
       "event": "LUMA_PERF_APP_START",
-      "timestamp": 496.8877,
-      "elapsedSinceStartMs": 56.29160000000002,
+      "timestamp": 536.5032,
+      "elapsedSinceStartMs": 89.9624,
       "metadata": {
         "iteration": 3
       }
     },
     {
       "event": "LUMA_PERF_TAURI_READY",
-      "timestamp": 510.6004,
-      "elapsedSinceStartMs": 70.0043,
+      "timestamp": 551.7965,
+      "elapsedSinceStartMs": 105.25570000000005,
       "metadata": {
         "iteration": 3
       }
     },
     {
       "event": "LUMA_PERF_REACT_MOUNT",
-      "timestamp": 510.7287,
-      "elapsedSinceStartMs": 70.13260000000002,
+      "timestamp": 552.0292,
+      "elapsedSinceStartMs": 105.48839999999996,
       "metadata": {
         "iteration": 3
       }
     },
     {
       "event": "LUMA_PERF_LIBRARY_VISIBLE",
-      "timestamp": 525.2531,
-      "elapsedSinceStartMs": 84.65700000000004,
+      "timestamp": 567.4545,
+      "elapsedSinceStartMs": 120.91370000000006,
       "metadata": {
         "iteration": 3,
         "count": 100
@@ -158,32 +158,32 @@
     },
     {
       "event": "LUMA_PERF_APP_START",
-      "timestamp": 525.3994,
-      "elapsedSinceStartMs": 84.80330000000004,
+      "timestamp": 567.5922,
+      "elapsedSinceStartMs": 121.05140000000006,
       "metadata": {
         "iteration": 4
       }
     },
     {
       "event": "LUMA_PERF_TAURI_READY",
-      "timestamp": 539.3955,
-      "elapsedSinceStartMs": 98.79939999999999,
+      "timestamp": 583.1446,
+      "elapsedSinceStartMs": 136.60379999999998,
       "metadata": {
         "iteration": 4
       }
     },
     {
       "event": "LUMA_PERF_REACT_MOUNT",
-      "timestamp": 539.5108,
-      "elapsedSinceStartMs": 98.91470000000004,
+      "timestamp": 583.2458,
+      "elapsedSinceStartMs": 136.70500000000004,
       "metadata": {
         "iteration": 4
       }
     },
     {
       "event": "LUMA_PERF_LIBRARY_VISIBLE",
-      "timestamp": 551.6787,
-      "elapsedSinceStartMs": 111.08260000000007,
+      "timestamp": 598.9108,
+      "elapsedSinceStartMs": 152.37,
       "metadata": {
         "iteration": 4,
         "count": 100
@@ -191,32 +191,32 @@
     },
     {
       "event": "LUMA_PERF_APP_START",
-      "timestamp": 551.8308,
-      "elapsedSinceStartMs": 111.23469999999998,
+      "timestamp": 599.0168,
+      "elapsedSinceStartMs": 152.476,
       "metadata": {
         "iteration": 5
       }
     },
     {
       "event": "LUMA_PERF_TAURI_READY",
-      "timestamp": 564.0325,
-      "elapsedSinceStartMs": 123.43640000000005,
+      "timestamp": 614.5186,
+      "elapsedSinceStartMs": 167.9778,
       "metadata": {
         "iteration": 5
       }
     },
     {
       "event": "LUMA_PERF_REACT_MOUNT",
-      "timestamp": 564.1781,
-      "elapsedSinceStartMs": 123.582,
+      "timestamp": 614.6524,
+      "elapsedSinceStartMs": 168.11159999999995,
       "metadata": {
         "iteration": 5
       }
     },
     {
       "event": "LUMA_PERF_LIBRARY_VISIBLE",
-      "timestamp": 578.6505,
-      "elapsedSinceStartMs": 138.0544,
+      "timestamp": 630.5345,
+      "elapsedSinceStartMs": 183.9937,
       "metadata": {
         "iteration": 5,
         "count": 100
@@ -224,32 +224,32 @@
     },
     {
       "event": "LUMA_PERF_APP_START",
-      "timestamp": 578.7928,
-      "elapsedSinceStartMs": 138.19670000000008,
+      "timestamp": 630.6886,
+      "elapsedSinceStartMs": 184.14779999999996,
       "metadata": {
         "iteration": 6
       }
     },
     {
       "event": "LUMA_PERF_TAURI_READY",
-      "timestamp": 593.0278,
-      "elapsedSinceStartMs": 152.43169999999998,
+      "timestamp": 646.6649,
+      "elapsedSinceStartMs": 200.1241,
       "metadata": {
         "iteration": 6
       }
     },
     {
       "event": "LUMA_PERF_REACT_MOUNT",
-      "timestamp": 593.144,
-      "elapsedSinceStartMs": 152.54790000000003,
+      "timestamp": 646.8232,
+      "elapsedSinceStartMs": 200.28240000000005,
       "metadata": {
         "iteration": 6
       }
     },
     {
       "event": "LUMA_PERF_LIBRARY_VISIBLE",
-      "timestamp": 607.8607,
-      "elapsedSinceStartMs": 167.26459999999997,
+      "timestamp": 662.0871,
+      "elapsedSinceStartMs": 215.54629999999997,
       "metadata": {
         "iteration": 6,
         "count": 100
@@ -257,32 +257,32 @@
     },
     {
       "event": "LUMA_PERF_APP_START",
-      "timestamp": 607.9783,
-      "elapsedSinceStartMs": 167.3822,
+      "timestamp": 662.3353,
+      "elapsedSinceStartMs": 215.79449999999997,
       "metadata": {
         "iteration": 7
       }
     },
     {
       "event": "LUMA_PERF_TAURI_READY",
-      "timestamp": 622.5912,
-      "elapsedSinceStartMs": 181.99509999999998,
+      "timestamp": 677.3664,
+      "elapsedSinceStartMs": 230.8256,
       "metadata": {
         "iteration": 7
       }
     },
     {
       "event": "LUMA_PERF_REACT_MOUNT",
-      "timestamp": 622.7203,
-      "elapsedSinceStartMs": 182.12419999999997,
+      "timestamp": 677.4868,
+      "elapsedSinceStartMs": 230.94600000000003,
       "metadata": {
         "iteration": 7
       }
     },
     {
       "event": "LUMA_PERF_LIBRARY_VISIBLE",
-      "timestamp": 637.14,
-      "elapsedSinceStartMs": 196.5439,
+      "timestamp": 692.7812,
+      "elapsedSinceStartMs": 246.24040000000002,
       "metadata": {
         "iteration": 7,
         "count": 100
@@ -290,32 +290,32 @@
     },
     {
       "event": "LUMA_PERF_APP_START",
-      "timestamp": 637.2883,
-      "elapsedSinceStartMs": 196.69220000000007,
+      "timestamp": 692.9549,
+      "elapsedSinceStartMs": 246.41409999999996,
       "metadata": {
         "iteration": 8
       }
     },
     {
       "event": "LUMA_PERF_TAURI_READY",
-      "timestamp": 651.7201,
-      "elapsedSinceStartMs": 211.12400000000002,
+      "timestamp": 708.558,
+      "elapsedSinceStartMs": 262.0172,
       "metadata": {
         "iteration": 8
       }
     },
     {
       "event": "LUMA_PERF_REACT_MOUNT",
-      "timestamp": 651.8435,
-      "elapsedSinceStartMs": 211.24739999999997,
+      "timestamp": 708.6916,
+      "elapsedSinceStartMs": 262.1508,
       "metadata": {
         "iteration": 8
       }
     },
     {
       "event": "LUMA_PERF_LIBRARY_VISIBLE",
-      "timestamp": 666.5795,
-      "elapsedSinceStartMs": 225.98340000000007,
+      "timestamp": 723.4555,
+      "elapsedSinceStartMs": 276.91470000000004,
       "metadata": {
         "iteration": 8,
         "count": 100
@@ -323,32 +323,32 @@
     },
     {
       "event": "LUMA_PERF_APP_START",
-      "timestamp": 666.7629,
-      "elapsedSinceStartMs": 226.16679999999997,
+      "timestamp": 723.5707,
+      "elapsedSinceStartMs": 277.0299,
       "metadata": {
         "iteration": 9
       }
     },
     {
       "event": "LUMA_PERF_TAURI_READY",
-      "timestamp": 681.1737,
-      "elapsedSinceStartMs": 240.57760000000007,
+      "timestamp": 739.3822,
+      "elapsedSinceStartMs": 292.8414,
       "metadata": {
         "iteration": 9
       }
     },
     {
       "event": "LUMA_PERF_REACT_MOUNT",
-      "timestamp": 681.2969,
-      "elapsedSinceStartMs": 240.70080000000007,
+      "timestamp": 739.5134,
+      "elapsedSinceStartMs": 292.97260000000006,
       "metadata": {
         "iteration": 9
       }
     },
     {
       "event": "LUMA_PERF_LIBRARY_VISIBLE",
-      "timestamp": 695.8765,
-      "elapsedSinceStartMs": 255.2804,
+      "timestamp": 754.2594,
+      "elapsedSinceStartMs": 307.71860000000004,
       "metadata": {
         "iteration": 9,
         "count": 100
@@ -356,32 +356,32 @@
     },
     {
       "event": "LUMA_PERF_APP_START",
-      "timestamp": 696.0636,
-      "elapsedSinceStartMs": 255.46749999999997,
+      "timestamp": 754.3908,
+      "elapsedSinceStartMs": 307.85,
       "metadata": {
         "iteration": 10
       }
     },
     {
       "event": "LUMA_PERF_TAURI_READY",
-      "timestamp": 710.9317,
-      "elapsedSinceStartMs": 270.3356,
+      "timestamp": 769.7543,
+      "elapsedSinceStartMs": 323.21349999999995,
       "metadata": {
         "iteration": 10
       }
     },
     {
       "event": "LUMA_PERF_REACT_MOUNT",
-      "timestamp": 711.1054,
-      "elapsedSinceStartMs": 270.50930000000005,
+      "timestamp": 769.8794,
+      "elapsedSinceStartMs": 323.33860000000004,
       "metadata": {
         "iteration": 10
       }
     },
     {
       "event": "LUMA_PERF_LIBRARY_VISIBLE",
-      "timestamp": 725.6848,
-      "elapsedSinceStartMs": 285.0887,
+      "timestamp": 785.2473,
+      "elapsedSinceStartMs": 338.7065,
       "metadata": {
         "iteration": 10,
         "count": 100
@@ -389,8 +389,8 @@
     },
     {
       "event": "LUMA_PERF_READER_OPEN",
-      "timestamp": 725.8828,
-      "elapsedSinceStartMs": 285.2867,
+      "timestamp": 785.4215,
+      "elapsedSinceStartMs": 338.88070000000005,
       "metadata": {
         "bookId": "book_epub_01",
         "format": "epub",
@@ -399,8 +399,8 @@
     },
     {
       "event": "LUMA_PERF_READER_VISIBLE",
-      "timestamp": 726.0357,
-      "elapsedSinceStartMs": 285.43960000000004,
+      "timestamp": 785.5608,
+      "elapsedSinceStartMs": 339.02,
       "metadata": {
         "bookId": "book_epub_01",
         "iteration": 1
@@ -408,8 +408,8 @@
     },
     {
       "event": "LUMA_PERF_EPUB_CONTENT_READY",
-      "timestamp": 740.6671,
-      "elapsedSinceStartMs": 300.071,
+      "timestamp": 801.2307,
+      "elapsedSinceStartMs": 354.68989999999997,
       "metadata": {
         "spineIndex": 0,
         "title": "Chapter 1",
@@ -418,8 +418,8 @@
     },
     {
       "event": "LUMA_PERF_READER_OPEN",
-      "timestamp": 740.8033,
-      "elapsedSinceStartMs": 300.20720000000006,
+      "timestamp": 801.3909,
+      "elapsedSinceStartMs": 354.8501,
       "metadata": {
         "bookId": "book_epub_01",
         "format": "epub",
@@ -428,8 +428,8 @@
     },
     {
       "event": "LUMA_PERF_READER_VISIBLE",
-      "timestamp": 740.8442,
-      "elapsedSinceStartMs": 300.2481,
+      "timestamp": 801.4622,
+      "elapsedSinceStartMs": 354.92140000000006,
       "metadata": {
         "bookId": "book_epub_01",
         "iteration": 2
@@ -437,8 +437,8 @@
     },
     {
       "event": "LUMA_PERF_EPUB_CONTENT_READY",
-      "timestamp": 755.7881,
-      "elapsedSinceStartMs": 315.192,
+      "timestamp": 816.3118,
+      "elapsedSinceStartMs": 369.77099999999996,
       "metadata": {
         "spineIndex": 0,
         "title": "Chapter 1",
@@ -447,8 +447,8 @@
     },
     {
       "event": "LUMA_PERF_READER_OPEN",
-      "timestamp": 755.9317,
-      "elapsedSinceStartMs": 315.3356,
+      "timestamp": 816.4702,
+      "elapsedSinceStartMs": 369.9294,
       "metadata": {
         "bookId": "book_epub_01",
         "format": "epub",
@@ -457,8 +457,8 @@
     },
     {
       "event": "LUMA_PERF_READER_VISIBLE",
-      "timestamp": 755.9646,
-      "elapsedSinceStartMs": 315.36850000000004,
+      "timestamp": 816.5467,
+      "elapsedSinceStartMs": 370.0059,
       "metadata": {
         "bookId": "book_epub_01",
         "iteration": 3
@@ -466,8 +466,8 @@
     },
     {
       "event": "LUMA_PERF_EPUB_CONTENT_READY",
-      "timestamp": 771.1344,
-      "elapsedSinceStartMs": 330.53830000000005,
+      "timestamp": 831.5263,
+      "elapsedSinceStartMs": 384.9855,
       "metadata": {
         "spineIndex": 0,
         "title": "Chapter 1",
@@ -476,8 +476,8 @@
     },
     {
       "event": "LUMA_PERF_READER_OPEN",
-      "timestamp": 771.2965,
-      "elapsedSinceStartMs": 330.70040000000006,
+      "timestamp": 831.6799,
+      "elapsedSinceStartMs": 385.1391,
       "metadata": {
         "bookId": "book_epub_01",
         "format": "epub",
@@ -486,8 +486,8 @@
     },
     {
       "event": "LUMA_PERF_READER_VISIBLE",
-      "timestamp": 771.3556,
-      "elapsedSinceStartMs": 330.7595,
+      "timestamp": 831.7491,
+      "elapsedSinceStartMs": 385.2083,
       "metadata": {
         "bookId": "book_epub_01",
         "iteration": 4
@@ -495,8 +495,8 @@
     },
     {
       "event": "LUMA_PERF_EPUB_CONTENT_READY",
-      "timestamp": 785.8628,
-      "elapsedSinceStartMs": 345.2667,
+      "timestamp": 846.6187,
+      "elapsedSinceStartMs": 400.0779,
       "metadata": {
         "spineIndex": 0,
         "title": "Chapter 1",
@@ -505,8 +505,8 @@
     },
     {
       "event": "LUMA_PERF_READER_OPEN",
-      "timestamp": 786.014,
-      "elapsedSinceStartMs": 345.41790000000003,
+      "timestamp": 846.785,
+      "elapsedSinceStartMs": 400.2442,
       "metadata": {
         "bookId": "book_epub_01",
         "format": "epub",
@@ -515,8 +515,8 @@
     },
     {
       "event": "LUMA_PERF_READER_VISIBLE",
-      "timestamp": 786.0732,
-      "elapsedSinceStartMs": 345.47710000000006,
+      "timestamp": 846.8591,
+      "elapsedSinceStartMs": 400.3183,
       "metadata": {
         "bookId": "book_epub_01",
         "iteration": 5
@@ -524,8 +524,8 @@
     },
     {
       "event": "LUMA_PERF_EPUB_CONTENT_READY",
-      "timestamp": 800.6086,
-      "elapsedSinceStartMs": 360.01250000000005,
+      "timestamp": 861.9147,
+      "elapsedSinceStartMs": 415.37390000000005,
       "metadata": {
         "spineIndex": 0,
         "title": "Chapter 1",
@@ -534,8 +534,8 @@
     },
     {
       "event": "LUMA_PERF_EPUB_CONTENT_READY",
-      "timestamp": 814.9252,
-      "elapsedSinceStartMs": 374.32910000000004,
+      "timestamp": 876.9413,
+      "elapsedSinceStartMs": 430.40049999999997,
       "metadata": {
         "spineIndex": 1,
         "title": "Chapter 2"
@@ -543,8 +543,8 @@
     },
     {
       "event": "LUMA_PERF_EPUB_CONTENT_READY",
-      "timestamp": 829.6102,
-      "elapsedSinceStartMs": 389.0141,
+      "timestamp": 892.5698,
+      "elapsedSinceStartMs": 446.029,
       "metadata": {
         "spineIndex": 2,
         "title": "Chapter 3"
@@ -552,8 +552,8 @@
     },
     {
       "event": "LUMA_PERF_EPUB_CONTENT_READY",
-      "timestamp": 844.1893,
-      "elapsedSinceStartMs": 403.5932,
+      "timestamp": 908.56,
+      "elapsedSinceStartMs": 462.01919999999996,
       "metadata": {
         "spineIndex": 3,
         "title": "Chapter 4"
@@ -561,8 +561,8 @@
     },
     {
       "event": "LUMA_PERF_EPUB_CONTENT_READY",
-      "timestamp": 858.8676,
-      "elapsedSinceStartMs": 418.27150000000006,
+      "timestamp": 923.7802,
+      "elapsedSinceStartMs": 477.23940000000005,
       "metadata": {
         "spineIndex": 4,
         "title": "Chapter 5"
@@ -570,8 +570,8 @@
     },
     {
       "event": "LUMA_PERF_EPUB_CONTENT_READY",
-      "timestamp": 873.5203,
-      "elapsedSinceStartMs": 432.92420000000004,
+      "timestamp": 939.8252,
+      "elapsedSinceStartMs": 493.2844,
       "metadata": {
         "spineIndex": 5,
         "title": "Chapter 6"
@@ -579,8 +579,8 @@
     },
     {
       "event": "LUMA_PERF_EPUB_CONTENT_READY",
-      "timestamp": 888.1355,
-      "elapsedSinceStartMs": 447.5394,
+      "timestamp": 955.1136,
+      "elapsedSinceStartMs": 508.57280000000003,
       "metadata": {
         "spineIndex": 6,
         "title": "Chapter 7"
@@ -588,8 +588,8 @@
     },
     {
       "event": "LUMA_PERF_EPUB_CONTENT_READY",
-      "timestamp": 902.9338,
-      "elapsedSinceStartMs": 462.33770000000004,
+      "timestamp": 970.2455,
+      "elapsedSinceStartMs": 523.7047,
       "metadata": {
         "spineIndex": 7,
         "title": "Chapter 8"
@@ -597,8 +597,8 @@
     },
     {
       "event": "LUMA_PERF_EPUB_CONTENT_READY",
-      "timestamp": 917.8149,
-      "elapsedSinceStartMs": 477.2188,
+      "timestamp": 986.0875,
+      "elapsedSinceStartMs": 539.5467,
       "metadata": {
         "spineIndex": 8,
         "title": "Chapter 9"
@@ -606,8 +606,8 @@
     },
     {
       "event": "LUMA_PERF_EPUB_CONTENT_READY",
-      "timestamp": 932.7195,
-      "elapsedSinceStartMs": 492.12340000000006,
+      "timestamp": 1002.1495,
+      "elapsedSinceStartMs": 555.6087,
       "metadata": {
         "spineIndex": 9,
         "title": "Chapter 10"
@@ -615,8 +615,8 @@
     },
     {
       "event": "LUMA_PERF_EPUB_CONTENT_READY",
-      "timestamp": 944.5343,
-      "elapsedSinceStartMs": 503.93820000000005,
+      "timestamp": 1017.6643,
+      "elapsedSinceStartMs": 571.1235,
       "metadata": {
         "spineIndex": 10,
         "title": "Chapter 11"
@@ -624,8 +624,8 @@
     },
     {
       "event": "LUMA_PERF_READER_OPEN",
-      "timestamp": 944.7008,
-      "elapsedSinceStartMs": 504.1047,
+      "timestamp": 1017.8089,
+      "elapsedSinceStartMs": 571.2681,
       "metadata": {
         "bookId": "book_pdf_01",
         "format": "pdf",
@@ -634,8 +634,8 @@
     },
     {
       "event": "LUMA_PERF_READER_VISIBLE",
-      "timestamp": 944.787,
-      "elapsedSinceStartMs": 504.19090000000006,
+      "timestamp": 1017.8906,
+      "elapsedSinceStartMs": 571.3498,
       "metadata": {
         "bookId": "book_pdf_01",
         "iteration": 1
@@ -643,8 +643,8 @@
     },
     {
       "event": "LUMA_PERF_PDF_DOCUMENT_READY",
-      "timestamp": 958.0681,
-      "elapsedSinceStartMs": 517.472,
+      "timestamp": 1032.9587,
+      "elapsedSinceStartMs": 586.4178999999999,
       "metadata": {
         "numPages": 250,
         "iteration": 1
@@ -652,8 +652,8 @@
     },
     {
       "event": "LUMA_PERF_PDF_CANVAS_READY",
-      "timestamp": 972.6699,
-      "elapsedSinceStartMs": 532.0738,
+      "timestamp": 1048.9918,
+      "elapsedSinceStartMs": 602.451,
       "metadata": {
         "pageNum": 1,
         "iteration": 1
@@ -661,8 +661,8 @@
     },
     {
       "event": "LUMA_PERF_READER_OPEN",
-      "timestamp": 972.8136,
-      "elapsedSinceStartMs": 532.2175,
+      "timestamp": 1049.1292,
+      "elapsedSinceStartMs": 602.5884000000001,
       "metadata": {
         "bookId": "book_pdf_01",
         "format": "pdf",
@@ -671,8 +671,8 @@
     },
     {
       "event": "LUMA_PERF_READER_VISIBLE",
-      "timestamp": 972.8673,
-      "elapsedSinceStartMs": 532.2712,
+      "timestamp": 1049.1752,
+      "elapsedSinceStartMs": 602.6343999999999,
       "metadata": {
         "bookId": "book_pdf_01",
         "iteration": 2
@@ -680,8 +680,8 @@
     },
     {
       "event": "LUMA_PERF_PDF_DOCUMENT_READY",
-      "timestamp": 987.2,
-      "elapsedSinceStartMs": 546.6039000000001,
+      "timestamp": 1064.4875,
+      "elapsedSinceStartMs": 617.9467,
       "metadata": {
         "numPages": 250,
         "iteration": 2
@@ -689,8 +689,8 @@
     },
     {
       "event": "LUMA_PERF_PDF_CANVAS_READY",
-      "timestamp": 1001.9971,
-      "elapsedSinceStartMs": 561.4010000000001,
+      "timestamp": 1079.5872,
+      "elapsedSinceStartMs": 633.0464,
       "metadata": {
         "pageNum": 1,
         "iteration": 2
@@ -698,8 +698,8 @@
     },
     {
       "event": "LUMA_PERF_READER_OPEN",
-      "timestamp": 1002.1283,
-      "elapsedSinceStartMs": 561.5322,
+      "timestamp": 1079.7416,
+      "elapsedSinceStartMs": 633.2008000000001,
       "metadata": {
         "bookId": "book_pdf_01",
         "format": "pdf",
@@ -708,8 +708,8 @@
     },
     {
       "event": "LUMA_PERF_READER_VISIBLE",
-      "timestamp": 1002.1818,
-      "elapsedSinceStartMs": 561.5857,
+      "timestamp": 1079.799,
+      "elapsedSinceStartMs": 633.2582,
       "metadata": {
         "bookId": "book_pdf_01",
         "iteration": 3
@@ -717,8 +717,8 @@
     },
     {
       "event": "LUMA_PERF_PDF_DOCUMENT_READY",
-      "timestamp": 1016.6609,
-      "elapsedSinceStartMs": 576.0648,
+      "timestamp": 1095.4532,
+      "elapsedSinceStartMs": 648.9123999999999,
       "metadata": {
         "numPages": 250,
         "iteration": 3
@@ -726,8 +726,8 @@
     },
     {
       "event": "LUMA_PERF_PDF_CANVAS_READY",
-      "timestamp": 1031.371,
-      "elapsedSinceStartMs": 590.7749000000001,
+      "timestamp": 1110.9541,
+      "elapsedSinceStartMs": 664.4132999999999,
       "metadata": {
         "pageNum": 1,
         "iteration": 3
@@ -735,8 +735,8 @@
     },
     {
       "event": "LUMA_PERF_READER_OPEN",
-      "timestamp": 1031.4929,
-      "elapsedSinceStartMs": 590.8968,
+      "timestamp": 1111.1158,
+      "elapsedSinceStartMs": 664.575,
       "metadata": {
         "bookId": "book_pdf_01",
         "format": "pdf",
@@ -745,8 +745,8 @@
     },
     {
       "event": "LUMA_PERF_READER_VISIBLE",
-      "timestamp": 1031.5405,
-      "elapsedSinceStartMs": 590.9444000000001,
+      "timestamp": 1111.1717,
+      "elapsedSinceStartMs": 664.6309000000001,
       "metadata": {
         "bookId": "book_pdf_01",
         "iteration": 4
@@ -754,8 +754,8 @@
     },
     {
       "event": "LUMA_PERF_PDF_DOCUMENT_READY",
-      "timestamp": 1046.5071,
-      "elapsedSinceStartMs": 605.9110000000001,
+      "timestamp": 1126.5047,
+      "elapsedSinceStartMs": 679.9639,
       "metadata": {
         "numPages": 250,
         "iteration": 4
@@ -763,8 +763,8 @@
     },
     {
       "event": "LUMA_PERF_PDF_CANVAS_READY",
-      "timestamp": 1061.0159,
-      "elapsedSinceStartMs": 620.4198000000001,
+      "timestamp": 1141.0278,
+      "elapsedSinceStartMs": 694.4870000000001,
       "metadata": {
         "pageNum": 1,
         "iteration": 4
@@ -772,8 +772,8 @@
     },
     {
       "event": "LUMA_PERF_READER_OPEN",
-      "timestamp": 1061.1856,
-      "elapsedSinceStartMs": 620.5895,
+      "timestamp": 1141.1648,
+      "elapsedSinceStartMs": 694.624,
       "metadata": {
         "bookId": "book_pdf_01",
         "format": "pdf",
@@ -782,8 +782,8 @@
     },
     {
       "event": "LUMA_PERF_READER_VISIBLE",
-      "timestamp": 1061.2532,
-      "elapsedSinceStartMs": 620.6571000000001,
+      "timestamp": 1141.2374,
+      "elapsedSinceStartMs": 694.6966,
       "metadata": {
         "bookId": "book_pdf_01",
         "iteration": 5
@@ -791,8 +791,8 @@
     },
     {
       "event": "LUMA_PERF_PDF_DOCUMENT_READY",
-      "timestamp": 1075.6971,
-      "elapsedSinceStartMs": 635.1010000000001,
+      "timestamp": 1157.1145,
+      "elapsedSinceStartMs": 710.5736999999999,
       "metadata": {
         "numPages": 250,
         "iteration": 5
@@ -800,8 +800,8 @@
     },
     {
       "event": "LUMA_PERF_PDF_CANVAS_READY",
-      "timestamp": 1090.8184,
-      "elapsedSinceStartMs": 650.2223000000001,
+      "timestamp": 1172.3127,
+      "elapsedSinceStartMs": 725.7719,
       "metadata": {
         "pageNum": 1,
         "iteration": 5
@@ -809,88 +809,88 @@
     },
     {
       "event": "LUMA_PERF_PDF_CANVAS_READY",
-      "timestamp": 1104.6619,
-      "elapsedSinceStartMs": 664.0658000000001,
+      "timestamp": 1187.8008,
+      "elapsedSinceStartMs": 741.26,
       "metadata": {
         "pageNum": 2
       }
     },
     {
       "event": "LUMA_PERF_PDF_CANVAS_READY",
-      "timestamp": 1120.4324,
-      "elapsedSinceStartMs": 679.8362999999999,
+      "timestamp": 1203.5359,
+      "elapsedSinceStartMs": 756.9951000000001,
       "metadata": {
         "pageNum": 3
       }
     },
     {
       "event": "LUMA_PERF_PDF_CANVAS_READY",
-      "timestamp": 1134.4578,
-      "elapsedSinceStartMs": 693.8616999999999,
+      "timestamp": 1219.021,
+      "elapsedSinceStartMs": 772.4802,
       "metadata": {
         "pageNum": 4
       }
     },
     {
       "event": "LUMA_PERF_PDF_CANVAS_READY",
-      "timestamp": 1149.3939,
-      "elapsedSinceStartMs": 708.7978,
+      "timestamp": 1234.984,
+      "elapsedSinceStartMs": 788.4431999999999,
       "metadata": {
         "pageNum": 5
       }
     },
     {
       "event": "LUMA_PERF_PDF_CANVAS_READY",
-      "timestamp": 1163.2681,
-      "elapsedSinceStartMs": 722.672,
+      "timestamp": 1250.257,
+      "elapsedSinceStartMs": 803.7162000000001,
       "metadata": {
         "pageNum": 6
       }
     },
     {
       "event": "LUMA_PERF_PDF_CANVAS_READY",
-      "timestamp": 1178.2303,
-      "elapsedSinceStartMs": 737.6342,
+      "timestamp": 1265.7809,
+      "elapsedSinceStartMs": 819.2401,
       "metadata": {
         "pageNum": 7
       }
     },
     {
       "event": "LUMA_PERF_PDF_CANVAS_READY",
-      "timestamp": 1192.7009,
-      "elapsedSinceStartMs": 752.1048000000001,
+      "timestamp": 1281.9871,
+      "elapsedSinceStartMs": 835.4463000000001,
       "metadata": {
         "pageNum": 8
       }
     },
     {
       "event": "LUMA_PERF_PDF_CANVAS_READY",
-      "timestamp": 1207.3171,
-      "elapsedSinceStartMs": 766.721,
+      "timestamp": 1297.4179,
+      "elapsedSinceStartMs": 850.8770999999999,
       "metadata": {
         "pageNum": 9
       }
     },
     {
       "event": "LUMA_PERF_PDF_CANVAS_READY",
-      "timestamp": 1222.4411,
-      "elapsedSinceStartMs": 781.845,
+      "timestamp": 1312.4264,
+      "elapsedSinceStartMs": 865.8856000000001,
       "metadata": {
         "pageNum": 10
       }
     },
     {
       "event": "LUMA_PERF_PDF_CANVAS_READY",
-      "timestamp": 1236.448,
-      "elapsedSinceStartMs": 795.8519000000001,
+      "timestamp": 1327.8523,
+      "elapsedSinceStartMs": 881.3115,
       "metadata": {
         "pageNum": 11
       }
     },
     {
       "event": "LUMA_PERF_SEARCH_RESULTS",
-      "timestamp": 1251.2106,
-      "elapsedSinceStartMs": 810.6145000000001,
+      "timestamp": 1343.8291,
+      "elapsedSinceStartMs": 897.2882999999999,
       "metadata": {
         "query": "novel 0",
         "count": 12
@@ -898,8 +898,8 @@
     },
     {
       "event": "LUMA_PERF_SEARCH_RESULTS",
-      "timestamp": 1265.595,
-      "elapsedSinceStartMs": 824.9989,
+      "timestamp": 1359.3463,
+      "elapsedSinceStartMs": 912.8054999999999,
       "metadata": {
         "query": "novel 1",
         "count": 12
@@ -907,8 +907,8 @@
     },
     {
       "event": "LUMA_PERF_SEARCH_RESULTS",
-      "timestamp": 1279.9983,
-      "elapsedSinceStartMs": 839.4022,
+      "timestamp": 1375.2267,
+      "elapsedSinceStartMs": 928.6859,
       "metadata": {
         "query": "novel 2",
         "count": 12
@@ -916,8 +916,8 @@
     },
     {
       "event": "LUMA_PERF_SEARCH_RESULTS",
-      "timestamp": 1294.4203,
-      "elapsedSinceStartMs": 853.8242,
+      "timestamp": 1390.3781,
+      "elapsedSinceStartMs": 943.8372999999999,
       "metadata": {
         "query": "novel 3",
         "count": 12
@@ -925,8 +925,8 @@
     },
     {
       "event": "LUMA_PERF_SEARCH_RESULTS",
-      "timestamp": 1309.5707,
-      "elapsedSinceStartMs": 868.9746,
+      "timestamp": 1405.4436,
+      "elapsedSinceStartMs": 958.9028000000001,
       "metadata": {
         "query": "novel 4",
         "count": 12
@@ -934,8 +934,8 @@
     },
     {
       "event": "LUMA_PERF_ANNOTATION_SAVED",
-      "timestamp": 1324.6533,
-      "elapsedSinceStartMs": 884.0572,
+      "timestamp": 1421.7337,
+      "elapsedSinceStartMs": 975.1929,
       "metadata": {
         "bookId": "book_epub_01",
         "type": "highlight"
@@ -943,8 +943,8 @@
     },
     {
       "event": "LUMA_PERF_ANNOTATION_SAVED",
-      "timestamp": 1325.9092,
-      "elapsedSinceStartMs": 885.3131000000001,
+      "timestamp": 1437.1173,
+      "elapsedSinceStartMs": 990.5764999999999,
       "metadata": {
         "bookId": "book_epub_01",
         "type": "highlight"
@@ -952,8 +952,8 @@
     },
     {
       "event": "LUMA_PERF_ANNOTATION_SAVED",
-      "timestamp": 1326.3794,
-      "elapsedSinceStartMs": 885.7833,
+      "timestamp": 1452.8539,
+      "elapsedSinceStartMs": 1006.3131000000001,
       "metadata": {
         "bookId": "book_epub_01",
         "type": "highlight"

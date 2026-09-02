@@ -9,6 +9,66 @@ use luma_security::sanitize_untrusted_html;
 
 use crate::{DocumentSearchMatch, TocItem};
 
+// ============================================================================
+// Constants – configuration, thresholds, and fallback values
+// ============================================================================
+
+/// Maximum number of pages to cache in memory.
+pub const MAX_CACHED_PAGES: usize = 50;
+
+/// Maximum number of TOC entries to extract.
+pub const MAX_TOC_ITEMS: usize = 100;
+
+/// Default page width in points (A4).
+pub const DEFAULT_PAGE_WIDTH_PT: f32 = 595.0;
+
+/// Default page height in points (A4).
+pub const DEFAULT_PAGE_HEIGHT_PT: f32 = 842.0;
+
+/// Maximum unprintable character ratio allowed to treat text as valid.
+pub const UNPRINTABLE_RATIO_THRESHOLD: f32 = 0.10;
+
+/// Number of pages to generate fallback TOC entries if no outline is present.
+pub const FALLBACK_TOC_PAGES: u32 = 50;
+
+/// Snippet context size (characters before and after match).
+pub const SNIPPET_CONTEXT_SIZE: usize = 40;
+
+// ============================================================================
+// Constants – magic bytes and stream markers
+// ============================================================================
+
+/// The literal "stream" marker for PDF content streams.
+pub const STREAM_MARKER: &[u8] = b"stream";
+/// The literal "endstream" marker.
+pub const ENDSTREAM_MARKER: &[u8] = b"endstream";
+
+/// UTF-16 BE BOM used for string detection.
+pub const UTF16_BE_BOM: [u8; 2] = [0xFE, 0xFF];
+
+// ============================================================================
+// Constants – regex patterns (as strings)
+// ============================================================================
+
+/// Regex to find "/Type /Page" (for page count estimation).
+pub const PAGE_TYPE_RE_STR: &str = r"/Type\s*/Page\b";
+/// Regex to find "/Count N" (for page count).
+pub const COUNT_RE_STR: &str = r"/Count\s+(\d+)";
+/// Regex to find outline /Title entries.
+pub const OUTLINE_TITLE_RE_STR: &str = r"/Title\s*(\([^)]+\)|<[0-9A-Fa-f]+>)";
+/// Regex to match BT ... ET blocks.
+pub const BT_ET_RE_STR: &str = r"(?s)\bBT\b(.*?)\bET\b";
+/// Regex to match literal string Tj operators: `(...) Tj`
+pub const TJ_STR_RE_STR: &str = r"\(([^)]*)\)\s*(?:Tj|'|\x22)";
+/// Regex to match hex string Tj operators: `<...> Tj`
+pub const TJ_HEX_RE_STR: &str = r"<([0-9A-Fa-f]+)>\s*(?:Tj|'|\x22)";
+/// Regex to match array Tj operators: `[...] TJ`
+pub const ARRAY_TJ_RE_STR: &str = r"\[([^\]]+)\]\s*TJ";
+
+// ============================================================================
+// PdfPageData
+// ============================================================================
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PdfPageData {
     pub page_number: u32,
@@ -17,6 +77,10 @@ pub struct PdfPageData {
     pub text_content: String,
     pub has_text_layer: bool,
 }
+
+// ============================================================================
+// PdfDocument
+// ============================================================================
 
 pub struct PdfDocument {
     file_path: PathBuf,
@@ -27,26 +91,24 @@ pub struct PdfDocument {
 }
 
 impl PdfDocument {
-    pub const MAX_CACHED_PAGES: usize = 50;
-
     pub fn open<P: AsRef<Path>>(path: P) -> Result<Self> {
         let p = path.as_ref().to_path_buf();
         let mut file = File::open(&p)
-            .map_err(|e| LumaError::DocumentError(format!("Failed to open PDF file: {}", e)))?;
+            .map_err(|e| LumaError::DocumentError(format!("Failed to open PDF: {e}")))?;
 
         let mut buffer = Vec::new();
         file.read_to_end(&mut buffer)
-            .map_err(|e| LumaError::DocumentError(format!("Failed to read PDF: {}", e)))?;
+            .map_err(|e| LumaError::DocumentError(format!("Failed to read PDF: {e}")))?;
 
         let raw_str = String::from_utf8_lossy(&buffer);
 
-        // 1. Detect actual page count from page tree objects or /Count
+        // 1. Detect page count from page tree objects or /Count
         static PAGE_RE: std::sync::LazyLock<Regex> =
-            std::sync::LazyLock::new(|| Regex::new(r"/Type\s*/Page\b").expect("Valid regex"));
+            std::sync::LazyLock::new(|| Regex::new(PAGE_TYPE_RE_STR).expect("Valid regex"));
         let detected_pages = PAGE_RE.find_iter(&raw_str).count() as u32;
 
         static COUNT_RE: std::sync::LazyLock<Regex> =
-            std::sync::LazyLock::new(|| Regex::new(r"/Count\s+(\d+)").expect("Valid regex"));
+            std::sync::LazyLock::new(|| Regex::new(COUNT_RE_STR).expect("Valid regex"));
         let max_count = COUNT_RE
             .captures_iter(&raw_str)
             .filter_map(|c| c.get(1)?.as_str().parse::<u32>().ok())
@@ -61,11 +123,10 @@ impl PdfDocument {
             1
         };
 
-        // 2. Extract Outlines / TOC if present in PDF
+        // 2. Extract Outlines / TOC if present
         let mut toc = Vec::new();
-        static OUTLINE_RE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-            Regex::new(r"/Title\s*(\([^)]+\)|<[0-9A-Fa-f]+>)").expect("Valid regex")
-        });
+        static OUTLINE_RE: std::sync::LazyLock<Regex> =
+            std::sync::LazyLock::new(|| Regex::new(OUTLINE_TITLE_RE_STR).expect("Valid regex"));
         for (i, caps) in OUTLINE_RE.captures_iter(&raw_str).enumerate() {
             if let Some(m) = caps.get(1) {
                 let raw_title = Self::decode_pdf_string_literal(m.as_str());
@@ -79,17 +140,17 @@ impl PdfDocument {
                     });
                 }
             }
-            if toc.len() >= 100 {
+            if toc.len() >= MAX_TOC_ITEMS {
                 break;
             }
         }
 
         // Fallback TOC if no outline was present
         if toc.is_empty() {
-            for page in 1..=page_count.min(50) {
+            for page in 1..=page_count.min(FALLBACK_TOC_PAGES) {
                 toc.push(TocItem {
-                    title: format!("Page {}", page),
-                    locator: format!("page={}", page),
+                    title: format!("Page {page}"),
+                    locator: format!("page={page}"),
                     play_order: Some(page),
                     children: Vec::new(),
                 });
@@ -117,12 +178,11 @@ impl PdfDocument {
         &self.toc
     }
 
-
     pub fn get_page(&self, page_number: u32) -> Result<PdfPageData> {
         if page_number == 0 || page_number > self.page_count {
             return Err(LumaError::DocumentError(format!(
-                "Page {} out of bounds (1..{})",
-                page_number, self.page_count
+                "Page index {page_number} out of bounds (total {})",
+                self.page_count
             )));
         }
 
@@ -145,15 +205,15 @@ impl PdfDocument {
 
         let page_data = PdfPageData {
             page_number,
-            width_pt: 595.0,  // Standard A4 width pt
-            height_pt: 842.0, // Standard A4 height pt
+            width_pt: DEFAULT_PAGE_WIDTH_PT,
+            height_pt: DEFAULT_PAGE_HEIGHT_PT,
             text_content,
             has_text_layer,
         };
 
         // Cache page data with bounded size
         if let Ok(mut guard) = self.page_cache.write() {
-            if guard.len() >= Self::MAX_CACHED_PAGES {
+            if guard.len() >= MAX_CACHED_PAGES {
                 guard.clear();
             }
             guard.insert(page_number, page_data.clone());
@@ -162,22 +222,24 @@ impl PdfDocument {
         Ok(page_data)
     }
 
+    // ------------------------------------------------------------------------
+    // Private helpers (now using constants)
+    // ------------------------------------------------------------------------
 
-    /// Safely isolates content streams for the page and extracts text strictly from BT ... ET operators
     fn extract_page_content_stream(buffer: &[u8], target_page: u32, total_pages: u32) -> String {
         let mut page_text = String::new();
 
         // 1. Locate all streams in the file
         let stream_markers: Vec<usize> = buffer
-            .windows(6)
+            .windows(STREAM_MARKER.len())
             .enumerate()
-            .filter_map(|(i, w)| if w == b"stream" { Some(i + 6) } else { None })
+            .filter_map(|(i, w)| if w == STREAM_MARKER { Some(i + STREAM_MARKER.len()) } else { None })
             .collect();
 
         let end_markers: Vec<usize> = buffer
-            .windows(9)
+            .windows(ENDSTREAM_MARKER.len())
             .enumerate()
-            .filter_map(|(i, w)| if w == b"endstream" { Some(i) } else { None })
+            .filter_map(|(i, w)| if w == ENDSTREAM_MARKER { Some(i) } else { None })
             .collect();
 
         if stream_markers.is_empty() || end_markers.is_empty() {
@@ -188,7 +250,6 @@ impl PdfDocument {
         let candidate_indices: Vec<usize> = if total_pages <= 1 {
             (0..stream_markers.len()).collect()
         } else {
-            // Map page number to stream chunks
             let streams_per_page = (stream_markers.len() as f32 / total_pages as f32).max(1.0);
             let start_idx = ((target_page - 1) as f32 * streams_per_page) as usize;
             let end_idx = (start_idx + streams_per_page.ceil() as usize).min(stream_markers.len());
@@ -245,18 +306,15 @@ impl PdfDocument {
         cleaned
     }
 
-    /// Extract text specifically bounded by BT (Begin Text) and ET (End Text) operators
     fn parse_bt_et_text_operators(stream_str: &str, out: &mut String) {
         static BT_ET_RE: std::sync::LazyLock<Regex> =
-            std::sync::LazyLock::new(|| Regex::new(r"(?s)\bBT\b(.*?)\bET\b").expect("Valid regex"));
-        static TJ_STR_RE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-            Regex::new(r"\(([^)]*)\)\s*(?:Tj|'|\x22)").expect("Valid regex")
-        });
-        static TJ_HEX_RE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-            Regex::new(r"<([0-9A-Fa-f]+)>\s*(?:Tj|'|\x22)").expect("Valid regex")
-        });
+            std::sync::LazyLock::new(|| Regex::new(BT_ET_RE_STR).expect("Valid regex"));
+        static TJ_STR_RE: std::sync::LazyLock<Regex> =
+            std::sync::LazyLock::new(|| Regex::new(TJ_STR_RE_STR).expect("Valid regex"));
+        static TJ_HEX_RE: std::sync::LazyLock<Regex> =
+            std::sync::LazyLock::new(|| Regex::new(TJ_HEX_RE_STR).expect("Valid regex"));
         static ARRAY_TJ_RE: std::sync::LazyLock<Regex> =
-            std::sync::LazyLock::new(|| Regex::new(r"\[([^\]]+)\]\s*TJ").expect("Valid regex"));
+            std::sync::LazyLock::new(|| Regex::new(ARRAY_TJ_RE_STR).expect("Valid regex"));
 
         for bt_match in BT_ET_RE.captures_iter(stream_str) {
             if let Some(block) = bt_match.get(1) {
@@ -314,7 +372,6 @@ impl PdfDocument {
         }
     }
 
-    /// Decode PDF string literals in parenthesized or hex format
     pub fn decode_pdf_string_literal(raw: &str) -> String {
         let trimmed = raw.trim();
         if trimmed.starts_with('(') && trimmed.ends_with(')') {
@@ -328,7 +385,6 @@ impl PdfDocument {
         }
     }
 
-    /// Decode PDF escape sequences: \ddd octal, \n, \r, \t, \b, \f, \(, \), \\
     fn decode_pdf_literal_escapes(input: &str) -> String {
         let mut result = String::with_capacity(input.len());
         let mut chars = input.chars().peekable();
@@ -350,9 +406,11 @@ impl PdfDocument {
                     }
                     Some('b') => {
                         chars.next();
+                        // backspace, ignore
                     }
                     Some('f') => {
                         chars.next();
+                        // form feed, ignore
                     }
                     Some('(') => {
                         chars.next();
@@ -396,7 +454,6 @@ impl PdfDocument {
         result
     }
 
-    /// Decode PDF hexadecimal string `<48656c6c6f>`
     fn decode_pdf_hex_string(hex_str: &str) -> String {
         let clean_hex: String = hex_str.chars().filter(|c| c.is_ascii_hexdigit()).collect();
         let mut bytes = Vec::new();
@@ -410,8 +467,8 @@ impl PdfDocument {
             }
         }
 
-        // Check if UTF-16 BE BOM (\xFE\xFF)
-        if bytes.len() >= 2 && bytes[0] == 0xFE && bytes[1] == 0xFF {
+        // Check for UTF-16 BE BOM
+        if bytes.len() >= 2 && bytes[0] == UTF16_BE_BOM[0] && bytes[1] == UTF16_BE_BOM[1] {
             let u16_slice: Vec<u16> = bytes[2..]
                 .chunks_exact(2)
                 .map(|chunk| u16::from_be_bytes([chunk[0], chunk[1]]))
@@ -422,7 +479,6 @@ impl PdfDocument {
         String::from_utf8_lossy(&bytes).to_string()
     }
 
-    /// Validates character entropy and unprintable ratios to protect against raw CID/binary glyph leakage
     pub fn is_valid_printable_text(text: &str) -> bool {
         let trimmed = text.trim();
         if trimmed.is_empty() {
@@ -451,8 +507,7 @@ impl PdfDocument {
         let total = printable_count + unprintable_count;
         let unprintable_ratio = unprintable_count as f32 / total as f32;
 
-        // Strict rejection of binary garbage: if unprintable characters exceed 10%, reject text layer
-        unprintable_ratio <= 0.10
+        unprintable_ratio <= UNPRINTABLE_RATIO_THRESHOLD
     }
 
     pub fn search(&self, query: &str) -> Result<Vec<DocumentSearchMatch>> {
@@ -469,8 +524,9 @@ impl PdfDocument {
                 }
                 let text_lower = page_data.text_content.to_lowercase();
                 if let Some(idx) = text_lower.find(&clean_q) {
-                    let start_snippet = idx.saturating_sub(40);
-                    let end_snippet = (idx + clean_q.len() + 40).min(page_data.text_content.len());
+                    let start_snippet = idx.saturating_sub(SNIPPET_CONTEXT_SIZE);
+                    let end_snippet = (idx + clean_q.len() + SNIPPET_CONTEXT_SIZE)
+                        .min(page_data.text_content.len());
                     let snippet = format!(
                         "...{}...",
                         &page_data.text_content[start_snippet..end_snippet]
@@ -478,8 +534,8 @@ impl PdfDocument {
 
                     matches.push(DocumentSearchMatch {
                         spine_index: (page - 1) as usize,
-                        chapter_title: format!("Page {}", page),
-                        locator: format!("page={}", page),
+                        chapter_title: format!("Page {page}"),
+                        locator: format!("page={page}"),
                         snippet,
                         match_char_offset: idx,
                     });

@@ -30,6 +30,12 @@ impl AnnotationService {
             .map_err(|e| LumaError::StorageError(e.to_string()))
     }
 
+    pub fn list_all(&self) -> Result<Vec<Annotation>> {
+        let repo = AnnotationRepository::new(self.db.clone());
+        repo.list_all()
+            .map_err(|e| LumaError::StorageError(e.to_string()))
+    }
+
     pub async fn save_annotation(&self, annotation: &Annotation) -> Result<()> {
         let repo = AnnotationRepository::new(self.db.clone());
         repo.insert(annotation)

@@ -181,7 +181,7 @@ pub async fn import_file_bytes(
     let device_id = DeviceId::new();
     let staging_dir = ctx.file_service.staging_dir();
 
-    std::fs::create_dir_all(staging_dir).map_err(|e| {
+    std::fs::create_dir_all(&staging_dir).map_err(|e| {
         error!(error = %e, STAGING_DIR_CREATE_FAILED_MSG);
         BackendError::storage(STAGING_DIR_CREATE_FAILED_MSG.to_string())
     })?;

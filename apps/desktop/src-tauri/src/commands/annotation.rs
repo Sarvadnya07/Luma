@@ -51,6 +51,21 @@ pub fn list_annotations(
         })
 }
 
+#[instrument(skip(ctx))]
+#[tauri::command]
+pub fn list_all_annotations(
+    ctx: State<'_, LumaAppContext>,
+) -> Result<Vec<Annotation>, BackendError> {
+    debug!("Listing all annotations across library");
+
+    ctx.annotation_service
+        .list_all()
+        .map_err(|e| {
+            error!(error = %e, "Failed to list all annotations");
+            BackendError::from(e)
+        })
+}
+
 #[instrument(skip(ctx, annotation), fields(annotation_id = %annotation.id))]
 #[tauri::command]
 pub async fn save_annotation(
