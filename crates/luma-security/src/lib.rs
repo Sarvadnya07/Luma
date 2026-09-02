@@ -94,13 +94,11 @@ pub fn verify_archive_safety(
 }
 
 static EVENT_HANDLER_REGEX: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
-    regex::Regex::new(r#"(?i)\s+on[a-z]+\s*=\s*(?:'[^']*'|"[^"]*"|[^\s>]+)"#)
-        .expect("Valid regex")
+    regex::Regex::new(r#"(?i)\s+on[a-z]+\s*=\s*(?:'[^']*'|"[^"]*"|[^\s>]+)"#).expect("Valid regex")
 });
 
-static JS_PROTO_REGEX: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
-    regex::Regex::new(r#"(?i)javascript:\s*"#).expect("Valid regex")
-});
+static JS_PROTO_REGEX: std::sync::LazyLock<regex::Regex> =
+    std::sync::LazyLock::new(|| regex::Regex::new(r#"(?i)javascript:\s*"#).expect("Valid regex"));
 
 /// Strip executable script tags and hazardous inline handlers from untrusted HTML/SVG strings
 pub fn sanitize_untrusted_html(input: &str) -> String {

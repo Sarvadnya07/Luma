@@ -238,7 +238,10 @@ export interface OpenDocumentResult {
   total_pages_or_spines: number;
   capabilities: FormatCapabilities;
   initial_progress?: ReadingProgress | null;
+  annotations?: Annotation[];
+  bookmarks?: Bookmark[];
 }
+
 
 export interface Bookmark {
   id: string;

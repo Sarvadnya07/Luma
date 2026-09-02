@@ -158,4 +158,16 @@ impl LumaAppContext {
             }
         });
     }
+
+    /// Perform clean shutdown: flush caches, cleanup staging, and checkpoint SQLite WAL
+    pub fn shutdown(&self) {
+        tracing::info!("Initiating graceful shutdown of LumaAppContext...");
+        let _ = self.file_service.cleanup_staging();
+        let _ = self.db.with_conn(|conn| {
+            let _ = conn.execute("PRAGMA wal_checkpoint(TRUNCATE);", []);
+            let _ = conn.execute("PRAGMA optimize;", []);
+            Ok(())
+        });
+        tracing::info!("LumaAppContext graceful shutdown complete.");
+    }
 }

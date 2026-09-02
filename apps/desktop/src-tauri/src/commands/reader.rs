@@ -25,7 +25,7 @@ pub async fn open_reader_document(
 }
 
 #[tauri::command]
-pub fn get_reader_chapter(
+pub async fn get_reader_chapter(
     ctx: State<'_, LumaAppContext>,
     book_id: String,
     spine_index: usize,
@@ -36,11 +36,12 @@ pub fn get_reader_chapter(
 
     ctx.reader_service
         .get_chapter(&bid, spine_index)
+        .await
         .map_err(BackendError::from)
 }
 
 #[tauri::command]
-pub fn get_reader_pdf_page(
+pub async fn get_reader_pdf_page(
     ctx: State<'_, LumaAppContext>,
     book_id: String,
     page_number: u32,
@@ -51,11 +52,12 @@ pub fn get_reader_pdf_page(
 
     ctx.reader_service
         .get_pdf_page(&bid, page_number)
+        .await
         .map_err(BackendError::from)
 }
 
 #[tauri::command]
-pub fn search_document(
+pub async fn search_document(
     ctx: State<'_, LumaAppContext>,
     book_id: String,
     query: String,
@@ -66,8 +68,10 @@ pub fn search_document(
 
     ctx.reader_service
         .search_document(&bid, &query)
+        .await
         .map_err(BackendError::from)
 }
+
 
 #[tauri::command]
 pub fn get_book_file_bytes(

@@ -1,11 +1,10 @@
-// Prevents additional console window on Windows in release
-#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
-
 mod commands;
 mod context;
 
 use context::LumaAppContext;
+use tauri::Manager;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+
 
 fn main() {
     tracing_subscriber::registry()
@@ -105,6 +104,13 @@ fn main() {
             commands::cancel_job,
             commands::list_recent_jobs,
         ])
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::Destroyed = event {
+                if let Some(ctx) = window.try_state::<LumaAppContext>() {
+                    ctx.shutdown();
+                }
+            }
+        })
         .run(tauri::generate_context!())
         .expect("error while running luma application");
 }

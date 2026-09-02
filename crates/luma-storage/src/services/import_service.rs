@@ -289,12 +289,23 @@ impl ImportService {
         Ok((book, book_file, assessment))
     }
 
-    /// Import multiple files with JobManager orchestration and cancellation support
+    pub const MAX_IMPORT_BATCH_SIZE: usize = 5_000;
+    pub const IMPORT_CHUNK_SIZE: usize = 25;
+
+    /// Import multiple files with JobManager orchestration, cooperative yielding, and cancellation support
     pub async fn import_files<P: AsRef<Path>>(
         &self,
         paths: &[P],
         device_id: DeviceId,
     ) -> Result<ImportJob> {
+        if paths.len() > Self::MAX_IMPORT_BATCH_SIZE {
+            return Err(LumaError::ValidationError(format!(
+                "Import batch size exceeds maximum allowed limit ({} > {})",
+                paths.len(),
+                Self::MAX_IMPORT_BATCH_SIZE
+            )));
+        }
+
         let (job_id, cancellation) = self
             .job_manager
             .create_job(
@@ -305,9 +316,7 @@ impl ImportService {
             .await;
 
         let mut job = ImportJob::new(paths.len() as u32);
-
         let mut completed = 0;
-
         let mut failed = 0;
         let mut skipped = 0;
 
@@ -363,6 +372,11 @@ impl ImportService {
                         error_message: Some(err.to_string()),
                     });
                 }
+            }
+
+            // Yield cooperatively to Tokio runtime after each chunk to allow UI readers/writes to proceed
+            if (idx + 1) % Self::IMPORT_CHUNK_SIZE == 0 {
+                tokio::task::yield_now().await;
             }
         }
 

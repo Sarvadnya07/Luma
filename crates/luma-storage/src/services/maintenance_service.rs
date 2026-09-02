@@ -121,11 +121,12 @@ impl MaintenanceService {
         })
     }
 
-    /// Run SQLite VACUUM and optimize
+    /// Run SQLite WAL checkpoint, VACUUM, and optimize
     pub fn vacuum_database(&self) -> Result<MaintenanceResult> {
         let start = std::time::Instant::now();
         self.db
             .with_conn(|conn| {
+                let _ = conn.execute("PRAGMA wal_checkpoint(TRUNCATE);", []);
                 conn.execute("PRAGMA optimize;", [])?;
                 conn.execute("VACUUM;", [])?;
                 Ok(())

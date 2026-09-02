@@ -109,7 +109,10 @@ fn test_pdf_extraction() {
     let pkg = PdfExtractor::extract(pdf_file.path()).expect("PDF extraction failed");
     assert_eq!(pkg.metadata.title, "Distributed Consensus Protocols");
     assert_eq!(pkg.metadata.authors, vec!["Leslie Lamport".to_string()]);
-    assert_eq!(pkg.metadata.description, Some("Fault-Tolerant Systems".to_string()));
+    assert_eq!(
+        pkg.metadata.description,
+        Some("Fault-Tolerant Systems".to_string())
+    );
 }
 
 #[test]

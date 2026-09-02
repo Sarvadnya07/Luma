@@ -168,11 +168,10 @@ pub async fn get_book_cover_data_url(
                     _ => None,
                 };
                 if let Some(cover) = cover_opt {
-                    if let Ok(saved_cover) = ctx.cover_store.save_cover(
-                        Some(book.id),
-                        &cover.data,
-                        &cover.mime_type,
-                    ) {
+                    if let Ok(saved_cover) =
+                        ctx.cover_store
+                            .save_cover(Some(book.id), &cover.data, &cover.mime_type)
+                    {
                         let cover_repo = luma_storage::repos::CoverRepository::new(ctx.db.clone());
                         let _ = cover_repo.insert(&saved_cover);
                         let mut updated_book = book.clone();

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, useCallback, useRef } from "react";
+import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { Book, BookDetailViewData, Collection, DocumentFormat, ImportJob, LibrarySortBy, ReadingStatus, Tag } from "@luma/shared-types";
 import { BookCard, BookTable, Pagination } from "@luma/library-ui";
 import { LumaApi, isTauri } from "../../lib/tauri";
@@ -7,6 +7,7 @@ import { LibrarySidebar, SidebarSection } from "./LibrarySidebar";
 import { LibraryToolbar } from "./LibraryToolbar";
 import { BookDetailsDrawer } from "./BookDetailsDrawer";
 import { MetadataEditModal } from "./MetadataEditModal";
+import { ImportProgressModal } from "./ImportProgressModal";
 import { CollectionModal } from "./CollectionModal";
 import { DropZoneOverlay } from "./DropZoneOverlay";
 import { LumaHomeView } from "./LumaHomeView";
@@ -229,34 +230,46 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
   }, [config.enableCommandPalette, config.commandPaletteShortcut]);
 
   // Data loading
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const [authors, setAuthors] = useState<any[]>([]);
+
+  const loadMetadata = useCallback(async () => {
     try {
-      const [fetchedBooks, fetchedCols, fetchedTags, fetchedAuthors] = await Promise.all([
-        LumaApi.listBooks(
-          {
-            library_state: currentSection === "trash" ? "trashed" : "active",
-            reading_status:
-              currentSection === "reading"
-                ? "reading"
-                : statusFilter !== "all"
-                ? (statusFilter as ReadingStatus | null)
-                : null,
-            format: formatFilter !== "all" ? formatFilter : null,
-            collection_id: selectedCollectionId,
-            tag_id: selectedTagId,
-            search_query: searchQuery || null,
-          },
-          { sort_by: sortBy, ascending: true }
-        ),
+      const [fetchedCols, fetchedTags, fetchedAuthors] = await Promise.all([
         LumaApi.listCollections(),
         LumaApi.listTags(),
         LumaApi.listAuthors(),
       ]);
+      setCollections(fetchedCols || []);
+      setTags(fetchedTags || []);
+      setAuthors(fetchedAuthors || []);
+    } catch (err) {
+      console.error("Failed to load library metadata:", err);
+    }
+  }, []);
+
+  const loadBooks = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const fetchedBooks = await LumaApi.listBooks(
+        {
+          library_state: currentSection === "trash" ? "trashed" : "active",
+          reading_status:
+            currentSection === "reading"
+              ? "reading"
+              : statusFilter !== "all"
+              ? (statusFilter as ReadingStatus | null)
+              : null,
+          format: formatFilter !== "all" ? formatFilter : null,
+          collection_id: selectedCollectionId,
+          tag_id: selectedTagId,
+          search_query: searchQuery || null,
+        },
+        { sort_by: sortBy, ascending: true }
+      );
 
       const aMap: Record<string, string> = {};
-      const authorIdMap = new Map((fetchedAuthors || []).map((a) => [a.id, a.name]));
+      const authorIdMap = new Map((authors || []).map((a) => [a.id, a.name]));
       for (const b of fetchedBooks || []) {
         if (b.author_ids && b.author_ids.length > 0) {
           const names = b.author_ids.map((id) => authorIdMap.get(id)).filter(Boolean);
@@ -266,21 +279,29 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
         }
       }
 
-      setBooks(fetchedBooks);
-      setCollections(fetchedCols);
-      setTags(fetchedTags);
+      setBooks(fetchedBooks || []);
       setAuthorMap(aMap);
     } catch (err) {
-      console.error("Failed to load library data:", err);
+      console.error("Failed to load books:", err);
       setError(labels.errorMessage);
     } finally {
       setLoading(false);
     }
-  }, [currentSection, selectedCollectionId, selectedTagId, formatFilter, statusFilter, sortBy, searchQuery, labels.errorMessage]);
+  }, [currentSection, selectedCollectionId, selectedTagId, formatFilter, statusFilter, sortBy, searchQuery, authors, labels.errorMessage]);
+
+  const loadData = useCallback(async () => {
+    await Promise.all([loadBooks(), loadMetadata()]);
+  }, [loadBooks, loadMetadata]);
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    loadMetadata();
+  }, [loadMetadata]);
+
+  useEffect(() => {
+    loadBooks();
+  }, [loadBooks]);
+
+
 
   // Event handlers
   const handleOpenDetails = useCallback(async (bookId: string) => {
@@ -761,6 +782,15 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
         onCreate={async (name, desc) => {
           await LumaApi.createCollection(name, desc);
           await loadData();
+        }}
+      />
+
+      <ImportProgressModal
+        job={activeImportJob}
+        isOpen={isImportModalOpen}
+        onClose={() => {
+          setIsImportModalOpen(false);
+          setActiveImportJob(null);
         }}
       />
 

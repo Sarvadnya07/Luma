@@ -74,7 +74,10 @@ fn test_benchmark_fuzzy_anchor_resolution_throughput() {
     let suffix_text = " and vanishes into the golden afternoon sunlight.";
     let filler = "Some other interesting chapters and paragraphs of the book text. ".repeat(50);
 
-    let doc_text = format!("{}{}{}{}{}", filler, prefix_text, target_quote, suffix_text, filler);
+    let doc_text = format!(
+        "{}{}{}{}{}",
+        filler, prefix_text, target_quote, suffix_text, filler
+    );
 
     let quote_anchor = TextQuoteAnchor {
         exact: target_quote.to_string(),
@@ -87,10 +90,7 @@ fn test_benchmark_fuzzy_anchor_resolution_throughput() {
     let iterations = 1000;
     for _ in 0..iterations {
         let res = AnchorEngine::resolve_quote(&quote_anchor, &doc_text);
-        assert!(matches!(
-            res,
-            ResolutionResult::HighConfidence(_)
-        ));
+        assert!(matches!(res, ResolutionResult::HighConfidence(_)));
     }
     let duration = start.elapsed();
     let avg_per_res_us = duration.as_micros() as f64 / iterations as f64;

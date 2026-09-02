@@ -102,10 +102,8 @@ export const useReaderStore = create<ReaderStoreState>((set, get) => ({
     set({ loading: true, currentBook: book, activeTab: "reader" });
     try {
       const docData = await LumaApi.openReaderDocument(book.id, fileId);
-      const [annotations, bookmarks] = await Promise.all([
-        LumaApi.listAnnotations(book.id),
-        LumaApi.listBookmarks(book.id),
-      ]);
+      const annotations = docData.annotations || [];
+      const bookmarks = docData.bookmarks || [];
 
       set({
         documentData: docData,
@@ -113,6 +111,7 @@ export const useReaderStore = create<ReaderStoreState>((set, get) => ({
         bookmarks,
         readingProgress: docData.initial_progress || null,
       });
+
 
       // Restore initial position or load first chapter/page
       if (docData.file.format === "epub") {

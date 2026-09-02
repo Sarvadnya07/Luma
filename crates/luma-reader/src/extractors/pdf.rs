@@ -26,9 +26,8 @@ static XMP_TITLE_RE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
 static XMP_CREATOR_RE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
     Regex::new(r"<dc:creator>[^<]*<rdf:li[^>]*>([^<]+)</rdf:li>").expect("Valid regex")
 });
-static HEX_HASH_PREFIX_RE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-    Regex::new(r"^[0-9a-fA-F]{24,64}[\s_-]+").expect("Valid regex")
-});
+static HEX_HASH_PREFIX_RE: std::sync::LazyLock<Regex> =
+    std::sync::LazyLock::new(|| Regex::new(r"^[0-9a-fA-F]{24,64}[\s_-]+").expect("Valid regex"));
 static TAG_ARTIFACTS_RE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
     Regex::new(r"(?i)\s*(\(\s*(?:pdfdrive|z-lib\.org|oceanofpdf|libgen|retail|original)\s*\)|retailnbsped|nbsped)\s*").expect("Valid regex")
 });
@@ -97,7 +96,9 @@ impl PdfExtractor {
 
         // If title from metadata is empty or contains hash artifact, use cleaned fallback
         let mut resolved_title = match title {
-            Some(t) if !t.trim().is_empty() && !HEX_HASH_PREFIX_RE.is_match(&t) => Self::clean_title(&t),
+            Some(t) if !t.trim().is_empty() && !HEX_HASH_PREFIX_RE.is_match(&t) => {
+                Self::clean_title(&t)
+            }
             _ => cleaned_fallback,
         };
 
@@ -176,13 +177,19 @@ impl PdfExtractor {
     fn extract_cover_image(buffer: &[u8]) -> Option<ExtractedCover> {
         // Look for stream with /Filter /DCTDecode (JPEG image)
         let stream_str = String::from_utf8_lossy(buffer);
-        let stream_re = Regex::new(r"(?s)(/Type\s*/XObject|/Subtype\s*/Image|/Filter\s*/DCTDecode)[^>]*>>\s*stream\r?\n").ok()?;
+        let stream_re = Regex::new(
+            r"(?s)(/Type\s*/XObject|/Subtype\s*/Image|/Filter\s*/DCTDecode)[^>]*>>\s*stream\r?\n",
+        )
+        .ok()?;
 
         if let Some(mat) = stream_re.find(&stream_str) {
             let stream_start = mat.end();
             if stream_start < buffer.len() {
                 // Find endstream
-                if let Some(end_rel) = buffer[stream_start..].windows(9).position(|w| w == b"endstream") {
+                if let Some(end_rel) = buffer[stream_start..]
+                    .windows(9)
+                    .position(|w| w == b"endstream")
+                {
                     let stream_bytes = &buffer[stream_start..stream_start + end_rel];
                     // Verify JPEG header [0xFF, 0xD8]
                     if stream_bytes.len() >= 2048 && stream_bytes.starts_with(&[0xFF, 0xD8]) {
@@ -201,7 +208,10 @@ impl PdfExtractor {
         for i in 0..scan_limit.saturating_sub(4) {
             if buffer[i] == 0xFF && buffer[i + 1] == 0xD8 && buffer[i + 2] == 0xFF {
                 // Find JPEG EOI marker [0xFF, 0xD9]
-                if let Some(eoi) = buffer[i + 2..scan_limit].windows(2).position(|w| w == [0xFF, 0xD9]) {
+                if let Some(eoi) = buffer[i + 2..scan_limit]
+                    .windows(2)
+                    .position(|w| w == [0xFF, 0xD9])
+                {
                     let jpeg_bytes = &buffer[i..i + 2 + eoi + 2];
                     if jpeg_bytes.len() >= 4096 && jpeg_bytes.len() <= 5_000_000 {
                         return Some(ExtractedCover {

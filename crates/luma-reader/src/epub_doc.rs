@@ -594,9 +594,8 @@ impl EpubDocument {
     }
 
     fn extract_plain_text(html: &str) -> String {
-        static TAG_RE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-            Regex::new(r"<[^>]+>").expect("Valid regex")
-        });
+        static TAG_RE: std::sync::LazyLock<Regex> =
+            std::sync::LazyLock::new(|| Regex::new(r"<[^>]+>").expect("Valid regex"));
         let stripped = TAG_RE.replace_all(html, " ");
         let decoded = decode_xml_and_html_entities(&stripped);
         decoded.split_whitespace().collect::<Vec<_>>().join(" ")

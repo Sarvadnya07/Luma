@@ -226,20 +226,47 @@ impl BookRepository {
         page_size: usize,
     ) -> StorageResult<Vec<Book>> {
         self.db.with_read_conn(|conn| {
-            let mut query = String::from(
-                r#"
-                SELECT DISTINCT b.id, b.title, b.subtitle, b.series_id, b.series_index, b.description,
-                       b.publisher, b.published_date, b.language, b.isbn, b.cover_image_id, b.cover_image_path,
-                       b.primary_file_id, b.reading_status, b.library_state, b.trashed_at,
-                       b.version, b.created_at, b.updated_at, b.device_id, b.is_deleted, b.deleted_at
-                FROM books b
-                LEFT JOIN book_files f ON b.id = f.book_id
-                LEFT JOIN book_authors ba ON b.id = ba.book_id
-                LEFT JOIN book_tags bt ON b.id = bt.book_id
-                LEFT JOIN book_collections bc ON b.id = bc.book_id
-                WHERE b.is_deleted = 0
-                "#,
-            );
+            let has_joins = filter.format.is_some()
+                || filter.author_id.is_some()
+                || filter.tag_id.is_some()
+                || filter.collection_id.is_some();
+
+            let mut query = if has_joins {
+                String::from(
+                    r#"
+                    SELECT DISTINCT b.id, b.title, b.subtitle, b.series_id, b.series_index, b.description,
+                           b.publisher, b.published_date, b.language, b.isbn, b.cover_image_id, b.cover_image_path,
+                           b.primary_file_id, b.reading_status, b.library_state, b.trashed_at,
+                           b.version, b.created_at, b.updated_at, b.device_id, b.is_deleted, b.deleted_at
+                    FROM books b
+                    "#,
+                )
+            } else {
+                String::from(
+                    r#"
+                    SELECT b.id, b.title, b.subtitle, b.series_id, b.series_index, b.description,
+                           b.publisher, b.published_date, b.language, b.isbn, b.cover_image_id, b.cover_image_path,
+                           b.primary_file_id, b.reading_status, b.library_state, b.trashed_at,
+                           b.version, b.created_at, b.updated_at, b.device_id, b.is_deleted, b.deleted_at
+                    FROM books b
+                    "#,
+                )
+            };
+
+            if filter.format.is_some() {
+                query.push_str(" LEFT JOIN book_files f ON b.id = f.book_id");
+            }
+            if filter.author_id.is_some() {
+                query.push_str(" LEFT JOIN book_authors ba ON b.id = ba.book_id");
+            }
+            if filter.tag_id.is_some() {
+                query.push_str(" LEFT JOIN book_tags bt ON b.id = bt.book_id");
+            }
+            if filter.collection_id.is_some() {
+                query.push_str(" LEFT JOIN book_collections bc ON b.id = bc.book_id");
+            }
+
+            query.push_str(" WHERE b.is_deleted = 0");
 
             let mut params_vec: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
 
@@ -312,9 +339,47 @@ impl BookRepository {
             for r in rows {
                 books.push(r?);
             }
+            drop(stmt);
+
+            // Batch populate authors for the returned page in a single query
+            if !books.is_empty() {
+                let id_placeholders = books.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+                let auth_sql = format!(
+                    "SELECT book_id, author_id FROM book_authors WHERE book_id IN ({}) ORDER BY position ASC",
+                    id_placeholders
+                );
+                let mut auth_stmt = conn.prepare(&auth_sql)?;
+                let auth_params: Vec<String> = books.iter().map(|b| b.id.to_string()).collect();
+                let rusqlite_auth_params: Vec<&dyn rusqlite::ToSql> =
+                    auth_params.iter().map(|s| s as &dyn rusqlite::ToSql).collect();
+
+                let mut author_map: std::collections::HashMap<BookId, Vec<AuthorId>> =
+                    std::collections::HashMap::new();
+
+                let auth_rows = auth_stmt.query_map(rusqlite_auth_params.as_slice(), |r| {
+                    let b_str: String = r.get(0)?;
+                    let a_str: String = r.get(1)?;
+                    Ok((
+                        b_str.parse::<BookId>().unwrap_or_default(),
+                        a_str.parse::<AuthorId>().unwrap_or_default(),
+                    ))
+                })?;
+
+                for item in auth_rows.flatten() {
+                    author_map.entry(item.0).or_default().push(item.1);
+                }
+
+                for b in &mut books {
+                    if let Some(a_ids) = author_map.remove(&b.id) {
+                        b.author_ids = a_ids;
+                    }
+                }
+            }
+
             Ok(books)
         })
     }
+
 
     pub fn set_reading_status(&self, book_id: &BookId, status: ReadingStatus) -> StorageResult<()> {
         self.db.with_conn(|conn| {

@@ -49,7 +49,9 @@ impl<K: std::hash::Hash + Eq + Clone + Send + Sync + 'static, V: Clone + Send + 
     pub async fn get(&self, key: &K) -> Option<V> {
         let lock = self.entries.read().await;
         if let Some(entry) = lock.get(key) {
-            entry.last_accessed.store(Self::current_timestamp_ms(), Ordering::Relaxed);
+            entry
+                .last_accessed
+                .store(Self::current_timestamp_ms(), Ordering::Relaxed);
             self.hits.fetch_add(1, Ordering::Relaxed);
             Some(entry.value.clone())
         } else {

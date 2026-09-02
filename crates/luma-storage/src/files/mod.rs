@@ -120,7 +120,11 @@ impl FileService {
     pub fn hash_file<P: AsRef<Path>>(&self, path: P) -> Result<(String, u64)> {
         let p = path.as_ref();
         let file = fs::File::open(p).map_err(|e| {
-            LumaError::StorageError(format!("Failed to open file for hashing {}: {}", p.display(), e))
+            LumaError::StorageError(format!(
+                "Failed to open file for hashing {}: {}",
+                p.display(),
+                e
+            ))
         })?;
         compute_sha256_reader(std::io::BufReader::new(file))
     }

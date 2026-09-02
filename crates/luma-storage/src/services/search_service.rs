@@ -17,6 +17,8 @@ pub struct SearchService {
 }
 
 impl SearchService {
+    pub const MAX_QUERY_LENGTH: usize = 256;
+
     pub fn new(db: Database, event_bus: EventBus, cache: CacheManager) -> Self {
         Self {
             db,
@@ -32,8 +34,19 @@ impl SearchService {
         max_results: usize,
     ) -> Result<SearchResult> {
         let start = Instant::now();
-        let clean_query = query.trim().replace('"', "\"\"");
-        if clean_query.is_empty() {
+        let bounded_query = if query.len() > Self::MAX_QUERY_LENGTH {
+            &query[..Self::MAX_QUERY_LENGTH]
+        } else {
+            query
+        };
+
+        let clean_query = bounded_query
+            .trim()
+            .replace('"', "\"\"")
+            .replace(['*', '^', ':', '(', ')'], " ");
+
+        let sanitized = clean_query.split_whitespace().collect::<Vec<_>>().join(" ");
+        if sanitized.is_empty() {
             return Ok(SearchResult {
                 hits: Vec::new(),
                 total_count: 0,
@@ -41,12 +54,13 @@ impl SearchService {
             });
         }
 
-        let fts_query = format!("\"{}\"*", clean_query);
+        let fts_query = format!("\"{}\"*", sanitized);
         let max = if max_results == 0 {
             50
         } else {
-            max_results as i64
+            max_results.min(500) as i64
         };
+
         let book_filter = book_id_filter.map(|b| b.to_string());
 
         let hits = self

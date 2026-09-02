@@ -155,7 +155,8 @@ impl LibraryService {
         }).map_err(|e| luma_core::error::LumaError::StorageError(e.to_string()))?;
 
         for bid in book_ids {
-            self.event_bus.publish(DomainEvent::BookUpdated { book_id: *bid });
+            self.event_bus
+                .publish(DomainEvent::BookUpdated { book_id: *bid });
         }
 
         Ok(BulkOperationResult {
@@ -195,7 +196,8 @@ impl LibraryService {
         }).map_err(|e| luma_core::error::LumaError::StorageError(e.to_string()))?;
 
         for bid in book_ids {
-            self.event_bus.publish(DomainEvent::BookUpdated { book_id: *bid });
+            self.event_bus
+                .publish(DomainEvent::BookUpdated { book_id: *bid });
         }
 
         Ok(BulkOperationResult {
@@ -227,7 +229,8 @@ impl LibraryService {
         }).map_err(|e| luma_core::error::LumaError::StorageError(e.to_string()))?;
 
         for bid in book_ids {
-            self.event_bus.publish(DomainEvent::BookTrashed { book_id: *bid });
+            self.event_bus
+                .publish(DomainEvent::BookTrashed { book_id: *bid });
         }
 
         Ok(BulkOperationResult {
@@ -262,7 +265,8 @@ impl LibraryService {
         }).map_err(|e| luma_core::error::LumaError::StorageError(e.to_string()))?;
 
         for bid in book_ids {
-            self.event_bus.publish(DomainEvent::BookUpdated { book_id: *bid });
+            self.event_bus
+                .publish(DomainEvent::BookUpdated { book_id: *bid });
         }
 
         Ok(BulkOperationResult {

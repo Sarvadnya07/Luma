@@ -136,6 +136,7 @@ pub struct ActiveJobState {
     pub stage: String,
     pub message: Option<String>,
     pub cancellation_token: CancellationToken,
+    pub last_event_emitted_at: Option<std::time::Instant>,
 }
 
 #[derive(Clone)]
@@ -146,6 +147,8 @@ pub struct JobManager {
 }
 
 impl JobManager {
+    pub const PROGRESS_THROTTLE_MS: u64 = 50;
+
     pub fn new(repo: JobRepository, event_bus: EventBus) -> Self {
         Self {
             repo,
@@ -174,6 +177,7 @@ impl JobManager {
             stage: "queued".to_string(),
             message: message.map(|s| s.to_string()),
             cancellation_token: cancellation_token.clone(),
+            last_event_emitted_at: Some(std::time::Instant::now()),
         };
 
         {
@@ -211,7 +215,7 @@ impl JobManager {
         (id, cancellation_token)
     }
 
-    /// Mark job as running and update progress stage
+    /// Mark job as running and update progress stage with 50ms time-based throttling
     pub async fn update_progress(
         &self,
         job_id: &str,
@@ -222,6 +226,7 @@ impl JobManager {
     ) {
         let mut job_type_str = "unknown".to_string();
         let mut total = 0;
+        let mut should_emit = false;
 
         {
             let mut lock = self.active_jobs.write().await;
@@ -233,6 +238,21 @@ impl JobManager {
                 state.message = message.map(|s| s.to_string());
                 job_type_str = state.job_type.to_string();
                 total = state.total_units;
+
+                let now = std::time::Instant::now();
+                if let Some(last_time) = state.last_event_emitted_at {
+                    if now.duration_since(last_time).as_millis()
+                        >= Self::PROGRESS_THROTTLE_MS as u128
+                        || completed >= total
+                        || failed > 0
+                    {
+                        should_emit = true;
+                        state.last_event_emitted_at = Some(now);
+                    }
+                } else {
+                    should_emit = true;
+                    state.last_event_emitted_at = Some(now);
+                }
             }
         }
 
@@ -248,14 +268,16 @@ impl JobManager {
             },
         );
 
-        self.event_bus.publish(DomainEvent::JobProgressUpdated {
-            job_id: job_id.to_string(),
-            job_type: job_type_str,
-            status: "running".to_string(),
-            completed,
-            total,
-            message: message.map(|s| s.to_string()),
-        });
+        if should_emit {
+            self.event_bus.publish(DomainEvent::JobProgressUpdated {
+                job_id: job_id.to_string(),
+                job_type: job_type_str,
+                status: "running".to_string(),
+                completed,
+                total,
+                message: message.map(|s| s.to_string()),
+            });
+        }
     }
 
     /// Mark job as completed
