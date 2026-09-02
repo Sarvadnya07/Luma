@@ -1,11 +1,11 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useMemo } from "react";
 import { BookOpen } from "lucide-react";
 import { useReaderStore } from "../../state/readerState";
 import { TextSelectionToolbar } from "./TextSelectionToolbar";
 
 export const EpubReaderView: React.FC = () => {
   const currentChapter = useReaderStore((s) => s.currentChapter);
-
+  const annotations = useReaderStore((s) => s.annotations);
   const currentSpineIndex = useReaderStore((s) => s.currentSpineIndex);
   const documentData = useReaderStore((s) => s.documentData);
   const settings = useReaderStore((s) => s.settings);
@@ -96,10 +96,56 @@ export const EpubReaderView: React.FC = () => {
     return currentChapter?.title || `Section ${currentSpineIndex + 1} of ${totalSpines}`;
   };
 
+  const highlightedHtml = useMemo(() => {
+    if (!currentChapter?.html_content) return "";
+    let html = currentChapter.html_content;
+    if (!annotations || annotations.length === 0) return html;
+
+    const relevant = annotations.filter((ann) => {
+      if (!ann.quote || ann.quote.trim().length === 0) return false;
+      try {
+        const payload = JSON.parse(ann.anchor_payload_json);
+        if (payload.spine_index !== undefined) {
+          return payload.spine_index === currentSpineIndex;
+        }
+      } catch {
+        // payload fallback
+      }
+      return currentChapter.text_content?.includes(ann.quote);
+    });
+
+    for (const ann of relevant) {
+      if (!ann.quote || ann.quote.trim().length === 0) continue;
+      const color = ann.color_hex || "#fef08a";
+      const regex = new RegExp(`(${ann.quote.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "g");
+      html = html.replace(
+        regex,
+        `<mark class="luma-highlight" style="background-color: ${color}55; border-bottom: 2px solid ${color}; border-radius: 2px; padding: 0 2px; color: inherit;" data-annotation-id="${ann.id}">$1</mark>`
+      );
+    }
+
+    return html;
+  }, [currentChapter, annotations, currentSpineIndex]);
+
+  const defaultTheme = { bg: "bg-[#FAF7F2]", text: "text-[#1C1917]", prose: "text-[#292524]" };
+  const themeStyles: Record<string, { bg: string; text: string; prose: string }> = {
+    light: defaultTheme,
+    sepia: { bg: "bg-[#F5EFE6]", text: "text-[#3D3028]", prose: "text-[#3D3028]" },
+    paper: { bg: "bg-[#EAEFEF]", text: "text-[#1F2937]", prose: "text-[#1F2937]" },
+    dark: { bg: "bg-[#18181B]", text: "text-[#F5F1EA]", prose: "text-[#E4DED3]" },
+    eink: { bg: "bg-[#FFFFFF]", text: "text-[#000000]", prose: "text-[#000000]" },
+  };
+  const currentTheme = themeStyles[settings.theme] ?? defaultTheme;
+  const maxWidthClass =
+    settings.marginHorizontal === 64
+      ? "max-w-xl"
+      : settings.marginHorizontal === 16
+      ? "max-w-4xl"
+      : "max-w-2xl";
 
   return (
     <div
-      className={`relative w-full h-full flex flex-col items-center overflow-hidden select-text bg-[#FAF7F2] text-[#1C1917]`}
+      className={`relative w-full h-full flex flex-col items-center overflow-hidden select-text ${currentTheme.bg} ${currentTheme.text}`}
       onMouseUp={handleMouseUp}
       onClick={handleContentClick}
     >
@@ -133,7 +179,7 @@ export const EpubReaderView: React.FC = () => {
         className="w-full flex-1 overflow-y-auto px-8 py-12 flex justify-center scroll-smooth"
       >
         <div
-          className="w-full max-w-2xl transition-all duration-150 leading-relaxed font-book text-[#292524]"
+          className={`w-full ${maxWidthClass} transition-all duration-150 leading-relaxed font-book ${currentTheme.prose}`}
           style={{
             fontSize: `${settings.fontSize || 16}px`,
             lineHeight: settings.lineHeight || 1.8,
@@ -143,7 +189,7 @@ export const EpubReaderView: React.FC = () => {
           {currentChapter ? (
             <div
               className="prose-reader text-justify"
-              dangerouslySetInnerHTML={{ __html: currentChapter.html_content }}
+              dangerouslySetInnerHTML={{ __html: highlightedHtml }}
             />
           ) : (
             <div className="flex flex-col items-center justify-center py-20 text-[#78716C]">

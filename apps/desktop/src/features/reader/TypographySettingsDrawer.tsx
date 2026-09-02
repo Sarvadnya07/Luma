@@ -133,15 +133,15 @@ export const TypographySettingsDrawer: React.FC = () => {
         </span>
         <div className="grid grid-cols-3 gap-1.5 bg-[#EFEAE1] p-1 rounded-xl text-xs">
           {[
-            { id: "narrow", label: "Narrow" },
-            { id: "normal", label: "Normal" },
-            { id: "wide", label: "Wide" },
+            { id: "narrow", val: 64, label: "Narrow" },
+            { id: "normal", val: 32, label: "Normal" },
+            { id: "wide", val: 16, label: "Wide" },
           ].map((w) => (
             <button
               key={w.id}
-              onClick={() => {}}
+              onClick={() => updateSettings({ marginHorizontal: w.val })}
               className={`py-1.5 rounded-lg font-medium transition-all ${
-                w.id === "normal"
+                settings.marginHorizontal === w.val || (!settings.marginHorizontal && w.id === "normal")
                   ? "bg-[#FFFFFF] text-[#1C1917] shadow-2xs font-semibold"
                   : "text-[#78716C] hover:text-[#1C1917]"
               }`}

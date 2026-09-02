@@ -312,17 +312,17 @@ export const PdfReaderView: React.FC = () => {
         {/* Dual / Single Page Spread Viewport */}
         <div className="flex-1 overflow-auto p-8 flex justify-center items-start">
           <div className="flex gap-6 items-start transition-transform duration-150">
-            {/* Left Page Canvas */}
+            {/* Left / Primary Page Canvas */}
             <div className="flex flex-col items-center">
               <PdfPageCanvas
                 pdfDoc={pdfDoc}
-                pageNum={leftPageNum}
+                pageNum={isDualSpread ? leftPageNum : currentPdfPage}
                 zoom={zoom}
                 fallbackText={leftPdfPageData?.text_content}
                 hasTextLayer={leftPdfPageData?.has_text_layer}
               />
               <div className="text-center font-mono text-[10px] text-[#78716C] pt-2">
-                Page {leftPageNum}
+                Page {isDualSpread ? leftPageNum : currentPdfPage}
               </div>
             </div>
 

@@ -14,6 +14,8 @@ import {
 import { DEFAULT_READER_SETTINGS } from "@luma/reader-ui";
 import { LumaApi } from "../lib/tauri";
 import { perfTelemetry } from "../lib/perfTelemetry";
+import { generateUuid } from "../lib/uuid";
+
 
 // ----------------------------------------------------------------------------
 // 1. Types
@@ -337,21 +339,28 @@ export function createReaderStore(config: ReaderStoreConfig = {}) {
 
     jumpToLocator: async (locator: string) => {
       const { documentData } = get();
+      if (!locator) return;
+
       if (documentData?.file.format === "epub") {
-        const match = locator.match(/epubcfi\(\/6\/(\d+)/);
-        if (match && match[1]) {
-          const spine = Math.floor(parseInt(match[1], 10) / 2) - 1;
-          if (spine >= 0) {
+        const cfiMatch = locator.match(/epubcfi\(\/6\/(\d+)/);
+        if (cfiMatch && cfiMatch[1]) {
+          const spine = Math.floor(parseInt(cfiMatch[1], 10) / 2) - 1;
+          if (spine >= 0 && spine < (documentData.total_pages_or_spines || 1)) {
             await get().loadChapter(spine);
             return;
           }
         }
-        const found = documentData.toc.findIndex((t) => t.locator === locator);
-        if (found !== -1) {
+        const found = documentData.toc?.findIndex((t) => t.locator === locator || t.locator.includes(locator));
+        if (found !== undefined && found !== -1) {
           await get().loadChapter(found);
+          return;
+        }
+        const num = parseInt(locator, 10);
+        if (!isNaN(num) && num >= 0 && num < (documentData.total_pages_or_spines || 1)) {
+          await get().loadChapter(num);
         }
       } else if (documentData?.file.format === "pdf") {
-        const match = locator.match(/page=(\d+)/);
+        const match = locator.match(/(?:page=)?(\d+)/);
         if (match && match[1]) {
           const page = parseInt(match[1], 10);
           await get().loadPdfPage(page);
@@ -372,19 +381,21 @@ export function createReaderStore(config: ReaderStoreConfig = {}) {
     },
 
     createHighlight: async (colorHex, quote, prefix, suffix, note) => {
-      const { currentBook, currentSpineIndex } = get();
+      const { currentBook, currentSpineIndex, currentPdfPage, documentData } = get();
       if (!currentBook) return;
 
+      const isPdf = documentData?.file.format === "pdf";
       const payload = JSON.stringify({
         exact: quote,
         prefix: prefix || null,
         suffix: suffix || null,
         normalized_exact: quote.toLowerCase().replace(/\s+/g, " "),
-        spine_index: currentSpineIndex,
+        spine_index: isPdf ? undefined : currentSpineIndex,
+        page_number: isPdf ? currentPdfPage : undefined,
       });
 
       const newAnn: Annotation = {
-        id: `ann_${Date.now()}`,
+        id: generateUuid(),
         book_id: currentBook.id,
         annotation_type: note ? "note" : "highlight",
         color_hex: colorHex,

@@ -378,9 +378,31 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           {b.books_count} books • {b.annotations_count} annotations • {Math.round(b.file_size_bytes / 1024)} KB
                         </span>
                       </div>
-                      <span className="text-[10px] text-[#78716C]">
-                        {new Date(b.created_at).toLocaleDateString()}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-[#78716C]">
+                          {new Date(b.created_at).toLocaleDateString()}
+                        </span>
+                        <button
+                          disabled={isLoading}
+                          onClick={async () => {
+                            if (window.confirm(`Restore snapshot "${b.backup_name}"?`)) {
+                              setIsLoading(true);
+                              setStatusMessage(null);
+                              try {
+                                await LumaApi.restoreBackup(b.file_path);
+                                setStatusMessage(`Restored "${b.backup_name}" successfully.`);
+                              } catch (e) {
+                                setStatusMessage(`Restore failed: ${String(e)}`);
+                              } finally {
+                                setIsLoading(false);
+                              }
+                            }
+                          }}
+                          className="px-2 py-1 bg-[#FAF7F2] dark:bg-[#2A2622] hover:bg-[#EFEAE1] dark:hover:bg-[#38332E] border border-[#DDD5C7] dark:border-[#403B35] rounded text-[10px] font-medium transition-colors"
+                        >
+                          Restore
+                        </button>
+                      </div>
                     </div>
                   ))
                 ) : (

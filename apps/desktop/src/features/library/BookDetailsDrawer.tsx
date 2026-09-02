@@ -81,8 +81,8 @@ export const BookDetailsDrawer: React.FC<BookDetailsDrawerProps> = ({
   onClose,
   onOpenReader,
   onEditMetadata,
-  onStatusChange: _onStatusChange,
-  onTrash: _onTrash,
+  onStatusChange,
+  onTrash,
   onRestore,
   onPermanentDelete,
   onAddTag: _onAddTag,
@@ -183,8 +183,8 @@ export const BookDetailsDrawer: React.FC<BookDetailsDrawerProps> = ({
           </p>
         </div>
 
-        {/* Action Buttons */}
-        <div className="space-y-2.5 pt-2">
+        {/* Action Buttons & Status */}
+        <div className="space-y-3 pt-2">
           {!isTrashed ? (
             <>
               <button
@@ -195,7 +195,41 @@ export const BookDetailsDrawer: React.FC<BookDetailsDrawerProps> = ({
                 <span>{continueLabel}</span>
               </button>
 
-              <div className="flex gap-2.5">
+              {/* Status Switcher */}
+              <div className="grid grid-cols-3 gap-1.5 p-1 bg-[#EFEAE1]/70 rounded-lg text-[11px] font-medium text-stone-600">
+                <button
+                  onClick={() => onStatusChange?.("unread")}
+                  className={`py-1 rounded text-center transition-colors ${
+                    book.reading_status === "unread" || (!book.reading_status && progressPercent === 0)
+                      ? "bg-[#FAF7F2] text-[#1C1917] font-bold shadow-2xs"
+                      : "hover:text-[#18181B]"
+                  }`}
+                >
+                  Unread
+                </button>
+                <button
+                  onClick={() => onStatusChange?.("reading")}
+                  className={`py-1 rounded text-center transition-colors ${
+                    book.reading_status === "reading" || (progressPercent > 0 && progressPercent < 100)
+                      ? "bg-[#FAF7F2] text-[#1C1917] font-bold shadow-2xs"
+                      : "hover:text-[#18181B]"
+                  }`}
+                >
+                  Reading
+                </button>
+                <button
+                  onClick={() => onStatusChange?.("completed")}
+                  className={`py-1 rounded text-center transition-colors ${
+                    book.reading_status === "completed" || progressPercent === 100
+                      ? "bg-[#FAF7F2] text-[#1C1917] font-bold shadow-2xs"
+                      : "hover:text-[#18181B]"
+                  }`}
+                >
+                  Completed
+                </button>
+              </div>
+
+              <div className="flex gap-2">
                 <button
                   onClick={handleEdit}
                   className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 bg-[#FAF7F2] hover:bg-[#F3EFE6] active:bg-[#EAE4DA] text-[#1C1917] text-xs font-medium rounded-lg border border-[#DDD5C7] shadow-2xs transition-colors"
@@ -210,6 +244,15 @@ export const BookDetailsDrawer: React.FC<BookDetailsDrawerProps> = ({
                   <Plus className="w-3.5 h-3.5 text-[#57534E]" />
                   <span>{mergedLabels.addToLabel}</span>
                 </button>
+                {onTrash && (
+                  <button
+                    onClick={onTrash}
+                    className="p-2 bg-[#FAF7F2] hover:bg-rose-50 hover:text-rose-600 active:bg-rose-100 text-[#78716C] rounded-lg border border-[#DDD5C7] shadow-2xs transition-colors"
+                    title="Move to Trash"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </div>
             </>
           ) : (
@@ -220,7 +263,7 @@ export const BookDetailsDrawer: React.FC<BookDetailsDrawerProps> = ({
                   className="flex-1 flex items-center justify-center gap-2 py-2 px-3 bg-[#18181B] hover:bg-[#27272A] text-white text-xs font-medium rounded-lg"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
-                  {mergedLabels.restoreLabel}
+                  <span>{mergedLabels.restoreLabel}</span>
                 </button>
               )}
               {onPermanentDelete && (
@@ -229,7 +272,7 @@ export const BookDetailsDrawer: React.FC<BookDetailsDrawerProps> = ({
                   className="flex-1 flex items-center justify-center gap-2 py-2 px-3 bg-rose-600 hover:bg-rose-700 text-white text-xs font-medium rounded-lg"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
-                  {mergedLabels.deleteLabel}
+                  <span>{mergedLabels.deleteLabel}</span>
                 </button>
               )}
             </div>

@@ -166,7 +166,7 @@ export const LibrarySidebar: React.FC<LibrarySidebarProps> = ({
   selectedTagId = null,
   onSelectCollection,
   onSelectTag,
-  onCreateCollection: _onCreateCollection,
+  onCreateCollection,
   onImportClick,
   onOpenSettings,
   isDarkMode = false,
@@ -257,7 +257,7 @@ export const LibrarySidebar: React.FC<LibrarySidebarProps> = ({
             </button>
           ))}
           <button
-            onClick={_onCreateCollection}
+            onClick={() => onCreateCollection?.()}
             className="w-full text-left px-2 py-1 text-xs text-[#78716C] hover:text-[#1C1917] flex items-center gap-1"
           >
             <Plus className="w-3 h-3" />
