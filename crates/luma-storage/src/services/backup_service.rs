@@ -8,14 +8,19 @@ use zip::{ZipArchive, ZipWriter};
 use luma_core::error::{LumaError, Result};
 use luma_core::models::annotation::Annotation;
 use luma_core::models::book::Book;
-use luma_core::models::reading::{Bookmark, ReadingProgress};
+use luma_core::models::knowledge::{
+    Flashcard, Note, ResearchDraft, ResearchEvidence, ResearchProject, ResearchQuestion,
+    StudyReview,
+};
+use luma_core::models::reading::{Bookmark, ReadingProgress, ReadingSession};
 
 use crate::db::Database;
 use crate::events::{DomainEvent, EventBus};
 use crate::files::FileService;
 use crate::repos::{
     AnnotationRepository, BackupRecord, BackupRecordRepository, BookRepository, BookmarkRepository,
-    ReadingProgressRepository, SettingsRepository,
+    FlashcardRepository, NoteRepository, ReadingProgressRepository, ReadingSessionRepository,
+    ResearchRepository, SettingsRepository, StudyReviewRepository,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -26,6 +31,14 @@ pub struct BackupManifest {
     pub annotations_count: usize,
     pub bookmarks_count: usize,
     pub settings_count: usize,
+    #[serde(default)]
+    pub notes_count: usize,
+    #[serde(default)]
+    pub flashcards_count: usize,
+    #[serde(default)]
+    pub research_projects_count: usize,
+    #[serde(default)]
+    pub reading_sessions_count: usize,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -81,6 +94,22 @@ impl BackupService {
             .get_all_settings()
             .map_err(|e| LumaError::StorageError(e.to_string()))?;
 
+        // Fetch knowledge and session repositories
+        let note_repo = NoteRepository::new(self.db.clone());
+        let card_repo = FlashcardRepository::new(self.db.clone());
+        let rev_repo = StudyReviewRepository::new(self.db.clone());
+        let res_repo = ResearchRepository::new(self.db.clone());
+        let sess_repo = ReadingSessionRepository::new(self.db.clone());
+
+        let notes = note_repo.list_all().unwrap_or_default();
+        let flashcards = card_repo.list_all().unwrap_or_default();
+        let study_reviews = rev_repo.list_all().unwrap_or_default();
+        let research_projects = res_repo.list_projects().unwrap_or_default();
+        let research_questions = res_repo.list_all_questions().unwrap_or_default();
+        let research_evidence = res_repo.list_all_evidence().unwrap_or_default();
+        let research_drafts = res_repo.list_all_drafts().unwrap_or_default();
+        let reading_sessions = sess_repo.list_all().unwrap_or_default();
+
         // Collect reading progress for all books
         let mut progress_list = Vec::new();
         for b in &books {
@@ -96,6 +125,10 @@ impl BackupService {
             annotations_count: annotations.len(),
             bookmarks_count: bookmarks.len(),
             settings_count: settings.len(),
+            notes_count: notes.len(),
+            flashcards_count: flashcards.len(),
+            research_projects_count: research_projects.len(),
+            reading_sessions_count: reading_sessions.len(),
         };
 
         // Write ZIP archive
@@ -148,6 +181,78 @@ impl BackupService {
             .map_err(|e| LumaError::StorageError(e.to_string()))?;
         zip.write_all(serde_json::to_string_pretty(&settings).unwrap().as_bytes())
             .map_err(|e| LumaError::StorageError(e.to_string()))?;
+
+        // 7. Notes
+        zip.start_file("notes.json", options)
+            .map_err(|e| LumaError::StorageError(e.to_string()))?;
+        zip.write_all(serde_json::to_string_pretty(&notes).unwrap().as_bytes())
+            .map_err(|e| LumaError::StorageError(e.to_string()))?;
+
+        // 8. Flashcards & Study Reviews
+        zip.start_file("flashcards.json", options)
+            .map_err(|e| LumaError::StorageError(e.to_string()))?;
+        zip.write_all(
+            serde_json::to_string_pretty(&flashcards)
+                .unwrap()
+                .as_bytes(),
+        )
+        .map_err(|e| LumaError::StorageError(e.to_string()))?;
+
+        zip.start_file("study_reviews.json", options)
+            .map_err(|e| LumaError::StorageError(e.to_string()))?;
+        zip.write_all(
+            serde_json::to_string_pretty(&study_reviews)
+                .unwrap()
+                .as_bytes(),
+        )
+        .map_err(|e| LumaError::StorageError(e.to_string()))?;
+
+        // 9. Research Projects, Questions, Evidence, Drafts
+        zip.start_file("research_projects.json", options)
+            .map_err(|e| LumaError::StorageError(e.to_string()))?;
+        zip.write_all(
+            serde_json::to_string_pretty(&research_projects)
+                .unwrap()
+                .as_bytes(),
+        )
+        .map_err(|e| LumaError::StorageError(e.to_string()))?;
+
+        zip.start_file("research_questions.json", options)
+            .map_err(|e| LumaError::StorageError(e.to_string()))?;
+        zip.write_all(
+            serde_json::to_string_pretty(&research_questions)
+                .unwrap()
+                .as_bytes(),
+        )
+        .map_err(|e| LumaError::StorageError(e.to_string()))?;
+
+        zip.start_file("research_evidence.json", options)
+            .map_err(|e| LumaError::StorageError(e.to_string()))?;
+        zip.write_all(
+            serde_json::to_string_pretty(&research_evidence)
+                .unwrap()
+                .as_bytes(),
+        )
+        .map_err(|e| LumaError::StorageError(e.to_string()))?;
+
+        zip.start_file("research_drafts.json", options)
+            .map_err(|e| LumaError::StorageError(e.to_string()))?;
+        zip.write_all(
+            serde_json::to_string_pretty(&research_drafts)
+                .unwrap()
+                .as_bytes(),
+        )
+        .map_err(|e| LumaError::StorageError(e.to_string()))?;
+
+        // 10. Reading Sessions
+        zip.start_file("reading_sessions.json", options)
+            .map_err(|e| LumaError::StorageError(e.to_string()))?;
+        zip.write_all(
+            serde_json::to_string_pretty(&reading_sessions)
+                .unwrap()
+                .as_bytes(),
+        )
+        .map_err(|e| LumaError::StorageError(e.to_string()))?;
 
         zip.finish().map_err(|e| {
             LumaError::StorageError(format!("Failed to finalize backup ZIP: {}", e))
@@ -292,6 +397,106 @@ impl BackupService {
                     let repo = SettingsRepository::new(self.db.clone());
                     for (k, v) in settings_map {
                         let _ = repo.set_setting(&k, &v);
+                    }
+                }
+            }
+        }
+
+        // 6. Read notes
+        if let Ok(mut f) = zip.by_name("notes.json") {
+            let mut s = String::new();
+            if f.read_to_string(&mut s).is_ok() {
+                if let Ok(notes) = serde_json::from_str::<Vec<Note>>(&s) {
+                    let repo = NoteRepository::new(self.db.clone());
+                    for n in notes {
+                        let _ = repo.insert(&n);
+                    }
+                }
+            }
+        }
+
+        // 7. Read flashcards & study reviews
+        if let Ok(mut f) = zip.by_name("flashcards.json") {
+            let mut s = String::new();
+            if f.read_to_string(&mut s).is_ok() {
+                if let Ok(cards) = serde_json::from_str::<Vec<Flashcard>>(&s) {
+                    let repo = FlashcardRepository::new(self.db.clone());
+                    for c in cards {
+                        let _ = repo.insert(&c);
+                    }
+                }
+            }
+        }
+
+        if let Ok(mut f) = zip.by_name("study_reviews.json") {
+            let mut s = String::new();
+            if f.read_to_string(&mut s).is_ok() {
+                if let Ok(reviews) = serde_json::from_str::<Vec<StudyReview>>(&s) {
+                    let repo = StudyReviewRepository::new(self.db.clone());
+                    for r in reviews {
+                        let _ = repo.insert(&r);
+                    }
+                }
+            }
+        }
+
+        // 8. Read research entities
+        if let Ok(mut f) = zip.by_name("research_projects.json") {
+            let mut s = String::new();
+            if f.read_to_string(&mut s).is_ok() {
+                if let Ok(projects) = serde_json::from_str::<Vec<ResearchProject>>(&s) {
+                    let repo = ResearchRepository::new(self.db.clone());
+                    for p in projects {
+                        let _ = repo.insert_project(&p);
+                    }
+                }
+            }
+        }
+
+        if let Ok(mut f) = zip.by_name("research_questions.json") {
+            let mut s = String::new();
+            if f.read_to_string(&mut s).is_ok() {
+                if let Ok(questions) = serde_json::from_str::<Vec<ResearchQuestion>>(&s) {
+                    let repo = ResearchRepository::new(self.db.clone());
+                    for q in questions {
+                        let _ = repo.insert_question(&q);
+                    }
+                }
+            }
+        }
+
+        if let Ok(mut f) = zip.by_name("research_evidence.json") {
+            let mut s = String::new();
+            if f.read_to_string(&mut s).is_ok() {
+                if let Ok(evidence) = serde_json::from_str::<Vec<ResearchEvidence>>(&s) {
+                    let repo = ResearchRepository::new(self.db.clone());
+                    for e in evidence {
+                        let _ = repo.insert_evidence(&e);
+                    }
+                }
+            }
+        }
+
+        if let Ok(mut f) = zip.by_name("research_drafts.json") {
+            let mut s = String::new();
+            if f.read_to_string(&mut s).is_ok() {
+                if let Ok(drafts) = serde_json::from_str::<Vec<ResearchDraft>>(&s) {
+                    let repo = ResearchRepository::new(self.db.clone());
+                    for d in drafts {
+                        let _ = repo.save_draft(&d);
+                    }
+                }
+            }
+        }
+
+        // 9. Read reading sessions
+        if let Ok(mut f) = zip.by_name("reading_sessions.json") {
+            let mut s = String::new();
+            if f.read_to_string(&mut s).is_ok() {
+                if let Ok(sessions) = serde_json::from_str::<Vec<ReadingSession>>(&s) {
+                    let repo = ReadingSessionRepository::new(self.db.clone());
+                    for sess in sessions {
+                        let _ = repo.insert(&sess);
                     }
                 }
             }

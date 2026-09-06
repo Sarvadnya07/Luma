@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Clock, Sparkles, Plus, RotateCcw, CheckCircle2 } from "lucide-react";
+import { LumaApi } from "../../lib/tauri";
 
 export interface Flashcard {
   id: string;
@@ -34,18 +35,7 @@ const INITIAL_CARDS: Flashcard[] = [
 ];
 
 export const StudyFlashcards: React.FC = () => {
-  const [cards, setCards] = useState<Flashcard[]>(() => {
-    const saved = localStorage.getItem("luma_flashcards");
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch {
-        return INITIAL_CARDS;
-      }
-    }
-    return INITIAL_CARDS;
-  });
-
+  const [cards, setCards] = useState<Flashcard[]>(INITIAL_CARDS);
   const [isFlipped, setIsFlipped] = useState(false);
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
   const [reviewedCount, setReviewedCount] = useState(0);
@@ -56,17 +46,75 @@ export const StudyFlashcards: React.FC = () => {
   const [newDeck, setNewDeck] = useState("GENERAL STUDY");
 
   useEffect(() => {
-    localStorage.setItem("luma_flashcards", JSON.stringify(cards));
-  }, [cards]);
+    let mounted = true;
+    async function loadCards() {
+      try {
+        await LumaApi.migrateLegacyKnowledge();
+        let fetched = await LumaApi.listFlashcards();
+        if (fetched.length === 0) {
+          for (const init of INITIAL_CARDS) {
+            await LumaApi.createFlashcard({
+              id: init.id,
+              front: init.question,
+              back: init.answer,
+              source_book_id: null,
+              source_annotation_id: null,
+              deck_id: init.deck,
+              state: "new",
+              interval_days: 1,
+              ease_factor: 2.5,
+              repetitions: 0,
+              due_at: new Date().toISOString(),
+              last_reviewed_at: null,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+              is_deleted: false,
+            });
+          }
+          fetched = await LumaApi.listFlashcards();
+        }
+        if (mounted && fetched.length > 0) {
+          setCards(
+            fetched.map((c) => ({
+              id: c.id,
+              deck: c.deck_id,
+              question: c.front,
+              answer: c.back,
+              citation: "Source Citation",
+            }))
+          );
+        }
+      } catch (err) {
+        console.error("Failed to load flashcards from SQLite:", err);
+      }
+    }
+    loadCards();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const currentCard = cards[currentCardIndex % (cards.length || 1)] || INITIAL_CARDS[0]!;
   const isSessionComplete = reviewedCount >= cards.length && cards.length > 0;
 
-  const handleNext = useCallback((_grade?: string) => {
+  const handleNext = useCallback((grade?: string) => {
     setIsFlipped(false);
     setReviewedCount((r) => r + 1);
     setCurrentCardIndex((i) => (i + 1) % cards.length);
-  }, [cards.length]);
+
+    if (currentCard) {
+      const rating = grade === "again" ? 1 : grade === "hard" ? 2 : grade === "good" ? 3 : 4;
+      LumaApi.recordStudyReview({
+        id: `rev_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        flashcard_id: currentCard.id,
+        rating,
+        interval_before: 1,
+        interval_after: rating >= 3 ? 3 : 1,
+        ease_factor: 2.5,
+        reviewed_at: new Date().toISOString(),
+      }).catch((e) => console.error("Failed to record review:", e));
+    }
+  }, [cards.length, currentCard]);
 
   const handleRestart = () => {
     setIsFlipped(false);
@@ -89,6 +137,24 @@ export const StudyFlashcards: React.FC = () => {
     setNewAnswer("");
     setNewCitation("");
     setIsAddingCard(false);
+
+    LumaApi.createFlashcard({
+      id: card.id,
+      front: card.question,
+      back: card.answer,
+      source_book_id: null,
+      source_annotation_id: null,
+      deck_id: card.deck,
+      state: "new",
+      interval_days: 1,
+      ease_factor: 2.5,
+      repetitions: 0,
+      due_at: new Date().toISOString(),
+      last_reviewed_at: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      is_deleted: false,
+    }).catch((e) => console.error("Failed to save flashcard to SQLite:", e));
   };
 
   // Keyboard shortcut: Space to flip, 1-4 for grading
@@ -139,15 +205,15 @@ export const StudyFlashcards: React.FC = () => {
       {/* Main Flashcard Container */}
       <div className="flex-1 flex flex-col items-center justify-center p-8">
         {isSessionComplete ? (
-          <div className="w-full max-w-md bg-[#FFFFFF] border border-[#E5DFD3] rounded-3xl p-8 shadow-xl text-center space-y-4 animate-in zoom-in-95 duration-200">
+          <div className="w-full max-w-md bg-[#FFFFFF] dark:bg-[#27231E] border border-[#18181B]/15 dark:border-white/15 rounded-3xl p-8 shadow-xl text-center space-y-4 animate-in zoom-in-95 duration-200">
             <CheckCircle2 className="w-12 h-12 text-teal-700 mx-auto" />
-            <h2 className="font-serif text-xl font-bold text-[#1C1917]">Session Complete!</h2>
-            <p className="text-xs text-[#57534E] leading-relaxed">
+            <h2 className="font-serif text-xl font-bold text-[#1C1917] dark:text-[#EAE5DC]">Session Complete!</h2>
+            <p className="text-xs text-[#57534E] dark:text-[#B5ADA3] leading-relaxed">
               You reviewed all {cards.length} cards in this review round.
             </p>
             <button
               onClick={handleRestart}
-              className="mt-2 py-2 px-4 bg-[#18181B] hover:bg-[#27272A] text-white text-xs font-semibold rounded-xl flex items-center justify-center gap-1.5 mx-auto transition-colors shadow-sm"
+              className="mt-2 py-2 px-4 bg-[#18181B] hover:bg-[#27272A] text-white text-xs font-semibold rounded-xl flex items-center justify-center gap-1.5 mx-auto transition-colors border border-black/80 shadow-sm"
             >
               <RotateCcw className="w-3.5 h-3.5" />
               <span>Review Again</span>
@@ -157,7 +223,7 @@ export const StudyFlashcards: React.FC = () => {
           <>
             <div
               onClick={() => setIsFlipped(!isFlipped)}
-              className="w-full max-w-xl aspect-[16/10] bg-[#FFFFFF] border border-[#E5DFD3] hover:border-[#DDD5C7] rounded-3xl p-10 shadow-xl flex flex-col justify-between items-center text-center cursor-pointer transition-all duration-300 hover:shadow-2xl"
+              className="w-full max-w-xl aspect-[16/10] bg-[#FFFFFF] dark:bg-[#27231E] border border-[#18181B]/15 dark:border-white/15 hover:border-[#18181B]/30 dark:hover:border-white/30 rounded-3xl p-10 shadow-[0_8px_30px_rgba(0,0,0,0.1)] hover:shadow-[0_12px_36px_rgba(0,0,0,0.14)] flex flex-col justify-between items-center text-center cursor-pointer transition-all duration-300"
             >
               <div className="w-full flex justify-between items-center text-[10px] text-[#78716C] font-mono">
                 <span>{isFlipped ? "EXPLANATION / ANSWER" : "QUESTION"}</span>

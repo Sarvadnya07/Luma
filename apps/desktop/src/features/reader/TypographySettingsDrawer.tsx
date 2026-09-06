@@ -29,9 +29,9 @@ export const TypographySettingsDrawer: React.FC = () => {
   };
 
   return (
-    <div className="fixed right-6 top-14 z-50 w-72 bg-[#FAF7F2] border border-[#E5DFD3] rounded-2xl shadow-2xl p-5 space-y-4 animate-in slide-in-from-right duration-150 text-[#1C1917]">
+    <div className="fixed right-6 top-14 z-50 w-72 bg-[#FAF7F2] border border-[#18181B]/20 dark:border-white/20 rounded-2xl shadow-[0_10px_35px_rgba(0,0,0,0.18)] p-5 space-y-4 animate-in slide-in-from-right duration-150 text-[#1C1917]">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-[#E5DFD3] pb-2.5">
+      <div className="flex items-center justify-between border-b border-[#18181B]/15 pb-2.5">
         <h3 className="text-[10px] font-bold uppercase tracking-widest text-[#78716C]">APPEARANCE</h3>
         <button
           onClick={toggleTypography}

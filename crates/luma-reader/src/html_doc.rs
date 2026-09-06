@@ -3,11 +3,11 @@ use std::fs::File;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 
-use luma_core::error::{LumaError, Result};
-use luma_security::sanitize_untrusted_html;
 use crate::encoding::decode_text_bytes;
 use crate::epub_doc::{ChapterContent, DocumentSearchMatch};
 use crate::TocItem;
+use luma_core::error::{LumaError, Result};
+use luma_security::sanitize_untrusted_html;
 
 /// Document engine for standalone HTML documents (.html, .htm).
 pub struct HtmlDocument {
@@ -91,9 +91,8 @@ impl HtmlDocument {
         }
 
         // Extract raw text for searching by stripping HTML tags
-        static TAG_STRIPPER: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-            Regex::new(r"<[^>]+>").expect("Valid regex")
-        });
+        static TAG_STRIPPER: std::sync::LazyLock<Regex> =
+            std::sync::LazyLock::new(|| Regex::new(r"<[^>]+>").expect("Valid regex"));
         let raw_text = TAG_STRIPPER.replace_all(&sanitized, " ").to_string();
 
         // Wrap inside reader container

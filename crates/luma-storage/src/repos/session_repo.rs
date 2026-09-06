@@ -89,7 +89,12 @@ impl ReadingSessionRepository {
                     end_progress_pct = ?3
                 WHERE id = ?4
                 "#,
-                params![now, duration_seconds, end_progress.clamp(0.0, 1.0), session_id.to_string()],
+                params![
+                    now,
+                    duration_seconds,
+                    end_progress.clamp(0.0, 1.0),
+                    session_id.to_string()
+                ],
             )?;
             Ok(())
         })
@@ -225,7 +230,7 @@ impl ReadingSessionRepository {
             // 4. Daily reading minutes for last 28 days (4 weeks)
             let mut daily_stats: Vec<DailyReadingMinutes> = Vec::with_capacity(28);
             let today = Utc::now().date_naive();
-            
+
             let mut stmt = conn.prepare(
                 r#"
                 SELECT substr(started_at, 1, 10) as day, COALESCE(SUM(duration_seconds), 0) / 60 as mins
@@ -311,6 +316,56 @@ impl ReadingSessionRepository {
                 recent_sessions,
                 time_focus_data,
             })
+        })
+    }
+
+    pub fn list_all(&self) -> StorageResult<Vec<ReadingSession>> {
+        self.db.with_read_conn(|conn| {
+            let mut stmt = conn.prepare(
+                r#"
+                SELECT id, book_id, device_id, started_at, ended_at,
+                       duration_seconds, start_progress_pct, end_progress_pct
+                FROM reading_sessions
+                ORDER BY started_at DESC
+                "#,
+            )?;
+
+            let rows = stmt.query_map([], |row| {
+                let id_str: String = row.get(0)?;
+                let b_id_str: String = row.get(1)?;
+                let d_id_str: String = row.get(2)?;
+                let s_str: String = row.get(3)?;
+                let e_str: Option<String> = row.get(4)?;
+                let dur: u32 = row.get(5)?;
+                let start_p: f32 = row.get(6)?;
+                let end_p: f32 = row.get(7)?;
+
+                let started_at = DateTime::parse_from_rfc3339(&s_str)
+                    .map(|d| d.with_timezone(&Utc))
+                    .unwrap_or_else(|_| Utc::now());
+                let ended_at = e_str.and_then(|s| {
+                    DateTime::parse_from_rfc3339(&s)
+                        .map(|d| d.with_timezone(&Utc))
+                        .ok()
+                });
+
+                Ok(ReadingSession {
+                    id: id_str.parse().unwrap_or_else(|_| SessionId::new()),
+                    book_id: b_id_str.parse().unwrap_or_else(|_| BookId::new()),
+                    device_id: d_id_str.parse().unwrap_or_else(|_| DeviceId::new()),
+                    started_at,
+                    ended_at,
+                    duration_seconds: dur,
+                    start_progress_pct: start_p,
+                    end_progress_pct: end_p,
+                })
+            })?;
+
+            let mut sessions = Vec::new();
+            for r in rows {
+                sessions.push(r?);
+            }
+            Ok(sessions)
         })
     }
 }

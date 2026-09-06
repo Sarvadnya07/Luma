@@ -70,8 +70,8 @@ const CandidateCard: React.FC<CandidateCardProps> = ({
       onClick={() => onSelect(candidate.id)}
       className={`p-5 rounded-2xl border transition-all cursor-pointer space-y-3 ${
         isSelected
-          ? `bg-white border-${confidenceConfig.color}-600 ring-2 ring-${confidenceConfig.color}-600/20 shadow-sm`
-          : "bg-white border-[#E5DFD3] hover:border-[#DDD5C7]"
+          ? `bg-white border-${confidenceConfig.color}-600 ring-2 ring-${confidenceConfig.color}-600/30 shadow-md`
+          : "bg-white border-[#18181B]/15 dark:border-white/15 hover:border-[#18181B]/30 shadow-xs"
       }`}
     >
       <div className="flex items-center justify-between text-xs">
@@ -210,15 +210,15 @@ export const AnnotationRepairWorkflow: React.FC<AnnotationRepairWorkflowProps> =
               Original Passage
             </h3>
 
-            <div className="bg-white border border-[#E5DFD3] rounded-2xl p-6 shadow-2xs space-y-4 text-xs leading-relaxed text-[#57534E]">
+            <div className="bg-white border border-[#18181B]/15 dark:border-white/15 rounded-2xl p-6 shadow-sm space-y-4 text-xs leading-relaxed text-[#57534E]">
               <p>{data.originalPassage}</p>
-              <div className="bg-rose-50/80 border border-rose-200 text-rose-950 p-2.5 rounded-xl font-serif font-bold text-sm leading-snug">
+              <div className="bg-rose-50/80 border border-rose-300 text-rose-950 p-2.5 rounded-xl font-serif font-bold text-sm leading-snug shadow-2xs">
                 {data.highlightedQuote}
               </div>
             </div>
 
             {/* Attached Note */}
-            <div className="bg-[#FAF7F2] border border-[#E5DFD3] rounded-2xl p-4 space-y-2">
+            <div className="bg-[#FAF7F2] border border-[#18181B]/15 dark:border-white/15 rounded-2xl p-4 space-y-2 shadow-xs">
               <div className="flex items-center gap-1.5 text-xs text-[#78716C]">
                 <Edit3 className="w-3.5 h-3.5 text-[#8C8275]" />
                 <span className="font-semibold text-[#1C1917]">Your Note</span>

@@ -60,10 +60,10 @@ export const IntegrationsPluginsView: React.FC = () => {
             </span>
 
             {/* Readwise Integration Card */}
-            <div className="bg-[#FFFFFF] border border-[#E5DFD3] rounded-2xl p-6 shadow-2xs space-y-4">
+            <div className="bg-[#FFFFFF] border border-[#18181B]/15 dark:border-white/15 rounded-2xl p-6 shadow-xs space-y-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-[#FAF7F2] border border-[#E5DFD3] flex items-center justify-center font-serif text-base font-bold text-[#1C1917]">
+                  <div className="w-10 h-10 rounded-xl bg-[#FAF7F2] border border-[#18181B]/15 dark:border-white/15 flex items-center justify-center font-serif text-base font-bold text-[#1C1917] shadow-2xs">
                     R
                   </div>
                   <div>
@@ -91,7 +91,7 @@ export const IntegrationsPluginsView: React.FC = () => {
               </p>
 
               {/* Permissions */}
-              <div className="bg-[#FAF7F2] border border-[#E5DFD3] rounded-xl p-3 space-y-1.5 text-xs text-[#78716C]">
+              <div className="bg-[#FAF7F2] border border-[#18181B]/10 dark:border-white/10 rounded-xl p-3 space-y-1.5 text-xs text-[#78716C]">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-[#1C1917] block font-mono">
                   PERMISSIONS
                 </span>
@@ -101,10 +101,10 @@ export const IntegrationsPluginsView: React.FC = () => {
             </div>
 
             {/* Zotero Integration Card */}
-            <div className="bg-[#FFFFFF] border border-[#E5DFD3] rounded-2xl p-6 shadow-2xs space-y-4">
+            <div className="bg-[#FFFFFF] border border-[#18181B]/15 dark:border-white/15 rounded-2xl p-6 shadow-xs space-y-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-[#FAF7F2] border border-[#E5DFD3] flex items-center justify-center font-serif text-base font-bold text-[#1C1917]">
+                  <div className="w-10 h-10 rounded-xl bg-[#FAF7F2] border border-[#18181B]/15 dark:border-white/15 flex items-center justify-center font-serif text-base font-bold text-[#1C1917] shadow-2xs">
                     Z
                   </div>
                   <div>
@@ -164,7 +164,7 @@ export const IntegrationsPluginsView: React.FC = () => {
                 return (
                   <div
                     key={plugin.id}
-                    className="p-3.5 bg-[#FFFFFF] border border-[#E5DFD3] hover:border-[#DDD5C7] rounded-xl space-y-1.5 shadow-2xs group"
+                    className="p-3.5 bg-[#FFFFFF] border border-[#18181B]/15 dark:border-white/15 hover:border-[#18181B]/30 rounded-xl space-y-1.5 shadow-xs group"
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">

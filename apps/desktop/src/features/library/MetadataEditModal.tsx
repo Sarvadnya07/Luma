@@ -222,11 +222,11 @@ export const MetadataEditModal: React.FC<MetadataEditModalProps> = ({
       aria-describedby={error ? "metadata-edit-error" : undefined}
     >
       <div
-        className={`bg-[#FAF7F2] border border-[#E5DFD3] rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-150 ${className}`}
+        className={`bg-[#FAF7F2] border border-[#18181B]/20 dark:border-white/20 rounded-2xl w-full max-w-lg shadow-[0_15px_40px_rgba(0,0,0,0.22)] overflow-hidden flex flex-col animate-in zoom-in-95 duration-150 ${className}`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[#E5DFD3]">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[#18181B]/15">
           <h3 id="metadata-edit-title" className="font-serif text-sm font-bold text-[#1C1917]">
             {labels.title}
           </h3>

@@ -129,7 +129,7 @@ export const ReaderSidebar: React.FC = () => {
   };
 
   return (
-    <aside className="w-72 h-full bg-[#F3EFE6] border-r border-[#E5DFD3] flex flex-col z-30 animate-in slide-in-from-left duration-150 flex-shrink-0 select-none">
+    <aside className="w-72 h-full bg-[#F3EFE6] dark:bg-[#201D19] border-r border-[#18181B]/15 dark:border-white/15 shadow-sm flex flex-col z-30 animate-in slide-in-from-left duration-150 flex-shrink-0 select-none">
       {/* Brand & Book Header */}
       <div className="p-4 pb-3 border-b border-[#E5DFD3] flex items-center justify-between">
         <div>

@@ -35,11 +35,11 @@
   --text-inverse: #FFFFFF;
   --text-amber: #B45309;
 
-  /* --- Borders --- */
-  --border-light: #E5DFD3;
-  --border-medium: #DDD5C7;
-  --border-heavy: #D6CEC2;
-  --border-amber: #E8DFC8;
+  /* --- Borders (high clarity & contrast) --- */
+  --border-light: #DDD5C7;
+  --border-medium: #C8BFB0;
+  --border-heavy: #A89E8E;
+  --border-amber: #D8C7A5;
 
   /* --- Accents --- */
   --accent-primary: #18181B;
@@ -47,12 +47,14 @@
   --accent-emerald: #059669;
   --accent-teal: #0D9488;
 
-  /* --- Shadows --- */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  /* --- Shadows (crisp depth & component isolation) --- */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 10px -1px rgba(0, 0, 0, 0.12), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.07), 0 1px 3px rgba(0, 0, 0, 0.05);
+  --shadow-card-hover: 0 6px 18px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.08);
 
   /* --- Typography (reader) --- */
-  --reader-blockquote-border: #D6CEC2;
+  --reader-blockquote-border: #A89E8E;
   --reader-blockquote-text: #57534E;
 }
 
@@ -83,17 +85,22 @@
   --text-inverse: #1C1917;
   --text-amber: #FCD34D;
 
-  --border-light: #3B3630;
-  --border-medium: #3B3630;
-  --border-heavy: #4B443D;
-  --border-amber: #4B443D;
+  --border-light: #4A433A;
+  --border-medium: #585046;
+  --border-heavy: #6E6559;
+  --border-amber: #585046;
 
   --accent-primary: #F5F1EA;
   --accent-rose: #F43F5E;
   --accent-emerald: #34D399;
   --accent-teal: #2DD4BF;
 
-  --reader-blockquote-border: #4B443D;
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.35), 0 1px 2px rgba(0, 0, 0, 0.25);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5), 0 2px 5px rgba(0, 0, 0, 0.3);
+  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-card-hover: 0 6px 18px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.4);
+
+  --reader-blockquote-border: #6E6559;
   --reader-blockquote-text: #B8AEA2;
 }
 
@@ -202,8 +209,63 @@ select {
 }
 
 /* ============================================================================
-   8. Utility overrides (for Tailwind classes that use custom properties)
+   8. Component Elevation, Border & Shadow Contrast Enhancement
    ============================================================================ */
 @layer utilities {
-  /* You can define @apply rules here if needed */
+  /* Crisp component border & elevation classes */
+  .luma-card {
+    border: 1px solid var(--border-medium);
+    box-shadow: var(--shadow-card);
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  .luma-card:hover {
+    border-color: var(--border-heavy);
+    box-shadow: var(--shadow-card-hover);
+  }
+
+  .luma-border {
+    border: 1px solid var(--border-medium);
+  }
+  .luma-border-b {
+    border-bottom: 1px solid var(--border-medium);
+  }
+  .luma-border-t {
+    border-top: 1px solid var(--border-medium);
+  }
+  .luma-border-r {
+    border-right: 1px solid var(--border-medium);
+  }
+  .luma-border-l {
+    border-left: 1px solid var(--border-medium);
+  }
+
+  .luma-shadow-sm {
+    box-shadow: var(--shadow-sm);
+  }
+  .luma-shadow-md {
+    box-shadow: var(--shadow-md);
+  }
+}
+
+/* Global component visibility enhancements: ensure all cards, modals, tables, and dialogs pop clearly */
+.border-\[\#E5DFD3\],
+.border-\[\#DDD5C7\],
+.border-\[\#D6CEC2\] {
+  border-color: var(--border-medium) !important;
+}
+
+.dark .border-\[\#3B3630\],
+.dark .border-\[\#302C27\],
+.dark .border-\[\#4B443D\] {
+  border-color: var(--border-medium) !important;
+}
+
+/* Give subtle shadow to cards, dialogs, drawers, and controls if they don't have explicit heavy shadow */
+.shadow-2xs,
+.shadow-xs {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+}
+.dark .shadow-2xs,
+.dark .shadow-xs {
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3) !important;
 }

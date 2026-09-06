@@ -199,7 +199,7 @@ export const PdfPageCanvas: React.FC<PdfPageCanvasProps> = ({
     return (
       <div
         ref={containerRef}
-        className={`relative w-full aspect-[3/4] bg-white rounded border border-[#E5DFD3] overflow-hidden flex items-center justify-center ${className}`}
+        className={`relative w-full aspect-[3/4] bg-white rounded border border-[#18181B]/15 dark:border-white/20 shadow-xs overflow-hidden flex items-center justify-center ${className}`}
       >
         <canvas ref={canvasRef} className="max-w-full max-h-full object-contain" />
         {renderState === "loading" && (
@@ -215,7 +215,7 @@ export const PdfPageCanvas: React.FC<PdfPageCanvasProps> = ({
   return (
     <div
       ref={containerRef}
-      className={`relative flex flex-col items-center justify-center bg-white border border-[#E5DFD3] rounded-sm shadow-md transition-all ${className}`}
+      className={`relative flex flex-col items-center justify-center bg-white border border-[#18181B]/15 dark:border-white/20 rounded-sm shadow-[0_4px_20px_rgba(0,0,0,0.12),0_1px_4px_rgba(0,0,0,0.08)] transition-all ${className}`}
       style={{
         width: `${pageDimensions.width}px`,
         minHeight: `${pageDimensions.height}px`,

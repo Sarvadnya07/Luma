@@ -111,9 +111,33 @@ fn main() {
             commands::get_reader_pdf_page,
             commands::get_book_file_bytes,
             commands::search_document,
-            // Reading Progress
+            // Reading Progress & Sessions
             commands::get_reading_progress,
             commands::save_reading_progress,
+            commands::start_reading_session,
+            commands::complete_reading_session,
+            commands::get_reading_analytics,
+            // Knowledge: Notes
+            commands::list_notes,
+            commands::create_note,
+            commands::update_note,
+            commands::delete_note,
+            // Knowledge: Flashcards & Study
+            commands::list_flashcards,
+            commands::create_flashcard,
+            commands::record_study_review,
+            commands::delete_flashcard,
+            // Knowledge: Research Workspace
+            commands::list_research_projects,
+            commands::create_research_project,
+            commands::delete_research_project,
+            commands::list_research_questions,
+            commands::create_research_question,
+            commands::list_research_evidence,
+            commands::create_research_evidence,
+            commands::delete_research_evidence,
+            commands::save_research_draft,
+            commands::get_research_draft,
             // Bookmarks
             commands::list_bookmarks,
             commands::create_bookmark,

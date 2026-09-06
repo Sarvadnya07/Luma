@@ -224,7 +224,7 @@ export const LumaHomeView: React.FC<LumaHomeViewProps> = ({
           ) : (
             <div
               onClick={() => handleOpenReader(heroBook)}
-              className="group relative bg-[#F7F3EB]/90 hover:bg-[#F5EFE4] border border-[#E5DFD3] rounded-2xl p-6 flex flex-col sm:flex-row gap-6 cursor-pointer transition-all duration-200 shadow-2xs hover:shadow-sm"
+              className="group relative bg-[#F7F3EB]/90 hover:bg-[#F5EFE4] border border-[#18181B]/15 dark:border-white/15 rounded-2xl p-6 flex flex-col sm:flex-row gap-6 cursor-pointer transition-all duration-200 shadow-sm hover:shadow-md"
               role="button"
               tabIndex={0}
               aria-label={`Continue reading ${heroDisplayTitle}`}
@@ -340,7 +340,7 @@ export const LumaHomeView: React.FC<LumaHomeViewProps> = ({
                   <div
                     key={item.id}
                     onClick={() => handleSelectBook(item)}
-                    className="flex items-center gap-3 p-2.5 rounded-xl bg-white hover:bg-[#FAF7F2] border border-[#E5DFD3] hover:border-[#DDD5C7] cursor-pointer transition-all shadow-2xs group"
+                    className="flex items-center gap-3 p-2.5 rounded-xl bg-white hover:bg-[#FAF7F2] border border-[#18181B]/15 dark:border-white/15 hover:border-[#18181B]/30 cursor-pointer transition-all shadow-xs group"
                     role="listitem"
                     tabIndex={0}
                     aria-label={`Select ${title}`}

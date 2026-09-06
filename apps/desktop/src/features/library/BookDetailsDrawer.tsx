@@ -137,11 +137,11 @@ export const BookDetailsDrawer: React.FC<BookDetailsDrawerProps> = ({
 
   return (
     <aside
-      className={`fixed inset-y-0 right-0 bg-[#FAF7F2] border-l border-[#E5DFD3] shadow-2xl z-40 flex flex-col animate-in slide-in-from-right duration-200 select-none ${className}`}
+      className={`fixed inset-y-0 right-0 bg-[#FAF7F2] border-l border-[#18181B]/20 dark:border-white/20 shadow-[0_0_40px_rgba(0,0,0,0.18)] z-40 flex flex-col animate-in slide-in-from-right duration-200 select-none ${className}`}
       style={{ width }}
     >
       {/* Drawer Header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-[#E5DFD3]">
+      <div className="flex items-center justify-between px-6 py-4 border-b border-[#18181B]/15">
         <span className="text-[11px] font-semibold text-[#78716C] uppercase tracking-wider">
           {mergedLabels.drawerTitle}
         </span>

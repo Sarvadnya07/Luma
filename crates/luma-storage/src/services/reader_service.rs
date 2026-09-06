@@ -161,7 +161,9 @@ impl ReaderService {
                 (meta, toc_items, spine_len)
             }
             DocumentFormat::Md => {
-                let doc = Arc::new(ReflowableDocument::Markdown(MarkdownDocument::open(&file_path)?));
+                let doc = Arc::new(ReflowableDocument::Markdown(MarkdownDocument::open(
+                    &file_path,
+                )?));
                 let spine_len = doc.spine_count() as u32;
                 let meta = DocumentMetadata {
                     title: book.title.clone(),
@@ -283,18 +285,18 @@ impl ReaderService {
         })?;
 
         let doc: Arc<ReflowableDocument> = match file.format {
-            DocumentFormat::Epub => {
-                Arc::new(ReflowableDocument::Epub(EpubDocument::open(&file.relative_path)?))
-            }
-            DocumentFormat::Txt => {
-                Arc::new(ReflowableDocument::Text(TextDocument::open(&file.relative_path)?))
-            }
-            DocumentFormat::Md => {
-                Arc::new(ReflowableDocument::Markdown(MarkdownDocument::open(&file.relative_path)?))
-            }
-            DocumentFormat::Html => {
-                Arc::new(ReflowableDocument::Html(HtmlDocument::open(&file.relative_path)?))
-            }
+            DocumentFormat::Epub => Arc::new(ReflowableDocument::Epub(EpubDocument::open(
+                &file.relative_path,
+            )?)),
+            DocumentFormat::Txt => Arc::new(ReflowableDocument::Text(TextDocument::open(
+                &file.relative_path,
+            )?)),
+            DocumentFormat::Md => Arc::new(ReflowableDocument::Markdown(MarkdownDocument::open(
+                &file.relative_path,
+            )?)),
+            DocumentFormat::Html => Arc::new(ReflowableDocument::Html(HtmlDocument::open(
+                &file.relative_path,
+            )?)),
             other => return Err(LumaError::UnsupportedFormat(format!("{:?}", other))),
         };
 
@@ -370,28 +372,36 @@ impl ReaderService {
 
         match file.format {
             DocumentFormat::Epub => {
-                let doc = Arc::new(ReflowableDocument::Epub(EpubDocument::open(&file.relative_path)?));
+                let doc = Arc::new(ReflowableDocument::Epub(EpubDocument::open(
+                    &file.relative_path,
+                )?));
                 let matches = doc.search(query)?;
                 let mut sessions = self.reflow_sessions.write().await;
                 sessions.insert(*book_id, doc);
                 Ok(matches)
             }
             DocumentFormat::Txt => {
-                let doc = Arc::new(ReflowableDocument::Text(TextDocument::open(&file.relative_path)?));
+                let doc = Arc::new(ReflowableDocument::Text(TextDocument::open(
+                    &file.relative_path,
+                )?));
                 let matches = doc.search(query)?;
                 let mut sessions = self.reflow_sessions.write().await;
                 sessions.insert(*book_id, doc);
                 Ok(matches)
             }
             DocumentFormat::Md => {
-                let doc = Arc::new(ReflowableDocument::Markdown(MarkdownDocument::open(&file.relative_path)?));
+                let doc = Arc::new(ReflowableDocument::Markdown(MarkdownDocument::open(
+                    &file.relative_path,
+                )?));
                 let matches = doc.search(query)?;
                 let mut sessions = self.reflow_sessions.write().await;
                 sessions.insert(*book_id, doc);
                 Ok(matches)
             }
             DocumentFormat::Html => {
-                let doc = Arc::new(ReflowableDocument::Html(HtmlDocument::open(&file.relative_path)?));
+                let doc = Arc::new(ReflowableDocument::Html(HtmlDocument::open(
+                    &file.relative_path,
+                )?));
                 let matches = doc.search(query)?;
                 let mut sessions = self.reflow_sessions.write().await;
                 sessions.insert(*book_id, doc);

@@ -403,3 +403,129 @@ export interface DiagnosticsReport {
   metrics: Record<string, unknown>;
 }
 
+// ============================================================================
+// Knowledge Entities
+// ============================================================================
+
+export interface Note {
+  id: string;
+  book_id?: string | null;
+  annotation_id?: string | null;
+  source_type: string;
+  source_title: string;
+  title: string;
+  content: string;
+  quote?: string | null;
+  created_at: string;
+  updated_at: string;
+  is_deleted: boolean;
+}
+
+export type FlashcardState = "new" | "learning" | "review" | "relearning";
+
+export interface Flashcard {
+  id: string;
+  front: string;
+  back: string;
+  source_book_id?: string | null;
+  source_annotation_id?: string | null;
+  deck_id: string;
+  state: FlashcardState;
+  interval_days: number;
+  ease_factor: number;
+  repetitions: number;
+  due_at: string;
+  last_reviewed_at?: string | null;
+  created_at: string;
+  updated_at: string;
+  is_deleted: boolean;
+}
+
+export interface StudyReview {
+  id: string;
+  flashcard_id: string;
+  rating: number;
+  interval_before: number;
+  interval_after: number;
+  ease_factor: number;
+  reviewed_at: string;
+}
+
+export interface ResearchProject {
+  id: string;
+  title: string;
+  description?: string | null;
+  created_at: string;
+  updated_at: string;
+  is_deleted: boolean;
+}
+
+export interface ResearchQuestion {
+  id: string;
+  project_id: string;
+  question: string;
+  status: string;
+  created_at: string;
+}
+
+export interface ResearchEvidence {
+  id: string;
+  project_id: string;
+  question_id?: string | null;
+  source_title: string;
+  quote: string;
+  notes?: string | null;
+  stance: string;
+  book_id?: string | null;
+  locator?: string | null;
+  created_at: string;
+}
+
+export interface ResearchDraft {
+  id: string;
+  project_id: string;
+  title: string;
+  content: string;
+  updated_at: string;
+}
+
+// ============================================================================
+// Reading Sessions & Analytics
+// ============================================================================
+
+export interface ReadingSession {
+  id: string;
+  book_id: string;
+  device_id: string;
+  started_at: string;
+  ended_at?: string | null;
+  duration_seconds: number;
+  start_progress_pct: number;
+  end_progress_pct: number;
+}
+
+export interface DailyReadingMinutes {
+  date: string;
+  minutes: number;
+  intensity: number;
+}
+
+export interface ReadingSessionDetail {
+  session_id: string;
+  book_id: string;
+  book_title: string;
+  book_author: string;
+  duration_seconds: number;
+  end_progress_pct: number;
+  ended_at: string;
+}
+
+export interface ReadingAnalytics {
+  total_reading_time_seconds: number;
+  weekly_reading_seconds: number;
+  books_completed_count: number;
+  daily_reading_minutes_last_28_days: DailyReadingMinutes[];
+  recent_sessions: ReadingSessionDetail[];
+  time_focus_data: number[];
+}
+

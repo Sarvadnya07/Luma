@@ -1,11 +1,11 @@
-﻿use std::fs::File;
+use std::fs::File;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 
-use luma_core::error::{LumaError, Result};
 use crate::encoding::decode_text_bytes;
 use crate::epub_doc::{ChapterContent, DocumentSearchMatch};
 use crate::TocItem;
+use luma_core::error::{LumaError, Result};
 
 /// Document engine for standalone plaintext files (.txt).
 pub struct TextDocument {
@@ -35,10 +35,7 @@ impl TextDocument {
             .replace(['_', '-'], " ");
 
         // Extract title from first non-empty line if short, otherwise fallback to filename
-        let first_line = raw_text
-            .lines()
-            .map(|l| l.trim())
-            .find(|l| !l.is_empty());
+        let first_line = raw_text.lines().map(|l| l.trim()).find(|l| !l.is_empty());
 
         let title = match first_line {
             Some(l) if l.len() <= 80 => l.to_string(),

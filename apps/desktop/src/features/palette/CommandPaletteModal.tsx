@@ -81,9 +81,9 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-[#FAF7F2] border border-[#E5DFD3] rounded-2xl w-full max-w-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150 text-[#1C1917]">
+      <div className="bg-[#FAF7F2] border border-[#18181B]/20 dark:border-white/20 rounded-2xl w-full max-w-xl shadow-[0_15px_40px_rgba(0,0,0,0.22)] overflow-hidden animate-in zoom-in-95 duration-150 text-[#1C1917]">
         {/* Search Header */}
-        <div className="relative border-b border-[#E5DFD3] flex items-center px-4 py-3.5">
+        <div className="relative border-b border-[#18181B]/15 flex items-center px-4 py-3.5">
           <Search className="w-4 h-4 text-[#78716C] mr-3 flex-shrink-0" />
           <input
             type="text"

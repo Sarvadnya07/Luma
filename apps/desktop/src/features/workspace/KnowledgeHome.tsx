@@ -56,7 +56,7 @@ export const KnowledgeHome: React.FC<KnowledgeHomeProps> = ({
                 {/* Synthesis Card 1 */}
                 <div
                   onClick={onNavigateToNotes}
-                  className="bg-[#FFFFFF] border border-[#E5DFD3] hover:border-[#DDD5C7] rounded-2xl p-5 shadow-2xs space-y-3 cursor-pointer transition-all group"
+                  className="bg-[#FFFFFF] border border-[#18181B]/15 dark:border-white/15 hover:border-[#18181B]/30 rounded-2xl p-5 shadow-xs space-y-3 cursor-pointer transition-all group"
                 >
                   <div className="flex items-center justify-between text-[10px] text-[#78716C] font-mono">
                     <span>BOOK: The Architecture of Memory</span>
@@ -73,7 +73,7 @@ export const KnowledgeHome: React.FC<KnowledgeHomeProps> = ({
                 {/* Synthesis Card 2 */}
                 <div
                   onClick={onNavigateToNotes}
-                  className="bg-[#FFFFFF] border border-[#E5DFD3] hover:border-[#DDD5C7] rounded-2xl p-5 shadow-2xs space-y-3 cursor-pointer transition-all group"
+                  className="bg-[#FFFFFF] border border-[#18181B]/15 dark:border-white/15 hover:border-[#18181B]/30 rounded-2xl p-5 shadow-xs space-y-3 cursor-pointer transition-all group"
                 >
                   <div className="flex items-center justify-between text-[10px] text-[#78716C] font-mono">
                     <span>ARTICLE: Journal of Cognitive History</span>
@@ -99,7 +99,7 @@ export const KnowledgeHome: React.FC<KnowledgeHomeProps> = ({
                 {/* Enquiry Card 1 */}
                 <div
                   onClick={onNavigateToProjects}
-                  className="bg-[#FFFFFF] border border-[#E5DFD3] hover:border-[#DDD5C7] rounded-2xl p-5 shadow-2xs space-y-3 cursor-pointer transition-all group"
+                  className="bg-[#FFFFFF] border border-[#18181B]/15 dark:border-white/15 hover:border-[#18181B]/30 rounded-2xl p-5 shadow-xs space-y-3 cursor-pointer transition-all group"
                 >
                   <div className="flex items-center gap-1.5 text-[10px] text-teal-800 font-bold uppercase tracking-wider">
                     <FolderOpen className="w-3.5 h-3.5 text-teal-700" />
@@ -116,7 +116,7 @@ export const KnowledgeHome: React.FC<KnowledgeHomeProps> = ({
                 {/* Enquiry Card 2 */}
                 <div
                   onClick={onNavigateToProjects}
-                  className="bg-[#FFFFFF] border border-[#E5DFD3] hover:border-[#DDD5C7] rounded-2xl p-5 shadow-2xs space-y-3 cursor-pointer transition-all group"
+                  className="bg-[#FFFFFF] border border-[#18181B]/15 dark:border-white/15 hover:border-[#18181B]/30 rounded-2xl p-5 shadow-xs space-y-3 cursor-pointer transition-all group"
                 >
                   <div className="text-[10px] text-[#78716C] font-mono uppercase">
                     CASE STUDY

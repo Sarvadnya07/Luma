@@ -313,13 +313,13 @@ export const GlobalAnnotationCenter: React.FC<GlobalAnnotationCenterProps> = ({
             filteredItems.map((item) => (
               <div
                 key={item.id}
-                className={`bg-white rounded-2xl p-6 shadow-2xs space-y-4 border ${
-                  item.needs_repair ? "border-rose-200" : "border-[#E5DFD3]"
+                className={`bg-white rounded-2xl p-6 shadow-sm space-y-4 border ${
+                  item.needs_repair ? "border-rose-400 dark:border-rose-600" : "border-[#18181B]/15 dark:border-white/15"
                 }`}
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
-                    <div className="w-7 h-9 bg-[#EAE4DA] rounded border border-[#DDD5C7] flex items-center justify-center flex-shrink-0">
+                    <div className="w-7 h-9 bg-[#EAE4DA] rounded border border-[#18181B]/20 flex items-center justify-center flex-shrink-0 shadow-2xs">
                       <BookOpen className="w-4 h-4 text-[#8C8275]" />
                     </div>
                     <div>

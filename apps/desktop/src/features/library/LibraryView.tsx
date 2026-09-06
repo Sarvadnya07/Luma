@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo, useCallback } from "react";
-import { Book, BookDetailViewData, Collection, DocumentFormat, ImportJob, LibrarySortBy, ReadingStatus, Tag } from "@luma/shared-types";
+import { Book, BookDetailViewData, Collection, DocumentFormat, ImportJob, LibrarySortBy, ReadingAnalytics, ReadingStatus, Tag } from "@luma/shared-types";
 import { BookCard, BookTable, Pagination } from "@luma/library-ui";
 import { LumaApi, isTauri } from "../../lib/tauri";
 import { useReaderStore } from "../../state/readerState";
@@ -207,8 +207,17 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [authorMap, setAuthorMap] = useState<Record<string, string>>({});
+  const [analytics, setAnalytics] = useState<ReadingAnalytics | null>(null);
 
   const setCurrentBook = useReaderStore((s) => s.setCurrentBook);
+
+  useEffect(() => {
+    if (currentSection === "history") {
+      LumaApi.getReadingAnalytics()
+        .then(setAnalytics)
+        .catch((e) => console.error("Failed to load reading analytics:", e));
+    }
+  }, [currentSection]);
 
   // Keyboard shortcut for command palette
   useEffect(() => {
@@ -562,30 +571,50 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
           author: authorMap[b.id] || "Unknown Author",
         }));
 
-      const weeks = [
-        [1, 2, 0, 3, 2, 4, 1],
-        [2, 3, 1, 0, 2, 3, 2],
-        [0, 1, 2, 4, 3, 2, 1],
-        [1, 2, 3, 2, 1, 4, 2],
-      ];
+      // Real heatmap matrix from database (4 weeks x 7 days)
+      const dailyStats = analytics?.daily_reading_minutes_last_28_days || [];
+      const weeks: number[][] = [];
+      for (let w = 0; w < 4; w++) {
+        const weekSlice = dailyStats.slice(w * 7, (w + 1) * 7).map((d) => d.intensity);
+        while (weekSlice.length < 7) weekSlice.push(0);
+        weeks.push(weekSlice);
+      }
+
+      // Real recent sessions from SQLite
+      const recentSessions = (analytics?.recent_sessions && analytics.recent_sessions.length > 0)
+        ? analytics.recent_sessions.map((s) => ({
+            id: s.book_id,
+            title: s.book_title,
+            author: s.book_author,
+            focusTime: `${Math.round(s.duration_seconds / 60)}m`,
+            progressPercent: Math.round(s.end_progress_pct * 100),
+          }))
+        : reading.length > 0
+        ? reading
+        : books.slice(0, 3).map((b) => ({
+            id: b.id,
+            title: b.title,
+            author: authorMap[b.id] || "Unknown Author",
+            focusTime: "0m",
+            progressPercent: 0,
+          }));
+
+      const weeklyHours = analytics ? Number((analytics.weekly_reading_seconds / 3600).toFixed(1)) : 0;
+      const completedCount = analytics?.books_completed_count ?? completed.length;
+
+      // Real time focus data from SQLite reading session history
+      const timeFocusData = (analytics?.time_focus_data && analytics.time_focus_data.length >= 6)
+        ? analytics.time_focus_data.slice(0, 6)
+        : [0, 0, 0, 0, 0, 0];
 
       const dashboardData: DashboardData = {
         heatmap: { weeks, daysLabels: ["M", "Tu", "W", "Th", "F", "Sa", "Su"] },
         completedBooks: completed,
-        recentSessions:
-          reading.length > 0
-            ? reading
-            : books.slice(0, 3).map((b) => ({
-                id: b.id,
-                title: b.title,
-                author: authorMap[b.id] || "Unknown Author",
-                focusTime: "Recent",
-                progressPercent: 25,
-              })),
+        recentSessions,
         weeklyFocus: {
-          hours: Math.max(1.5, books.length * 1.2),
-          change: "+2.4 Hours",
-          message: `${books.length} publications indexed in sanctuary library.`,
+          hours: weeklyHours,
+          change: weeklyHours > 0 ? `+${weeklyHours} Hours` : "0 Hours",
+          message: `${books.length} publications indexed • ${completedCount} completed.`,
         },
         queue:
           queue.length > 0
@@ -595,7 +624,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                 title: b.title,
                 author: authorMap[b.id] || "Unknown Author",
               })),
-        timeFocusData: [45, 60, 30, 80, 70, 90],
+        timeFocusData,
       };
 
       return (

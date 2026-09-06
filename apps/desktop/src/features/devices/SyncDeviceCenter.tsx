@@ -87,9 +87,9 @@ const DeviceCard: React.FC<DeviceCardProps> = ({ device, onSync, onManage, onWak
     : "Never";
 
   return (
-    <div className="bg-white border border-[#E5DFD3] rounded-2xl p-5 shadow-2xs flex items-center justify-between">
+    <div className="bg-white border border-[#18181B]/15 dark:border-white/15 rounded-2xl p-5 shadow-xs flex items-center justify-between">
       <div className="flex items-start gap-4">
-        <div className="w-10 h-10 rounded-xl bg-[#FAF7F2] border border-[#E5DFD3] flex items-center justify-center flex-shrink-0">
+        <div className="w-10 h-10 rounded-xl bg-[#FAF7F2] border border-[#18181B]/15 dark:border-white/15 flex items-center justify-center flex-shrink-0 shadow-2xs">
           <Icon className="w-5 h-5 text-[#1C1917]" />
         </div>
         <div className="space-y-1">
@@ -186,7 +186,7 @@ const ConflictCard: React.FC<ConflictCardProps> = ({ conflict, onResolve }) => {
   };
 
   return (
-    <div className="bg-white border border-amber-300 rounded-2xl p-5 shadow-2xs space-y-4">
+    <div className="bg-white border border-amber-400 dark:border-amber-600 rounded-2xl p-5 shadow-sm space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5 text-amber-800 font-bold text-[11px] uppercase tracking-wider">
           <AlertTriangle className="w-4 h-4 text-amber-700" />

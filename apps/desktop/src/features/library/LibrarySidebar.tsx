@@ -306,8 +306,8 @@ export const LibrarySidebar: React.FC<LibrarySidebarProps> = ({
         onClick={() => handleSelectSection(item.id as SidebarSection)}
         className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition-all ${itemClassName} ${
           isActive
-            ? "bg-[#E4DED3] text-[#1C1917] font-semibold shadow-xs"
-            : "text-[#57534E] hover:text-[#1C1917] hover:bg-[#EBE5DB]"
+            ? "bg-[#E4DED3] text-[#1C1917] font-semibold shadow-xs border border-[#18181B]/10 dark:border-white/15"
+            : "text-[#57534E] hover:text-[#1C1917] hover:bg-[#EBE5DB] border border-transparent"
         }`}
         aria-current={isActive ? "page" : undefined}
       >
@@ -319,7 +319,7 @@ export const LibrarySidebar: React.FC<LibrarySidebarProps> = ({
 
   return (
     <aside
-      className={`w-60 border-r border-[#E5DFD3] bg-[#F3EFE6] px-4 py-5 flex flex-col justify-between select-none h-full overflow-y-auto flex-shrink-0 transition-colors dark:border-[#302C27] dark:bg-[#1A1816] ${className}`}
+      className={`w-60 border-r border-[#18181B]/15 bg-[#F3EFE6] px-4 py-5 flex flex-col justify-between select-none h-full overflow-y-auto flex-shrink-0 transition-colors shadow-sm dark:border-[#302C27] dark:bg-[#1A1816] ${className}`}
       role="navigation"
       aria-label="Library navigation"
     >

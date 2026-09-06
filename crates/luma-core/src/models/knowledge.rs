@@ -1,4 +1,4 @@
-﻿use chrono::{DateTime, Utc};
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::ids::BookId;
@@ -26,19 +26,14 @@ pub struct Note {
 // Flashcards & Spaced Repetition (SRS)
 // ============================================================================
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum FlashcardState {
+    #[default]
     New,
     Learning,
     Review,
     Mastered,
-}
-
-impl Default for FlashcardState {
-    fn default() -> Self {
-        Self::New
-    }
 }
 
 impl std::fmt::Display for FlashcardState {

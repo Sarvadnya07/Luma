@@ -7,6 +7,7 @@ import {
   Search,
   Check,
 } from "lucide-react";
+import { LumaApi } from "../../lib/tauri";
 
 export interface NoteItem {
   id: string;
@@ -67,42 +68,85 @@ The philosopher's duty is not merely contemplation of the Good, but descent back
 ];
 
 export const NotesWorkspace: React.FC = () => {
-  const [notes, setNotes] = useState<NoteItem[]>(() => {
-    const saved = localStorage.getItem("luma_notes_workspace");
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch {
-        return INITIAL_NOTES;
-      }
-    }
-    return INITIAL_NOTES;
-  });
-
-  const [selectedNoteId, setSelectedNoteId] = useState<string>(notes[0]?.id || "note_1");
+  const [notes, setNotes] = useState<NoteItem[]>(INITIAL_NOTES);
+  const [selectedNoteId, setSelectedNoteId] = useState<string>("note_1");
   const [searchQuery, setSearchQuery] = useState("");
   const [copiedCitation, setCopiedCitation] = useState(false);
 
   useEffect(() => {
-    localStorage.setItem("luma_notes_workspace", JSON.stringify(notes));
-  }, [notes]);
+    let mounted = true;
+    async function loadNotes() {
+      try {
+        await LumaApi.migrateLegacyKnowledge();
+        let fetched = await LumaApi.listNotes();
+        if (fetched.length === 0) {
+          for (const init of INITIAL_NOTES) {
+            await LumaApi.createNote({
+              id: init.id,
+              book_id: init.bookId || null,
+              annotation_id: null,
+              source_type: init.sourceType,
+              source_title: init.sourceTitle,
+              title: init.title,
+              content: init.content,
+              quote: init.quote || null,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+              is_deleted: false,
+            });
+          }
+          fetched = await LumaApi.listNotes();
+        }
+        if (mounted && fetched.length > 0) {
+          const items: NoteItem[] = fetched.map((n) => ({
+            id: n.id,
+            sourceType: n.source_type,
+            sourceTitle: n.source_title,
+            timeAgo: "Saved",
+            title: n.title,
+            preview: n.content.slice(0, 100).replace(/\n/g, " ") + (n.content.length > 100 ? "..." : ""),
+            content: n.content,
+            quote: n.quote || undefined,
+            bookId: n.book_id || undefined,
+          }));
+          setNotes(items);
+          setSelectedNoteId((curr) => items.some((i) => i.id === curr) ? curr : items[0]!.id);
+        }
+      } catch (err) {
+        console.error("Failed to load notes from SQLite:", err);
+      }
+    }
+    loadNotes();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const activeNote = notes.find((n) => n.id === selectedNoteId) || notes[0];
 
   const handleUpdateActiveNote = (updates: Partial<NoteItem>) => {
     if (!activeNote) return;
-    setNotes((prev) =>
-      prev.map((n) => {
-        if (n.id === activeNote.id) {
-          const updated = { ...n, ...updates };
-          if (updates.content) {
-            updated.preview = updates.content.slice(0, 100).replace(/\n/g, " ") + "...";
-          }
-          return updated;
-        }
-        return n;
-      })
-    );
+    const updatedNote = { ...activeNote, ...updates };
+    if (updates.content !== undefined) {
+      updatedNote.preview = updates.content.slice(0, 100).replace(/\n/g, " ") + (updates.content.length > 100 ? "..." : "");
+    }
+
+    setNotes((prev) => prev.map((n) => (n.id === activeNote.id ? updatedNote : n)));
+
+    // Persist to SQLite
+    LumaApi.updateNote({
+      id: updatedNote.id,
+      book_id: updatedNote.bookId || null,
+      annotation_id: null,
+      source_type: updatedNote.sourceType,
+      source_title: updatedNote.sourceTitle,
+      title: updatedNote.title,
+      content: updatedNote.content,
+      quote: updatedNote.quote || null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      is_deleted: false,
+    }).catch((e) => console.error("Failed to persist note update:", e));
   };
 
   const handleCreateNote = () => {
@@ -118,15 +162,31 @@ export const NotesWorkspace: React.FC = () => {
     };
     setNotes([newNote, ...notes]);
     setSelectedNoteId(newNote.id);
+
+    LumaApi.createNote({
+      id: newNote.id,
+      book_id: null,
+      annotation_id: null,
+      source_type: newNote.sourceType,
+      source_title: newNote.sourceTitle,
+      title: newNote.title,
+      content: newNote.content,
+      quote: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      is_deleted: false,
+    }).catch((e) => console.error("Failed to create note in SQLite:", e));
   };
 
   const handleDeleteActiveNote = () => {
     if (!activeNote) return;
-    const remaining = notes.filter((n) => n.id !== activeNote.id);
+    const noteId = activeNote.id;
+    const remaining = notes.filter((n) => n.id !== noteId);
     setNotes(remaining);
     if (remaining.length > 0) {
       setSelectedNoteId(remaining[0]!.id);
     }
+    LumaApi.deleteNote(noteId).catch((e) => console.error("Failed to delete note from SQLite:", e));
   };
 
   const handleFormatCitation = () => {
@@ -168,7 +228,7 @@ export const NotesWorkspace: React.FC = () => {
         </div>
 
         {/* Search Notes */}
-        <div className="p-3 border-b border-[#EFEAE1]">
+        <div className="p-3 border-b border-[#EFEAE1] dark:border-[#38332B]">
           <div className="relative">
             <Search className="w-3.5 h-3.5 text-[#78716C] absolute left-2.5 top-2" />
             <input
@@ -176,13 +236,13 @@ export const NotesWorkspace: React.FC = () => {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search notes & sources..."
-              className="w-full pl-8 pr-3 py-1 bg-white border border-[#E5DFD3] rounded-lg text-xs placeholder:text-[#A8A29E] focus:outline-none focus:border-[#18181B]"
+              className="w-full pl-8 pr-3 py-1 bg-white dark:bg-[#27231E] border border-[#18181B]/20 dark:border-white/15 rounded-lg text-xs placeholder:text-[#A8A29E] focus:outline-none focus:border-[#18181B] shadow-2xs"
             />
           </div>
         </div>
 
         {/* Note List */}
-        <div className="flex-1 overflow-y-auto divide-y divide-[#EFEAE1]">
+        <div className="flex-1 overflow-y-auto divide-y divide-[#EFEAE1] dark:divide-[#38332B]">
           {filteredNotes.map((note) => {
             const isSelected = note.id === (activeNote?.id || "");
             return (
@@ -190,17 +250,19 @@ export const NotesWorkspace: React.FC = () => {
                 key={note.id}
                 onClick={() => setSelectedNoteId(note.id)}
                 className={`p-4 cursor-pointer transition-all ${
-                  isSelected ? "bg-[#FFFFFF] shadow-2xs border-l-2 border-stone-800" : "hover:bg-[#F5EFE6]"
+                  isSelected
+                    ? "bg-[#FFFFFF] dark:bg-[#27231E] shadow-sm border-l-2 border-stone-800 dark:border-stone-200 border-y border-y-[#18181B]/10 dark:border-y-white/10"
+                    : "hover:bg-[#F5EFE6] dark:hover:bg-[#2C2722]"
                 }`}
               >
                 <div className="flex items-center justify-between text-[10px] text-[#78716C] mb-1 font-mono">
                   <span className="truncate max-w-[150px]">{note.sourceType}: {note.sourceTitle}</span>
                   <span>{note.timeAgo}</span>
                 </div>
-                <h4 className="font-serif text-xs font-bold text-[#1C1917] mb-1 truncate">
+                <h4 className="font-serif text-xs font-bold text-[#1C1917] dark:text-[#EAE5DC] mb-1 truncate">
                   {note.title || "Untitled Note"}
                 </h4>
-                <p className="text-[11px] text-[#57534E] line-clamp-2 leading-relaxed">
+                <p className="text-[11px] text-[#57534E] dark:text-[#B5ADA3] line-clamp-2 leading-relaxed">
                   {note.preview || "No content yet..."}
                 </p>
               </div>
@@ -276,8 +338,8 @@ export const NotesWorkspace: React.FC = () => {
             </span>
 
             {/* Book Card Preview */}
-            <div className="bg-[#FFFFFF] border border-[#E5DFD3] rounded-xl p-3 space-y-3 shadow-2xs">
-              <div className="aspect-[4/3] bg-[#EAE4DA] rounded-lg overflow-hidden border border-[#DDD5C7] flex items-center justify-center p-3 text-center">
+            <div className="bg-[#FFFFFF] dark:bg-[#27231E] border border-[#18181B]/15 dark:border-white/15 rounded-xl p-3 space-y-3 shadow-sm">
+              <div className="aspect-[4/3] bg-[#EAE4DA] dark:bg-[#1E1B18] rounded-lg overflow-hidden border border-[#18181B]/15 dark:border-white/10 flex items-center justify-center p-3 text-center shadow-inner">
                 <BookOpen className="w-5 h-5 text-[#8C8275] mb-1" />
               </div>
 

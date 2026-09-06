@@ -151,10 +151,10 @@ const RecentSessionsList: React.FC<{
             <div
               key={session.id}
               onClick={() => onOpenBook?.(session.id)}
-              className="p-4 bg-white border border-[#E5DFD3] hover:border-[#DDD5C7] rounded-xl flex items-center justify-between cursor-pointer transition-all shadow-2xs group"
+              className="p-4 bg-white dark:bg-[#27231E] border border-[#18181B]/15 dark:border-white/15 hover:border-[#18181B]/30 dark:hover:border-white/30 rounded-xl flex items-center justify-between cursor-pointer transition-all shadow-xs hover:shadow-sm group"
             >
               <div className="space-y-0.5">
-                <h4 className="font-serif text-sm font-bold text-[#1C1917] group-hover:text-black">
+                <h4 className="font-serif text-sm font-bold text-[#1C1917] dark:text-[#EAE5DC] group-hover:text-black dark:group-hover:text-white">
                   {session.title}
                 </h4>
                 <p className="text-xs text-[#78716C]">{session.author}</p>
@@ -162,7 +162,7 @@ const RecentSessionsList: React.FC<{
 
               <div className="flex items-center gap-6">
                 <div className="text-right">
-                  <span className="font-mono text-xs font-bold text-[#1C1917] block">
+                  <span className="font-mono text-xs font-bold text-[#1C1917] dark:text-[#EAE5DC] block">
                     {session.focusTime}
                   </span>
                   <span className="text-[10px] text-[#78716C]">Focus Time</span>
@@ -172,9 +172,9 @@ const RecentSessionsList: React.FC<{
                   <div className="flex justify-between text-[10px] text-[#78716C] font-mono">
                     <span>{session.progressPercent}% Complete</span>
                   </div>
-                  <div className="w-full h-1 bg-[#E5DFD3] rounded-full overflow-hidden">
+                  <div className="w-full h-1.5 bg-[#E5DFD3] dark:bg-[#38332B] rounded-full overflow-hidden border border-[#18181B]/10 dark:border-white/10">
                     <div
-                      className="h-full bg-[#18181B]"
+                      className="h-full bg-[#18181B] dark:bg-[#EAE5DC]"
                       style={{ width: `${session.progressPercent}%` }}
                       role="progressbar"
                       aria-valuenow={session.progressPercent}
@@ -209,13 +209,13 @@ const QueueList: React.FC<{
             <div
               key={item.id}
               onClick={() => onOpenBook?.(item.id)}
-              className="p-3 bg-white border border-[#E5DFD3] hover:border-[#DDD5C7] rounded-xl flex items-center gap-3 cursor-pointer shadow-2xs group"
+              className="p-3 bg-white dark:bg-[#27231E] border border-[#18181B]/15 dark:border-white/15 hover:border-[#18181B]/30 dark:hover:border-white/30 rounded-xl flex items-center gap-3 cursor-pointer shadow-2xs hover:shadow-xs group transition-all"
             >
-              <div className="w-7 h-9 bg-[#EAE4DA] rounded border border-[#DDD5C7] flex items-center justify-center flex-shrink-0">
+              <div className="w-7 h-9 bg-[#EAE4DA] dark:bg-[#1E1B18] rounded border border-[#18181B]/15 dark:border-white/10 flex items-center justify-center flex-shrink-0 shadow-inner">
                 <BookOpen className="w-3.5 h-3.5 text-[#8C8275]" />
               </div>
               <div className="min-w-0 flex-1">
-                <h5 className="font-serif text-xs font-bold text-[#1C1917] truncate group-hover:text-black">
+                <h5 className="font-serif text-xs font-bold text-[#1C1917] dark:text-[#EAE5DC] truncate group-hover:text-black dark:group-hover:text-white">
                   {item.title}
                 </h5>
                 <p className="text-[10px] text-[#78716C] truncate">{item.author}</p>
@@ -391,19 +391,19 @@ export const ReadingIntelligenceDashboard: React.FC<ReadingIntelligenceDashboard
               <span className="text-[10px] font-bold uppercase tracking-widest text-[#78716C] font-mono">
                 WEEKLY FOCUS
               </span>
-              <div className="p-5 bg-white border border-[#E5DFD3] rounded-xl shadow-2xs space-y-3">
+              <div className="p-5 bg-white dark:bg-[#27231E] border border-[#18181B]/15 dark:border-white/15 rounded-xl shadow-sm space-y-3">
                 <div className="flex items-baseline justify-between">
-                  <span className="text-3xl font-bold font-mono text-[#1C1917]">
+                  <span className="text-3xl font-bold font-mono text-[#1C1917] dark:text-[#EAE5DC]">
                     {weeklyFocus.hours}
                   </span>
                   {weeklyFocus.change && (
-                    <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                    <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full border border-emerald-300 dark:border-emerald-800 shadow-2xs">
                       {weeklyFocus.change}
                     </span>
                   )}
                 </div>
                 {weeklyFocus.message && (
-                  <p className="text-xs text-[#57534E] leading-relaxed">
+                  <p className="text-xs text-[#57534E] dark:text-[#B5ADA3] leading-relaxed">
                     {weeklyFocus.message}
                   </p>
                 )}

@@ -1,4 +1,4 @@
-﻿use luma_reader::{HtmlDocument, MarkdownDocument, ReflowableDocument, TextDocument};
+use luma_reader::{HtmlDocument, MarkdownDocument, ReflowableDocument, TextDocument};
 use std::fs::File;
 use std::io::Write;
 use tempfile::tempdir;
@@ -58,7 +58,9 @@ fn test_txt_utf8_bom_and_long_text() {
     let mut content = vec![0xEF, 0xBB, 0xBF]; // UTF-8 BOM
     content.extend_from_slice(b"BOM Title Header\n\n");
     for i in 0..500 {
-        content.extend_from_slice(format!("Paragraph {} discussing deep scholarly knowledge.\n\n", i).as_bytes());
+        content.extend_from_slice(
+            format!("Paragraph {} discussing deep scholarly knowledge.\n\n", i).as_bytes(),
+        );
     }
 
     let mut file = File::create(&file_path).expect("create file");
@@ -136,12 +138,16 @@ Dangerous injection attempts:
 
     // Verify Markdown elements rendered
     assert!(ch.html_content.contains("<h1 id=\"heading-0\""));
-    assert!(ch.html_content.contains("<strong>justified true belief</strong>"));
+    assert!(ch
+        .html_content
+        .contains("<strong>justified true belief</strong>"));
     assert!(ch.html_content.contains("<em>Theaetetus</em>"));
     assert!(ch.html_content.contains("<blockquote"));
     assert!(ch.html_content.contains("<pre"));
     assert!(ch.html_content.contains("def is_valid_syllogism"));
-    assert!(ch.html_content.contains("<a href=\"https://plato.stanford.edu/entries/epistemology/\""));
+    assert!(ch
+        .html_content
+        .contains("<a href=\"https://plato.stanford.edu/entries/epistemology/\""));
 
     // Verify security defenses: NO script tags, NO iframes, NO javascript: URLs, NO onerror handlers
     assert!(!ch.html_content.contains("<script"));
@@ -189,8 +195,14 @@ fn test_html_document_sanitization_and_toc() {
 
     let toc = doc.toc();
     assert_eq!(toc.len(), 2);
-    assert_eq!(toc[0].title, "Quantum Decoherence and the Measurement Problem");
-    assert_eq!(toc[1].title, "Environment-Induced Superselection (Einselection)");
+    assert_eq!(
+        toc[0].title,
+        "Quantum Decoherence and the Measurement Problem"
+    );
+    assert_eq!(
+        toc[1].title,
+        "Environment-Induced Superselection (Einselection)"
+    );
 
     let ch = doc.get_chapter(0).expect("get chapter");
 
@@ -202,8 +214,12 @@ fn test_html_document_sanitization_and_toc() {
     assert!(!ch.html_content.contains("javascript:doHacking()"));
 
     // Verify safe content remains
-    assert!(ch.html_content.contains("Quantum Decoherence and the Measurement Problem"));
-    assert!(ch.html_content.contains("density matrix rapidly diagonalizes"));
+    assert!(ch
+        .html_content
+        .contains("Quantum Decoherence and the Measurement Problem"));
+    assert!(ch
+        .html_content
+        .contains("density matrix rapidly diagonalizes"));
     assert!(ch.html_content.contains("https://quantum.org/papers"));
 
     // Search
@@ -218,7 +234,8 @@ fn test_reflowable_document_polymorphic_dispatch() {
     // Text file
     let txt_path = dir.path().join("dispatch.txt");
     let mut f = File::create(&txt_path).expect("create");
-    f.write_all(b"Simple Text Document\n\nBody content goes here.").expect("write");
+    f.write_all(b"Simple Text Document\n\nBody content goes here.")
+        .expect("write");
 
     let text_doc = TextDocument::open(&txt_path).expect("open text");
     let reflow = ReflowableDocument::Text(text_doc);

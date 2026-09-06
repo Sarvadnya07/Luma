@@ -122,7 +122,7 @@ export const ReaderView: React.FC<ReaderViewProps> = ({ book }) => {
       )}
 
       {/* Top Reader Navigation Bar matching Screen 3 & Screen 5 */}
-      <header className="h-12 border-b border-[#E5DFD3] bg-[#FAF7F2] px-6 flex items-center justify-between z-30 flex-shrink-0">
+      <header className="h-12 border-b border-[#18181B]/15 dark:border-white/15 bg-[#FAF7F2] dark:bg-[#1E1B18] px-6 flex items-center justify-between z-30 flex-shrink-0 shadow-2xs">
         {/* Left: Back to Library or Back to Reader */}
         <div className="flex items-center gap-3 min-w-0">
           <button

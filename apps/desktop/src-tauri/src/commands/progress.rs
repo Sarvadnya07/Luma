@@ -3,8 +3,9 @@ use tauri::State;
 use tracing::{debug, error, info, instrument};
 
 use luma_core::error::BackendError;
-use luma_core::ids::BookId;
-use luma_core::models::reading::ReadingProgress;
+use luma_core::ids::{BookId, DeviceId, SessionId};
+use luma_core::models::reading::{ReadingProgress, ReadingSession};
+use luma_storage::repos::{ReadingAnalytics, ReadingSessionRepository};
 
 use crate::context::LumaAppContext;
 
@@ -66,4 +67,63 @@ pub fn save_reading_progress(
 
     info!(PROGRESS_SAVED_MSG);
     Ok(())
+}
+
+#[instrument(skip(ctx), fields(book_id = %book_id))]
+#[tauri::command]
+pub fn start_reading_session(
+    ctx: State<'_, LumaAppContext>,
+    book_id: String,
+    start_progress: f32,
+) -> Result<ReadingSession, BackendError> {
+    let bid = parse_book_id(&book_id)?;
+    let dev_id = DeviceId::new();
+    let session = ReadingSession::start(bid, dev_id, start_progress);
+    debug!(session_id = %session.id, "Starting reading session");
+
+    let repo = ReadingSessionRepository::new(ctx.db.clone());
+    repo.insert(&session).map_err(|e| {
+        error!(error = %e, "Failed to record start of reading session");
+        BackendError::storage(e.to_string())
+    })?;
+
+    info!(session_id = %session.id, "Reading session started");
+    Ok(session)
+}
+
+#[instrument(skip(ctx), fields(session_id = %session_id))]
+#[tauri::command]
+pub fn complete_reading_session(
+    ctx: State<'_, LumaAppContext>,
+    session_id: String,
+    end_progress: f32,
+    duration_seconds: u32,
+) -> Result<(), BackendError> {
+    let sid: SessionId = session_id
+        .parse()
+        .map_err(|_| BackendError::validation("Invalid session_id format"))?;
+    debug!(session_id = %sid, duration = duration_seconds, "Completing reading session");
+
+    let repo = ReadingSessionRepository::new(ctx.db.clone());
+    repo.complete_session(&sid, end_progress, duration_seconds)
+        .map_err(|e| {
+            error!(error = %e, "Failed to complete reading session");
+            BackendError::storage(e.to_string())
+        })?;
+
+    info!(session_id = %sid, "Reading session completed");
+    Ok(())
+}
+
+#[instrument(skip(ctx))]
+#[tauri::command]
+pub fn get_reading_analytics(
+    ctx: State<'_, LumaAppContext>,
+) -> Result<ReadingAnalytics, BackendError> {
+    debug!("Aggregating reading analytics");
+    let repo = ReadingSessionRepository::new(ctx.db.clone());
+    repo.get_analytics().map_err(|e| {
+        error!(error = %e, "Failed to compute reading analytics");
+        BackendError::storage(e.to_string())
+    })
 }

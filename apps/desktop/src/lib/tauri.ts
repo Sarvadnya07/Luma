@@ -25,6 +25,15 @@ import {
   DiagnosticsReport,
   JobProgress,
   MaintenanceResult,
+  Note,
+  Flashcard,
+  StudyReview,
+  ResearchProject,
+  ResearchQuestion,
+  ResearchEvidence,
+  ResearchDraft,
+  ReadingSession,
+  ReadingAnalytics,
 } from "@luma/shared-types";
 
 import {
@@ -1183,6 +1192,283 @@ export class LumaApiClient {
 
   async onAnnotationChanged(callback: (event: unknown) => void): Promise<() => void> {
     return this.onDomainEvent("luma://annotation/changed", callback);
+  }
+
+  // ============================================================================
+  // Knowledge: Notes
+  // ============================================================================
+  async listNotes(): Promise<Note[]> {
+    return this._call("list_notes", undefined, () => {
+      if (typeof localStorage !== "undefined") {
+        const saved = localStorage.getItem("luma_notes_workspace");
+        if (saved) {
+          try {
+            return JSON.parse(saved);
+          } catch {
+            return [];
+          }
+        }
+      }
+      return [];
+    });
+  }
+
+  async createNote(note: Note): Promise<Note> {
+    return this._call("create_note", { note }, () => {
+      if (typeof localStorage !== "undefined") {
+        const notes = this.listNotesSync();
+        notes.push(note);
+        localStorage.setItem("luma_notes_workspace", JSON.stringify(notes));
+      }
+      return note;
+    });
+  }
+
+  async updateNote(note: Note): Promise<Note> {
+    return this._call("update_note", { note }, () => {
+      if (typeof localStorage !== "undefined") {
+        const notes = this.listNotesSync();
+        const idx = notes.findIndex((n) => n.id === note.id);
+        if (idx >= 0) notes[idx] = note;
+        else notes.push(note);
+        localStorage.setItem("luma_notes_workspace", JSON.stringify(notes));
+      }
+      return note;
+    });
+  }
+
+  async deleteNote(id: string): Promise<void> {
+    return this._call("delete_note", { id }, () => {
+      if (typeof localStorage !== "undefined") {
+        const notes = this.listNotesSync().filter((n) => n.id !== id);
+        localStorage.setItem("luma_notes_workspace", JSON.stringify(notes));
+      }
+    });
+  }
+
+  // ============================================================================
+  // Knowledge: Flashcards & Reviews
+  // ============================================================================
+  async listFlashcards(): Promise<Flashcard[]> {
+    return this._call("list_flashcards", undefined, () => {
+      if (typeof localStorage !== "undefined") {
+        const saved = localStorage.getItem("luma_flashcards");
+        if (saved) {
+          try {
+            return JSON.parse(saved);
+          } catch {
+            return [];
+          }
+        }
+      }
+      return [];
+    });
+  }
+
+  async createFlashcard(flashcard: Flashcard): Promise<Flashcard> {
+    return this._call("create_flashcard", { flashcard }, () => {
+      if (typeof localStorage !== "undefined") {
+        const cards = this.listFlashcardsSync();
+        cards.push(flashcard);
+        localStorage.setItem("luma_flashcards", JSON.stringify(cards));
+      }
+      return flashcard;
+    });
+  }
+
+  async recordStudyReview(review: StudyReview): Promise<StudyReview> {
+    return this._call("record_study_review", { review }, () => review);
+  }
+
+  async deleteFlashcard(id: string): Promise<void> {
+    return this._call("delete_flashcard", { id }, () => {
+      if (typeof localStorage !== "undefined") {
+        const cards = this.listFlashcardsSync().filter((c) => c.id !== id);
+        localStorage.setItem("luma_flashcards", JSON.stringify(cards));
+      }
+    });
+  }
+
+  // ============================================================================
+  // Knowledge: Research Workspace
+  // ============================================================================
+  async listResearchProjects(): Promise<ResearchProject[]> {
+    return this._call("list_research_projects", undefined, () => []);
+  }
+
+  async createResearchProject(project: ResearchProject): Promise<ResearchProject> {
+    return this._call("create_research_project", { project }, () => project);
+  }
+
+  async deleteResearchProject(id: string): Promise<void> {
+    return this._call("delete_research_project", { id }, () => {});
+  }
+
+  async listResearchQuestions(projectId: string): Promise<ResearchQuestion[]> {
+    return this._call("list_research_questions", { projectId }, () => []);
+  }
+
+  async createResearchQuestion(question: ResearchQuestion): Promise<ResearchQuestion> {
+    return this._call("create_research_question", { question }, () => question);
+  }
+
+  async listResearchEvidence(projectId: string): Promise<ResearchEvidence[]> {
+    return this._call("list_research_evidence", { projectId }, () => []);
+  }
+
+  async createResearchEvidence(evidence: ResearchEvidence): Promise<ResearchEvidence> {
+    return this._call("create_research_evidence", { evidence }, () => evidence);
+  }
+
+  async deleteResearchEvidence(id: string): Promise<void> {
+    return this._call("delete_research_evidence", { id }, () => {});
+  }
+
+  async saveResearchDraft(draft: ResearchDraft): Promise<ResearchDraft> {
+    return this._call("save_research_draft", { draft }, () => draft);
+  }
+
+  async getResearchDraft(projectId: string): Promise<ResearchDraft | null> {
+    return this._call("get_research_draft", { projectId }, () => null);
+  }
+
+  // ============================================================================
+  // Reading Sessions & Real Analytics
+  // ============================================================================
+  async startReadingSession(bookId: string, startProgress: number): Promise<ReadingSession> {
+    return this._call(
+      "start_reading_session",
+      { bookId, startProgress },
+      () => ({
+        id: `sess_${Date.now()}`,
+        book_id: bookId,
+        device_id: "local_dev",
+        started_at: new Date().toISOString(),
+        ended_at: null,
+        duration_seconds: 0,
+        start_progress_pct: startProgress,
+        end_progress_pct: startProgress,
+      })
+    );
+  }
+
+  async completeReadingSession(
+    sessionId: string,
+    endProgress: number,
+    durationSeconds: number
+  ): Promise<void> {
+    return this._call(
+      "complete_reading_session",
+      { sessionId, endProgress, durationSeconds },
+      () => {}
+    );
+  }
+
+  async getReadingAnalytics(): Promise<ReadingAnalytics> {
+    return this._call("get_reading_analytics", undefined, () => ({
+      total_reading_time_seconds: 0,
+      weekly_reading_seconds: 0,
+      books_completed_count: this.mockStore.books.filter((b) => b.reading_status === "completed").length,
+      daily_reading_minutes_last_28_days: Array.from({ length: 28 }, (_, i) => {
+        const d = new Date();
+        d.setDate(d.getDate() - (27 - i));
+        return {
+          date: d.toISOString().substring(0, 10),
+          minutes: 0,
+          intensity: 0,
+        };
+      }),
+      recent_sessions: [],
+      time_focus_data: [0, 0, 0, 0, 0, 0],
+    }));
+  }
+
+  // ============================================================================
+  // Legacy LocalStorage -> SQLite Migration
+  // ============================================================================
+  async migrateLegacyKnowledge(): Promise<void> {
+    if (typeof localStorage === "undefined") return;
+    const migrationFlag = localStorage.getItem("luma_knowledge_migrated_v1");
+    if (migrationFlag === "true") return;
+
+    try {
+      // 1. Migrate Notes
+      const rawNotes = localStorage.getItem("luma_notes_workspace");
+      if (rawNotes) {
+        const notes = JSON.parse(rawNotes);
+        if (Array.isArray(notes)) {
+          for (const n of notes) {
+            const noteObj: Note = {
+              id: n.id || `note_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+              book_id: n.book_id || null,
+              annotation_id: n.annotation_id || null,
+              source_type: n.source_type || "Book",
+              source_title: n.source_title || n.sourceTitle || "",
+              title: n.title || "Untitled Note",
+              content: n.content || "",
+              quote: n.quote || null,
+              created_at: n.created_at || new Date().toISOString(),
+              updated_at: n.updated_at || new Date().toISOString(),
+              is_deleted: false,
+            };
+            await this.createNote(noteObj);
+          }
+        }
+      }
+
+      // 2. Migrate Flashcards
+      const rawCards = localStorage.getItem("luma_flashcards");
+      if (rawCards) {
+        const cards = JSON.parse(rawCards);
+        if (Array.isArray(cards)) {
+          for (const c of cards) {
+            const cardObj: Flashcard = {
+              id: c.id || `card_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+              front: c.front || "",
+              back: c.back || "",
+              source_book_id: c.source_book_id || null,
+              source_annotation_id: c.source_annotation_id || null,
+              deck_id: c.deck_id || "default",
+              state: c.state || "new",
+              interval_days: c.interval_days ?? c.intervalDays ?? 1,
+              ease_factor: c.ease_factor ?? c.easeFactor ?? 2.5,
+              repetitions: c.repetitions ?? 0,
+              due_at: c.due_at || c.dueAt || new Date().toISOString(),
+              last_reviewed_at: c.last_reviewed_at || c.lastReviewedAt || null,
+              created_at: c.created_at || new Date().toISOString(),
+              updated_at: c.updated_at || new Date().toISOString(),
+              is_deleted: false,
+            };
+            await this.createFlashcard(cardObj);
+          }
+        }
+      }
+
+      localStorage.setItem("luma_knowledge_migrated_v1", "true");
+      this.logger.info("Successfully migrated legacy localStorage knowledge to SQLite.");
+    } catch (e) {
+      this.logger.error("Failed during legacy knowledge migration:", e);
+    }
+  }
+
+  private listNotesSync(): Note[] {
+    if (typeof localStorage === "undefined") return [];
+    const saved = localStorage.getItem("luma_notes_workspace");
+    try {
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  }
+
+  private listFlashcardsSync(): Flashcard[] {
+    if (typeof localStorage === "undefined") return [];
+    const saved = localStorage.getItem("luma_flashcards");
+    try {
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
   }
 }
 

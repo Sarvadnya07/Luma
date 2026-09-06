@@ -251,7 +251,7 @@ export const LibraryToolbar: React.FC<LibraryToolbarProps> = ({
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder={labels.searchPlaceholder}
             disabled={isDisabled}
-            className="w-full pl-9 pr-4 py-2 bg-white border border-[#E5DFD3] rounded-lg text-xs text-[#1C1917] placeholder:text-[#8C8275] focus:outline-none focus:border-[#18181B] focus:ring-1 focus:ring-[#18181B]/20 transition-all shadow-2xs disabled:opacity-50"
+            className="w-full pl-9 pr-4 py-2 bg-white border border-[#18181B]/20 dark:border-white/20 rounded-lg text-xs text-[#1C1917] dark:text-[#F5F1EA] placeholder:text-[#8C8275] focus:outline-none focus:border-[#18181B] focus:ring-1 focus:ring-[#18181B]/20 transition-all shadow-xs disabled:opacity-50"
             aria-label={labels.searchPlaceholder}
           />
         </div>
@@ -263,8 +263,8 @@ export const LibraryToolbar: React.FC<LibraryToolbarProps> = ({
             onClick={() => onViewModeChange("grid")}
             className={`p-2 rounded-lg transition-colors border ${
               viewMode === "grid"
-                ? "bg-[#EAE4DA] text-[#18181B] border-[#DDD5C7] shadow-2xs"
-                : "bg-transparent text-[#78716C] border-transparent hover:bg-[#EFEAE1] hover:text-[#18181B]"
+                ? "bg-[#EAE4DA] text-[#18181B] border-[#18181B]/20 shadow-xs"
+                : "bg-transparent text-[#78716C] border-[#18181B]/10 hover:bg-[#EFEAE1] hover:text-[#18181B] shadow-2xs"
             }`}
             title={labels.gridViewTooltip}
             aria-label={labels.gridViewTooltip}
@@ -279,8 +279,8 @@ export const LibraryToolbar: React.FC<LibraryToolbarProps> = ({
             onClick={() => onViewModeChange("list")}
             className={`p-2 rounded-lg transition-colors border ${
               viewMode === "list"
-                ? "bg-[#EAE4DA] text-[#18181B] border-[#DDD5C7] shadow-2xs"
-                : "bg-transparent text-[#78716C] border-transparent hover:bg-[#EFEAE1] hover:text-[#18181B]"
+                ? "bg-[#EAE4DA] text-[#18181B] border-[#18181B]/20 shadow-xs"
+                : "bg-transparent text-[#78716C] border-[#18181B]/10 hover:bg-[#EFEAE1] hover:text-[#18181B] shadow-2xs"
             }`}
             title={labels.listViewTooltip}
             aria-label={labels.listViewTooltip}

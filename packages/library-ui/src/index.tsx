@@ -61,8 +61,8 @@ export const BookCard: React.FC<BookCardProps> = ({
         isSelected ? "ring-2 ring-[#18181B] ring-offset-2 ring-offset-[#FAF7F2] rounded-lg" : ""
       }`}
     >
-      {/* Book Cover Frame with realistic book depth */}
-      <div className="relative aspect-[3/4.2] w-full rounded-md bg-[#EAE4DA] overflow-hidden shadow-[0_4px_12px_rgba(0,0,0,0.08),0_1px_3px_rgba(0,0,0,0.05)] group-hover:shadow-[0_8px_20px_rgba(0,0,0,0.12),0_2px_6px_rgba(0,0,0,0.08)] group-hover:-translate-y-0.5 transition-all duration-200 border border-[#DDD5C7]/60">
+      {/* Book Cover Frame with realistic book depth and crisp border */}
+      <div className="relative aspect-[3/4.2] w-full rounded-md bg-[#EAE4DA] overflow-hidden shadow-[0_4px_14px_rgba(0,0,0,0.12),0_1px_4px_rgba(0,0,0,0.08)] group-hover:shadow-[0_8px_24px_rgba(0,0,0,0.16),0_3px_8px_rgba(0,0,0,0.1)] group-hover:-translate-y-0.5 transition-all duration-200 border border-[#18181B]/15 dark:border-white/20">
         {book.cover_image_path ? (
           <div className="relative w-full h-full">
             <img
@@ -177,7 +177,7 @@ export const BookTable: React.FC<BookTableProps> = ({
   };
 
   return (
-    <div className="w-full bg-[#FFFFFF] border border-[#E5DFD3] rounded-xl overflow-hidden shadow-2xs">
+    <div className="w-full bg-[#FFFFFF] border border-[#18181B]/15 dark:border-white/15 rounded-xl overflow-hidden shadow-sm">
       <table className="w-full text-left border-collapse">
         <thead>
           <tr className="border-b border-[#E5DFD3] bg-[#FAF7F2]/80 text-[10px] font-semibold text-[#78716C] uppercase tracking-wider">

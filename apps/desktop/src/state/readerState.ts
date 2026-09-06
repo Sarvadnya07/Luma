@@ -42,6 +42,8 @@ export interface ReaderStoreState {
   activeTab: "library" | "reader";
   loading: boolean;
   statusMessage: string | null;
+  activeSessionId: string | null;
+  sessionStartTime: number | null;
 
   // Actions (same as before, but now use injected dependencies)
   setCurrentBook: (book: Book | null) => void;
@@ -188,6 +190,8 @@ export function createReaderStore(config: ReaderStoreConfig = {}) {
     activeTab: "library",
     loading: false,
     statusMessage: null,
+    activeSessionId: null,
+    sessionStartTime: null,
 
     // ------------------------------------------------------------------------
     // Actions
@@ -207,12 +211,22 @@ export function createReaderStore(config: ReaderStoreConfig = {}) {
         const docData = await api.openReaderDocument(book.id, fileId);
         const annotations = docData.annotations || [];
         const bookmarks = docData.bookmarks || [];
+        const startProgress = docData.initial_progress?.progress_percentage || 0;
+
+        let session = null;
+        try {
+          session = await api.startReadingSession(book.id, startProgress);
+        } catch (e) {
+          logger.warn("[readerStore] Failed to start reading session:", e);
+        }
 
         set({
           documentData: docData,
           annotations,
           bookmarks,
           readingProgress: docData.initial_progress || null,
+          activeSessionId: session?.id || null,
+          sessionStartTime: Date.now(),
         });
 
         // Restore initial position
@@ -245,14 +259,23 @@ export function createReaderStore(config: ReaderStoreConfig = {}) {
     },
 
     closeReader: () => {
+      const { activeSessionId, sessionStartTime, readingProgress } = get();
       if (progressDebounceTimer) {
         clearTimeout(progressDebounceTimer);
         progressDebounceTimer = null;
-        const curr = get().readingProgress;
-        if (curr) {
-          api.saveReadingProgress(curr).catch(() => {});
+        if (readingProgress) {
+          api.saveReadingProgress(readingProgress).catch(() => {});
         }
       }
+
+      if (activeSessionId && sessionStartTime) {
+        const durationSeconds = Math.max(1, Math.round((Date.now() - sessionStartTime) / 1000));
+        const endProgress = readingProgress?.progress_percentage || 0;
+        api.completeReadingSession(activeSessionId, endProgress, durationSeconds).catch((err) => {
+          logger.warn("[readerStore] Failed to complete reading session:", err);
+        });
+      }
+
       set({
         currentBook: null,
         documentData: null,
@@ -260,6 +283,8 @@ export function createReaderStore(config: ReaderStoreConfig = {}) {
         activeTab: "library",
         sidebarTab: null,
         isTypographyOpen: false,
+        activeSessionId: null,
+        sessionStartTime: null,
       });
     },
 

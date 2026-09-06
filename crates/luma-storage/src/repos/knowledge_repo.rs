@@ -125,8 +125,17 @@ impl NoteRepository {
                 let is_deleted: i32 = row.get(10)?;
 
                 Ok((
-                    id, book_id_str, annotation_id, source_type, source_title,
-                    title, content, quote, created_str, updated_str, is_deleted,
+                    id,
+                    book_id_str,
+                    annotation_id,
+                    source_type,
+                    source_title,
+                    title,
+                    content,
+                    quote,
+                    created_str,
+                    updated_str,
+                    is_deleted,
                 ))
             })?;
 
@@ -255,14 +264,43 @@ impl FlashcardRepository {
                 let is_del: i32 = row.get(14)?;
 
                 Ok((
-                    id, front, back, b_str, ann_id, deck, state_str,
-                    interval, ease, reps, due_str, last_rev_str, cr_str, up_str, is_del,
+                    id,
+                    front,
+                    back,
+                    b_str,
+                    ann_id,
+                    deck,
+                    state_str,
+                    interval,
+                    ease,
+                    reps,
+                    due_str,
+                    last_rev_str,
+                    cr_str,
+                    up_str,
+                    is_del,
                 ))
             })?;
 
             let mut cards = Vec::new();
             for item in rows {
-                let (id, f, bk, b_str, ann_id, deck, st_str, intv, ease, reps, due, last_rev, cr, up, del) = item?;
+                let (
+                    id,
+                    f,
+                    bk,
+                    b_str,
+                    ann_id,
+                    deck,
+                    st_str,
+                    intv,
+                    ease,
+                    reps,
+                    due,
+                    last_rev,
+                    cr,
+                    up,
+                    del,
+                ) = item?;
                 cards.push(Flashcard {
                     id,
                     front: f,
@@ -277,7 +315,11 @@ impl FlashcardRepository {
                     due_at: DateTime::parse_from_rfc3339(&due)
                         .map(|dt| dt.with_timezone(&Utc))
                         .unwrap_or_else(|_| Utc::now()),
-                    last_reviewed_at: last_rev.and_then(|d| DateTime::parse_from_rfc3339(&d).ok().map(|dt| dt.with_timezone(&Utc))),
+                    last_reviewed_at: last_rev.and_then(|d| {
+                        DateTime::parse_from_rfc3339(&d)
+                            .ok()
+                            .map(|dt| dt.with_timezone(&Utc))
+                    }),
                     created_at: DateTime::parse_from_rfc3339(&cr)
                         .map(|dt| dt.with_timezone(&Utc))
                         .unwrap_or_else(|_| Utc::now()),
@@ -343,6 +385,41 @@ impl StudyReviewRepository {
             let mut stmt = conn.prepare("SELECT COUNT(*) FROM study_reviews")?;
             let count: i64 = stmt.query_row([], |r| r.get(0))?;
             Ok(count as u64)
+        })
+    }
+
+    pub fn list_all(&self) -> StorageResult<Vec<StudyReview>> {
+        self.db.with_read_conn(|conn| {
+            let mut stmt = conn.prepare(
+                "SELECT id, flashcard_id, rating, interval_before, interval_after, ease_factor, reviewed_at FROM study_reviews ORDER BY reviewed_at ASC"
+            )?;
+            let rows = stmt.query_map([], |row| {
+                let id: String = row.get(0)?;
+                let flashcard_id: String = row.get(1)?;
+                let rating: u8 = row.get(2)?;
+                let interval_before: u32 = row.get(3)?;
+                let interval_after: u32 = row.get(4)?;
+                let ease_factor: f32 = row.get(5)?;
+                let reviewed_at_str: String = row.get(6)?;
+                Ok((id, flashcard_id, rating, interval_before, interval_after, ease_factor, reviewed_at_str))
+            })?;
+
+            let mut reviews = Vec::new();
+            for r in rows {
+                let (id, flashcard_id, rating, interval_before, interval_after, ease_factor, reviewed_at_str) = r?;
+                reviews.push(StudyReview {
+                    id,
+                    flashcard_id,
+                    rating,
+                    interval_before,
+                    interval_after,
+                    ease_factor,
+                    reviewed_at: DateTime::parse_from_rfc3339(&reviewed_at_str)
+                        .map(|dt| dt.with_timezone(&Utc))
+                        .unwrap_or_else(|_| Utc::now()),
+                });
+            }
+            Ok(reviews)
         })
     }
 }
@@ -451,7 +528,10 @@ impl ResearchRepository {
         })
     }
 
-    pub fn list_questions_by_project(&self, project_id: &str) -> StorageResult<Vec<ResearchQuestion>> {
+    pub fn list_questions_by_project(
+        &self,
+        project_id: &str,
+    ) -> StorageResult<Vec<ResearchQuestion>> {
         self.db.with_read_conn(|conn| {
             let mut stmt = conn.prepare(
                 "SELECT id, project_id, question, status, created_at FROM research_questions WHERE project_id = ?1 ORDER BY created_at ASC"
@@ -510,7 +590,10 @@ impl ResearchRepository {
         })
     }
 
-    pub fn list_evidence_by_project(&self, project_id: &str) -> StorageResult<Vec<ResearchEvidence>> {
+    pub fn list_evidence_by_project(
+        &self,
+        project_id: &str,
+    ) -> StorageResult<Vec<ResearchEvidence>> {
         self.db.with_read_conn(|conn| {
             let mut stmt = conn.prepare(
                 "SELECT id, project_id, question_id, source_title, quote, notes, stance, book_id, locator, created_at FROM research_evidence WHERE project_id = ?1 ORDER BY created_at ASC"
@@ -603,6 +686,104 @@ impl ResearchRepository {
             } else {
                 Ok(None)
             }
+        })
+    }
+
+    pub fn list_all_questions(&self) -> StorageResult<Vec<ResearchQuestion>> {
+        self.db.with_read_conn(|conn| {
+            let mut stmt = conn.prepare(
+                "SELECT id, project_id, question, status, created_at FROM research_questions ORDER BY created_at ASC"
+            )?;
+            let rows = stmt.query_map([], |row| {
+                let id: String = row.get(0)?;
+                let pid: String = row.get(1)?;
+                let q: String = row.get(2)?;
+                let status: String = row.get(3)?;
+                let cr_str: String = row.get(4)?;
+                Ok((id, pid, q, status, cr_str))
+            })?;
+
+            let mut questions = Vec::new();
+            for item in rows {
+                let (id, pid, q, st, cr) = item?;
+                questions.push(ResearchQuestion {
+                    id,
+                    project_id: pid,
+                    question: q,
+                    status: st,
+                    created_at: DateTime::parse_from_rfc3339(&cr).map(|dt| dt.with_timezone(&Utc)).unwrap_or_else(|_| Utc::now()),
+                });
+            }
+            Ok(questions)
+        })
+    }
+
+    pub fn list_all_evidence(&self) -> StorageResult<Vec<ResearchEvidence>> {
+        self.db.with_read_conn(|conn| {
+            let mut stmt = conn.prepare(
+                "SELECT id, project_id, question_id, source_title, quote, notes, stance, book_id, locator, created_at FROM research_evidence ORDER BY created_at ASC"
+            )?;
+            let rows = stmt.query_map([], |row| {
+                let id: String = row.get(0)?;
+                let pid: String = row.get(1)?;
+                let qid: Option<String> = row.get(2)?;
+                let st: String = row.get(3)?;
+                let quote: String = row.get(4)?;
+                let notes: Option<String> = row.get(5)?;
+                let stance: String = row.get(6)?;
+                let b_str: Option<String> = row.get(7)?;
+                let loc: Option<String> = row.get(8)?;
+                let cr_str: String = row.get(9)?;
+
+                Ok((id, pid, qid, st, quote, notes, stance, b_str, loc, cr_str))
+            })?;
+
+            let mut evidence_items = Vec::new();
+            for item in rows {
+                let (id, pid, qid, st, q, n, stance, b_str, loc, cr) = item?;
+                evidence_items.push(ResearchEvidence {
+                    id,
+                    project_id: pid,
+                    question_id: qid,
+                    source_title: st,
+                    quote: q,
+                    notes: n,
+                    stance,
+                    book_id: b_str.and_then(|s| s.parse().ok()),
+                    locator: loc,
+                    created_at: DateTime::parse_from_rfc3339(&cr).map(|dt| dt.with_timezone(&Utc)).unwrap_or_else(|_| Utc::now()),
+                });
+            }
+            Ok(evidence_items)
+        })
+    }
+
+    pub fn list_all_drafts(&self) -> StorageResult<Vec<ResearchDraft>> {
+        self.db.with_read_conn(|conn| {
+            let mut stmt = conn.prepare(
+                "SELECT id, project_id, title, content, updated_at FROM research_drafts ORDER BY updated_at DESC"
+            )?;
+            let rows = stmt.query_map([], |row| {
+                let id: String = row.get(0)?;
+                let pid: String = row.get(1)?;
+                let title: String = row.get(2)?;
+                let content: String = row.get(3)?;
+                let up_str: String = row.get(4)?;
+                Ok((id, pid, title, content, up_str))
+            })?;
+
+            let mut drafts = Vec::new();
+            for item in rows {
+                let (id, pid, t, c, up) = item?;
+                drafts.push(ResearchDraft {
+                    id,
+                    project_id: pid,
+                    title: t,
+                    content: c,
+                    updated_at: DateTime::parse_from_rfc3339(&up).map(|dt| dt.with_timezone(&Utc)).unwrap_or_else(|_| Utc::now()),
+                });
+            }
+            Ok(drafts)
         })
     }
 }

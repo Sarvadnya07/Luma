@@ -2,11 +2,11 @@ use std::fs::File;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 
-use luma_core::error::{LumaError, Result};
-use luma_security::sanitize_untrusted_html;
 use crate::encoding::decode_text_bytes;
 use crate::epub_doc::{ChapterContent, DocumentSearchMatch};
 use crate::TocItem;
+use luma_core::error::{LumaError, Result};
+use luma_security::sanitize_untrusted_html;
 
 /// Document engine for standalone Markdown files (.md).
 pub struct MarkdownDocument {
@@ -20,12 +20,14 @@ pub struct MarkdownDocument {
 impl MarkdownDocument {
     pub fn open<P: AsRef<Path>>(path: P) -> Result<Self> {
         let path_ref = path.as_ref();
-        let mut file = File::open(path_ref)
-            .map_err(|e| LumaError::DocumentError(format!("Failed to open markdown file: {}", e)))?;
+        let mut file = File::open(path_ref).map_err(|e| {
+            LumaError::DocumentError(format!("Failed to open markdown file: {}", e))
+        })?;
 
         let mut bytes = Vec::new();
-        file.read_to_end(&mut bytes)
-            .map_err(|e| LumaError::DocumentError(format!("Failed to read markdown file: {}", e)))?;
+        file.read_to_end(&mut bytes).map_err(|e| {
+            LumaError::DocumentError(format!("Failed to read markdown file: {}", e))
+        })?;
 
         let raw_bytes_text = decode_text_bytes(&bytes);
         let raw_text = sanitize_untrusted_html(&raw_bytes_text);
@@ -85,9 +87,18 @@ impl MarkdownDocument {
                     html.push_str("</code></pre>\n");
                     in_code_block = false;
                 } else {
-                    if in_list { html.push_str("</ul>\n"); in_list = false; }
-                    if in_ordered_list { html.push_str("</ol>\n"); in_ordered_list = false; }
-                    if in_blockquote { html.push_str("</blockquote>\n"); in_blockquote = false; }
+                    if in_list {
+                        html.push_str("</ul>\n");
+                        in_list = false;
+                    }
+                    if in_ordered_list {
+                        html.push_str("</ol>\n");
+                        in_ordered_list = false;
+                    }
+                    if in_blockquote {
+                        html.push_str("</blockquote>\n");
+                        in_blockquote = false;
+                    }
                     html.push_str("<pre class=\"bg-[#EFEAE1] dark:bg-[#1E1D1B] p-4 rounded-md overflow-x-auto text-sm font-mono\"><code>");
                     in_code_block = true;
                 }
@@ -111,9 +122,18 @@ impl MarkdownDocument {
             // Blank line
             if trimmed.is_empty() {
                 flush_paragraph(&mut paragraph_buf, &mut html);
-                if in_list { html.push_str("</ul>\n"); in_list = false; }
-                if in_ordered_list { html.push_str("</ol>\n"); in_ordered_list = false; }
-                if in_blockquote { html.push_str("</blockquote>\n"); in_blockquote = false; }
+                if in_list {
+                    html.push_str("</ul>\n");
+                    in_list = false;
+                }
+                if in_ordered_list {
+                    html.push_str("</ol>\n");
+                    in_ordered_list = false;
+                }
+                if in_blockquote {
+                    html.push_str("</blockquote>\n");
+                    in_blockquote = false;
+                }
                 continue;
             }
 
@@ -146,7 +166,11 @@ impl MarkdownDocument {
                     play_order: Some(heading_count as u32),
                     children: Vec::new(),
                 });
-                html.push_str(&format!("<h2 id=\"{}\" class=\"text-2xl font-bold font-serif pt-4 pb-1\">{}</h2>\n", id, render_inline(clean)));
+                html.push_str(&format!(
+                    "<h2 id=\"{}\" class=\"text-2xl font-bold font-serif pt-4 pb-1\">{}</h2>\n",
+                    id,
+                    render_inline(clean)
+                ));
                 continue;
             }
             if let Some(h3_text) = trimmed.strip_prefix("### ") {
@@ -154,7 +178,11 @@ impl MarkdownDocument {
                 let id = format!("heading-{}", heading_count);
                 heading_count += 1;
                 let clean = h3_text.trim();
-                html.push_str(&format!("<h3 id=\"{}\" class=\"text-xl font-semibold font-serif pt-3 pb-1\">{}</h3>\n", id, render_inline(clean)));
+                html.push_str(&format!(
+                    "<h3 id=\"{}\" class=\"text-xl font-semibold font-serif pt-3 pb-1\">{}</h3>\n",
+                    id,
+                    render_inline(clean)
+                ));
                 continue;
             }
             if let Some(h4_text) = trimmed.strip_prefix("#### ") {
@@ -162,7 +190,11 @@ impl MarkdownDocument {
                 let id = format!("heading-{}", heading_count);
                 heading_count += 1;
                 let clean = h4_text.trim();
-                html.push_str(&format!("<h4 id=\"{}\" class=\"text-lg font-semibold font-serif pt-2\">{}</h4>\n", id, render_inline(clean)));
+                html.push_str(&format!(
+                    "<h4 id=\"{}\" class=\"text-lg font-semibold font-serif pt-2\">{}</h4>\n",
+                    id,
+                    render_inline(clean)
+                ));
                 continue;
             }
 
@@ -182,7 +214,10 @@ impl MarkdownDocument {
             // Unordered List Item
             if trimmed.starts_with("* ") || trimmed.starts_with("- ") {
                 flush_paragraph(&mut paragraph_buf, &mut html);
-                if in_ordered_list { html.push_str("</ol>\n"); in_ordered_list = false; }
+                if in_ordered_list {
+                    html.push_str("</ol>\n");
+                    in_ordered_list = false;
+                }
                 if !in_list {
                     html.push_str("<ul class=\"list-disc list-inside space-y-1 my-2\">\n");
                     in_list = true;
@@ -197,7 +232,10 @@ impl MarkdownDocument {
                 let num_part = &trimmed[..dot_pos];
                 if num_part.chars().all(|c| c.is_ascii_digit()) {
                     flush_paragraph(&mut paragraph_buf, &mut html);
-                    if in_list { html.push_str("</ul>\n"); in_list = false; }
+                    if in_list {
+                        html.push_str("</ul>\n");
+                        in_list = false;
+                    }
                     if !in_ordered_list {
                         html.push_str("<ol class=\"list-decimal list-inside space-y-1 my-2\">\n");
                         in_ordered_list = true;
@@ -216,10 +254,18 @@ impl MarkdownDocument {
         }
 
         flush_paragraph(&mut paragraph_buf, &mut html);
-        if in_code_block { html.push_str("</code></pre>\n"); }
-        if in_list { html.push_str("</ul>\n"); }
-        if in_ordered_list { html.push_str("</ol>\n"); }
-        if in_blockquote { html.push_str("</blockquote>\n"); }
+        if in_code_block {
+            html.push_str("</code></pre>\n");
+        }
+        if in_list {
+            html.push_str("</ul>\n");
+        }
+        if in_ordered_list {
+            html.push_str("</ol>\n");
+        }
+        if in_blockquote {
+            html.push_str("</blockquote>\n");
+        }
         html.push_str("</div>\n");
 
         // Sanitize output through luma_security
@@ -416,7 +462,9 @@ fn render_inline(text: &str) -> String {
                     if url_closed {
                         let trimmed_url = url.trim();
                         // Block dangerous protocols
-                        if trimmed_url.to_lowercase().starts_with("javascript:") || trimmed_url.to_lowercase().starts_with("data:") {
+                        if trimmed_url.to_lowercase().starts_with("javascript:")
+                            || trimmed_url.to_lowercase().starts_with("data:")
+                        {
                             out.push_str(&label);
                         } else {
                             out.push_str(&format!("<a href=\"{}\" target=\"_blank\" rel=\"noopener noreferrer\" class=\"text-amber-600 underline\">{}</a>", trimmed_url, label));
@@ -430,7 +478,9 @@ fn render_inline(text: &str) -> String {
                 } else {
                     out.push('[');
                     out.push_str(&label);
-                    if closed { out.push(']'); }
+                    if closed {
+                        out.push(']');
+                    }
                 }
             }
             _ => out.push(ch),
