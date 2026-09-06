@@ -155,10 +155,18 @@ impl AnnotationBuilder {
         let book_id = self.book_id.ok_or("book_id is required")?;
         let annotation_type = self.annotation_type.ok_or("annotation_type is required")?;
         let quote = self.quote.ok_or("quote is required")?;
-        let anchor_payload_json = self.anchor_payload_json.ok_or("anchor_payload_json is required")?;
+        let anchor_payload_json = self
+            .anchor_payload_json
+            .ok_or("anchor_payload_json is required")?;
         let device_id = self.device_id.unwrap_or_default();
 
-        let mut ann = Annotation::new(book_id, annotation_type, quote, anchor_payload_json, device_id);
+        let mut ann = Annotation::new(
+            book_id,
+            annotation_type,
+            quote,
+            anchor_payload_json,
+            device_id,
+        );
         if let Some(color) = self.color_hex {
             ann.color_hex = color;
         }

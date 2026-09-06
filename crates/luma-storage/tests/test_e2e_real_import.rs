@@ -243,7 +243,8 @@ async fn test_end_to_end_user_import_and_persistence_flow() {
         "user ownership and data autonomy".to_string(),
         "{\"cfi\":\"epubcfi(/6/2!/4/100:0)\"}".to_string(),
         device_id,
-    ).with_color("#FDE047");
+    )
+    .with_color("#FDE047");
 
     ann_repo.insert(&ann).expect("insert annotation");
 

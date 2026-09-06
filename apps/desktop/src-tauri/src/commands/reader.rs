@@ -45,9 +45,7 @@ pub async fn open_reader_document(
     file_id: Option<String>,
 ) -> Result<OpenDocumentResult, BackendError> {
     let bid = parse_book_id(&book_id)?;
-    let fid = file_id
-        .map(|s| parse_file_id(&s))
-        .transpose()?;
+    let fid = file_id.map(|s| parse_file_id(&s)).transpose()?;
 
     debug!(?bid, ?fid, "Opening reader document");
 
@@ -141,9 +139,7 @@ pub fn get_book_file_bytes(
     file_id: Option<String>,
 ) -> Result<Vec<u8>, BackendError> {
     let bid = parse_book_id(&book_id)?;
-    let fid = file_id
-        .map(|s| parse_file_id(&s))
-        .transpose()?;
+    let fid = file_id.map(|s| parse_file_id(&s)).transpose()?;
 
     debug!(?bid, ?fid, "Retrieving file bytes");
 

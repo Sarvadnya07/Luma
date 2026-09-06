@@ -73,9 +73,7 @@ pub const ENTITY_MAP: &[(&str, &str)] = &[
 // ============================================================================
 
 /// MIME types that are considered binary (prefix matching).
-pub const BINARY_MIME_PREFIXES: &[&str] = &[
-    "image/", "font/", "audio/", "video/",
-];
+pub const BINARY_MIME_PREFIXES: &[&str] = &["image/", "font/", "audio/", "video/"];
 
 /// Exact MIME types considered binary.
 pub const BINARY_MIME_EXACT: &[&str] = &[
@@ -89,9 +87,7 @@ pub const BINARY_MIME_EXACT: &[&str] = &[
 
 /// File extensions considered binary (case‑insensitive, without dot).
 pub const BINARY_EXTENSIONS: &[&str] = &[
-    "png", "jpg", "jpeg", "gif", "webp", "svg",
-    "woff", "woff2", "ttf", "otf",
-    "mp3", "mp4",
+    "png", "jpg", "jpeg", "gif", "webp", "svg", "woff", "woff2", "ttf", "otf", "mp3", "mp4",
 ];
 
 // ============================================================================
@@ -191,7 +187,9 @@ pub fn decode_text_bytes_with_config(bytes: &[u8], config: &TextDecoderConfig) -
         if let Ok(header_str) = std::str::from_utf8(header) {
             let lower = header_str.to_lowercase();
             for (pattern, encoding) in ENCODING_PATTERNS {
-                if lower.contains(pattern) && (encoding == "iso-8859-1" || encoding == "windows-1252") {
+                if lower.contains(pattern)
+                    && (encoding == "iso-8859-1" || encoding == "windows-1252")
+                {
                     // Map each byte directly to Unicode char
                     return bytes.iter().map(|&b| b as char).collect();
                 }
@@ -317,7 +315,11 @@ pub fn is_binary_resource_with_config(
     }
 
     // Check MIME prefixes
-    if config.mime_prefixes.iter().any(|prefix| lower_mime.starts_with(prefix)) {
+    if config
+        .mime_prefixes
+        .iter()
+        .any(|prefix| lower_mime.starts_with(prefix))
+    {
         return true;
     }
 
@@ -361,7 +363,10 @@ mod tests {
     fn test_binary_classification() {
         assert!(is_binary_resource("image/jpeg", "cover.jpg"));
         assert!(is_binary_resource("font/woff2", "font.woff2"));
-        assert!(!is_binary_resource("application/xhtml+xml", "chapter.xhtml"));
+        assert!(!is_binary_resource(
+            "application/xhtml+xml",
+            "chapter.xhtml"
+        ));
         assert!(!is_binary_resource("application/x-dtbncx+xml", "toc.ncx"));
     }
 
@@ -369,6 +374,10 @@ mod tests {
     fn test_custom_binary_rules() {
         let mut config = BinaryClassifierConfig::default();
         config.extensions.push("custom".to_string());
-        assert!(is_binary_resource_with_config("text/plain", "file.custom", &config));
+        assert!(is_binary_resource_with_config(
+            "text/plain",
+            "file.custom",
+            &config
+        ));
     }
 }

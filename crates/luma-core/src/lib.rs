@@ -38,9 +38,9 @@ pub mod prelude {
         ImportJobId, SessionId, TagId,
     };
     pub use super::models::{
-        Annotation, Book, BookFile, Collection, Series, Tag,
-        reading::{Bookmark, ReadingProgress, ReadingSession},
         ingest::{ImportJob, ImportJobStatus},
+        reading::{Bookmark, ReadingProgress, ReadingSession},
+        Annotation, Book, BookFile, Collection, Series, Tag,
     };
     pub use super::version::SyncMetadata;
 }

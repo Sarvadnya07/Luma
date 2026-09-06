@@ -380,7 +380,6 @@ impl BookRepository {
         })
     }
 
-
     pub fn set_reading_status(&self, book_id: &BookId, status: ReadingStatus) -> StorageResult<()> {
         self.db.with_conn(|conn| {
             conn.execute(

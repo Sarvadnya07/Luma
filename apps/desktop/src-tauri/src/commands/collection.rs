@@ -15,7 +15,8 @@ use crate::context::LumaAppContext;
 // Constants – centralised error messages
 // ============================================================================
 
-const INVALID_COLLECTION_ID_MSG: &str = "Invalid collection_id format. Expected a valid CollectionId.";
+const INVALID_COLLECTION_ID_MSG: &str =
+    "Invalid collection_id format. Expected a valid CollectionId.";
 const INVALID_BOOK_ID_MSG: &str = "Invalid book_id format. Expected a valid BookId.";
 const INVALID_TAG_ID_MSG: &str = "Invalid tag_id format. Expected a valid TagId.";
 const COLLECTION_CREATED_MSG: &str = "Collection created successfully.";
@@ -48,11 +49,10 @@ fn parse_tag_id(id: &str) -> Result<TagId, BackendError> {
 pub fn list_collections(ctx: State<'_, LumaAppContext>) -> Result<Vec<Collection>, BackendError> {
     debug!("Listing collections");
     let repo = CollectionRepository::new(ctx.db.clone());
-    repo.list_all()
-        .map_err(|e| {
-            error!(error = %e, "Failed to list collections");
-            BackendError::storage(e.to_string())
-        })
+    repo.list_all().map_err(|e| {
+        error!(error = %e, "Failed to list collections");
+        BackendError::storage(e.to_string())
+    })
 }
 
 #[instrument(skip(ctx), fields(name = %name, description = ?description))]
@@ -106,7 +106,6 @@ pub fn add_books_to_collection(
         }
     }
 
-
     if !errors.is_empty() {
         // If any errors occurred, log them and return a storage error with details
         // Optionally, you could return a partial success, but we'll treat as error for simplicity.
@@ -127,11 +126,10 @@ pub fn add_books_to_collection(
 pub fn list_tags(ctx: State<'_, LumaAppContext>) -> Result<Vec<Tag>, BackendError> {
     debug!("Listing tags");
     let repo = TagRepository::new(ctx.db.clone());
-    repo.list_all()
-        .map_err(|e| {
-            error!(error = %e, "Failed to list tags");
-            BackendError::storage(e.to_string())
-        })
+    repo.list_all().map_err(|e| {
+        error!(error = %e, "Failed to list tags");
+        BackendError::storage(e.to_string())
+    })
 }
 
 #[instrument(skip(ctx), fields(book_id = %book_id, tag_name = %tag_name))]
@@ -152,11 +150,10 @@ pub fn add_tag_to_book(
             BackendError::storage(e.to_string())
         })?;
 
-    repo.add_tag_to_book(&bid, &tag.id)
-        .map_err(|e| {
-            error!(error = %e, "Failed to add tag to book");
-            BackendError::storage(e.to_string())
-        })?;
+    repo.add_tag_to_book(&bid, &tag.id).map_err(|e| {
+        error!(error = %e, "Failed to add tag to book");
+        BackendError::storage(e.to_string())
+    })?;
 
     info!(tag_id = %tag.id, TAG_ADDED_MSG);
     Ok(tag)
@@ -174,11 +171,10 @@ pub fn remove_tag_from_book(
     debug!(?bid, ?tid, "Removing tag from book");
 
     let repo = TagRepository::new(ctx.db.clone());
-    repo.remove_tag_from_book(&bid, &tid)
-        .map_err(|e| {
-            error!(error = %e, "Failed to remove tag from book");
-            BackendError::storage(e.to_string())
-        })?;
+    repo.remove_tag_from_book(&bid, &tid).map_err(|e| {
+        error!(error = %e, "Failed to remove tag from book");
+        BackendError::storage(e.to_string())
+    })?;
 
     info!(TAG_REMOVED_MSG);
     Ok(())
@@ -189,11 +185,10 @@ pub fn remove_tag_from_book(
 pub fn list_authors(ctx: State<'_, LumaAppContext>) -> Result<Vec<Author>, BackendError> {
     debug!("Listing authors");
     let repo = AuthorRepository::new(ctx.db.clone());
-    repo.list_all()
-        .map_err(|e| {
-            error!(error = %e, "Failed to list authors");
-            BackendError::storage(e.to_string())
-        })
+    repo.list_all().map_err(|e| {
+        error!(error = %e, "Failed to list authors");
+        BackendError::storage(e.to_string())
+    })
 }
 
 #[instrument(skip(ctx))]
@@ -201,9 +196,8 @@ pub fn list_authors(ctx: State<'_, LumaAppContext>) -> Result<Vec<Author>, Backe
 pub fn list_series(ctx: State<'_, LumaAppContext>) -> Result<Vec<Series>, BackendError> {
     debug!("Listing series");
     let repo = SeriesRepository::new(ctx.db.clone());
-    repo.list_all()
-        .map_err(|e| {
-            error!(error = %e, "Failed to list series");
-            BackendError::storage(e.to_string())
-        })
+    repo.list_all().map_err(|e| {
+        error!(error = %e, "Failed to list series");
+        BackendError::storage(e.to_string())
+    })
 }

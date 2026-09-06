@@ -58,10 +58,7 @@ pub async fn pick_import_files() -> Result<Vec<String>, BackendError> {
 
     let files = rfd::AsyncFileDialog::new()
         .set_title(IMPORT_DIALOG_TITLE)
-        .add_filter(
-            FILTER_DIGITAL_PUBLICATIONS.0,
-            FILTER_DIGITAL_PUBLICATIONS.1,
-        )
+        .add_filter(FILTER_DIGITAL_PUBLICATIONS.0, FILTER_DIGITAL_PUBLICATIONS.1)
         .add_filter(FILTER_EPUB.0, FILTER_EPUB.1)
         .add_filter(FILTER_PDF.0, FILTER_PDF.1)
         .add_filter(FILTER_ALL.0, FILTER_ALL.1)
@@ -186,7 +183,6 @@ pub async fn import_file_bytes(
         error!(error = %e, STAGING_DIR_CREATE_FAILED_MSG);
         BackendError::storage(STAGING_DIR_CREATE_FAILED_MSG.to_string())
     })?;
-
 
     let temp_filename = format!("{}_{}", uuid::Uuid::new_v4().simple(), filename);
     let temp_path = staging_dir.join(&temp_filename);

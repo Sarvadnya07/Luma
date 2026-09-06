@@ -101,8 +101,9 @@ impl EpubDocument {
         let file = File::open(&p)
             .map_err(|e| LumaError::DocumentError(format!("Failed to open EPUB: {e}")))?;
 
-        let mut archive = zip::ZipArchive::new(file)
-            .map_err(|e| LumaError::CorruptedDocument(format!("Invalid EPUB zip container: {e}")))?;
+        let mut archive = zip::ZipArchive::new(file).map_err(|e| {
+            LumaError::CorruptedDocument(format!("Invalid EPUB zip container: {e}"))
+        })?;
 
         // 1. Find rootfile from container.xml
         let opf_path = Self::find_opf_path(&mut archive)?;
@@ -112,10 +113,12 @@ impl EpubDocument {
             .to_path_buf();
 
         // 2. Read and parse OPF package
-        let mut opf_entry = archive.by_name(&opf_path)
+        let mut opf_entry = archive
+            .by_name(&opf_path)
             .map_err(|e| LumaError::CorruptedDocument(format!("OPF missing: {e}")))?;
         let mut opf_bytes = Vec::new();
-        opf_entry.read_to_end(&mut opf_bytes)
+        opf_entry
+            .read_to_end(&mut opf_bytes)
             .map_err(|e| LumaError::CorruptedDocument(format!("Corrupted zip entry: {e}")))?;
         drop(opf_entry);
 
@@ -175,15 +178,14 @@ impl EpubDocument {
         if is_binary_resource(&item.media_type, &item.href) {
             return Err(LumaError::DocumentError(format!(
                 "Spine item {} is a binary resource ({}) and cannot be rendered as chapter text",
-                item.href,
-                item.media_type
+                item.href, item.media_type
             )));
         }
 
         let file = File::open(&self.file_path)
             .map_err(|e| LumaError::DocumentError(format!("Failed to reopen EPUB file: {e}")))?;
-        let mut archive = zip::ZipArchive::new(file)
-            .map_err(|e| LumaError::CorruptedDocument(e.to_string()))?;
+        let mut archive =
+            zip::ZipArchive::new(file).map_err(|e| LumaError::CorruptedDocument(e.to_string()))?;
 
         let chapter_path = if self.opf_dir.as_os_str().is_empty() {
             item.href.replace('\\', "/")
@@ -197,13 +199,15 @@ impl EpubDocument {
         let mut entry = if archive.by_name(&chapter_path).is_ok() {
             archive.by_name(&chapter_path).unwrap()
         } else {
-            archive.by_name(&item.href)
-                .map_err(|e| LumaError::DocumentError(format!("Chapter file {chapter_path} not found: {e}")))?
+            archive.by_name(&item.href).map_err(|e| {
+                LumaError::DocumentError(format!("Chapter file {chapter_path} not found: {e}"))
+            })?
         };
 
         let mut chapter_bytes = Vec::new();
-        entry.read_to_end(&mut chapter_bytes)
-            .map_err(|e| LumaError::DocumentError(format!("Failed to read chapter {}: {e}", item.href)))?;
+        entry.read_to_end(&mut chapter_bytes).map_err(|e| {
+            LumaError::DocumentError(format!("Failed to read chapter {}: {e}", item.href))
+        })?;
 
         let raw_html = decode_text_bytes(&chapter_bytes);
         let sanitized_html = sanitize_untrusted_html(&raw_html);
@@ -244,14 +248,15 @@ impl EpubDocument {
                 while let Some(found_idx) = text_lower[start_search..].find(&clean_q) {
                     let absolute_char_idx = start_search + found_idx;
                     let snippet_start = absolute_char_idx.saturating_sub(40);
-                    let snippet_end = (absolute_char_idx + clean_q.len() + 40)
-                        .min(chapter.text_content.len());
+                    let snippet_end =
+                        (absolute_char_idx + clean_q.len() + 40).min(chapter.text_content.len());
                     let snippet = chapter.text_content[snippet_start..snippet_end]
                         .replace('\n', " ")
                         .trim()
                         .to_string();
 
-                    let locator = format!("epubcfi(/6/{}!/4/{}:0)", (idx + 1) * 2, absolute_char_idx);
+                    let locator =
+                        format!("epubcfi(/6/{}!/4/{}:0)", (idx + 1) * 2, absolute_char_idx);
 
                     matches.push(DocumentSearchMatch {
                         spine_index: idx,
@@ -277,11 +282,13 @@ impl EpubDocument {
     // ------------------------------------------------------------------------
 
     fn find_opf_path(archive: &mut zip::ZipArchive<File>) -> Result<String> {
-        let mut container_entry = archive.by_name(CONTAINER_PATH)
+        let mut container_entry = archive
+            .by_name(CONTAINER_PATH)
             .map_err(|_| LumaError::CorruptedDocument(ERR_CONTAINER_MISSING.into()))?;
 
         let mut container_bytes = Vec::new();
-        container_entry.read_to_end(&mut container_bytes)
+        container_entry
+            .read_to_end(&mut container_bytes)
             .map_err(|e| LumaError::CorruptedDocument(format!("Corrupted zip entry: {e}")))?;
 
         let container_xml = decode_text_bytes(&container_bytes);
@@ -304,7 +311,9 @@ impl EpubDocument {
                 }
                 Ok(Event::Eof) => break,
                 Err(e) => {
-                    return Err(LumaError::CorruptedDocument(format!("XML error in container.xml: {e}")));
+                    return Err(LumaError::CorruptedDocument(format!(
+                        "XML error in container.xml: {e}"
+                    )));
                 }
                 _ => {}
             }
@@ -398,7 +407,9 @@ impl EpubDocument {
                 }
                 Ok(Event::Eof) => break,
                 Err(e) => {
-                    return Err(LumaError::CorruptedDocument(format!("XML error in OPF: {e}")));
+                    return Err(LumaError::CorruptedDocument(format!(
+                        "XML error in OPF: {e}"
+                    )));
                 }
                 _ => {}
             }
@@ -578,7 +589,9 @@ impl EpubDocument {
                     current_title = decode_xml_and_html_entities(&raw_text).trim().to_string();
                     in_text = false;
                 }
-                Ok(Event::End(e)) if e.local_name().as_ref() == b"navPoint" && !current_title.is_empty() => {
+                Ok(Event::End(e))
+                    if e.local_name().as_ref() == b"navPoint" && !current_title.is_empty() =>
+                {
                     let play_order = (items.len() + 1) as u32;
                     let sanitized = sanitize_untrusted_html(&current_title);
                     items.push(TocItem {
@@ -616,4 +629,4 @@ impl EpubDocument {
         let decoded = decode_xml_and_html_entities(&stripped);
         decoded.split_whitespace().collect::<Vec<_>>().join(" ")
     }
-}   
+}

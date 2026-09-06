@@ -496,4 +496,3 @@ mod tests {
         assert_eq!(col.book_ids.len(), 2);
     }
 }
-

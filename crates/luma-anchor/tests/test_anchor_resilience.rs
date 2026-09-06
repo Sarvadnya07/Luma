@@ -13,7 +13,6 @@ const PERFORMANCE_BUDGET_MICROS: f64 = 1500.0;
 /// canonical threshold expected by the resolution logic.
 const HIGH_CONFIDENCE_THRESHOLD: f32 = 0.85;
 
-
 // ============================================================================
 // Test: Anchor resilience across mutations
 // ============================================================================
@@ -30,7 +29,11 @@ fn test_anchor_resilience_across_typography_and_reflow_mutations() {
 
     let anchor = CompositeAnchor {
         format_locator: None,
-        quote_anchor: TextQuoteAnchor::new(quote, Some(prefix.to_string()), Some(suffix.to_string())),
+        quote_anchor: TextQuoteAnchor::new(
+            quote,
+            Some(prefix.to_string()),
+            Some(suffix.to_string()),
+        ),
         chapter_content_hash: None,
         document_checksum: None,
     };
@@ -78,8 +81,16 @@ fn test_anchor_resilience_across_typography_and_reflow_mutations() {
     };
     let res_fail = engine.resolve(&bad_anchor, original_doc);
     match res_fail {
-        ResolutionResult::Failed { best_candidate, reason } => {
-            let expected_failure_reasons = ["matching candidate", "no candidate", "low confidence", "below acceptable threshold"];
+        ResolutionResult::Failed {
+            best_candidate,
+            reason,
+        } => {
+            let expected_failure_reasons = [
+                "matching candidate",
+                "no candidate",
+                "low confidence",
+                "below acceptable threshold",
+            ];
 
             let reason_lower = reason.to_lowercase();
             let matches = expected_failure_reasons
@@ -88,12 +99,12 @@ fn test_anchor_resilience_across_typography_and_reflow_mutations() {
             assert!(
                 matches,
                 "Failure reason '{}' did not contain expected messages: {:?}",
-                reason,
-                expected_failure_reasons
+                reason, expected_failure_reasons
             );
-            assert!(best_candidate.is_none(), "Best candidate should be None on failure");
-
-
+            assert!(
+                best_candidate.is_none(),
+                "Best candidate should be None on failure"
+            );
         }
         _ => panic!("Expected Failed for missing text"),
     }
@@ -144,4 +155,4 @@ fn test_benchmark_fuzzy_anchor_resolution_throughput() {
         avg_per_res_us,
         PERFORMANCE_BUDGET_MICROS
     );
-}  
+}

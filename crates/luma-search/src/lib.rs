@@ -54,8 +54,10 @@ pub trait SearchEngine: Send + Sync {
 
 /// Convenience prelude module: imports the most frequently used types.
 pub mod prelude {
-    pub use super::{DEFAULT_MAX_SEARCH_RESULTS, SearchEngine, SearchHit, SearchQuery, SearchResult};
     pub use super::sqlite_fts::SqliteFtsSearchEngine;
+    pub use super::{
+        SearchEngine, SearchHit, SearchQuery, SearchResult, DEFAULT_MAX_SEARCH_RESULTS,
+    };
 }
 
 // ============================================================================

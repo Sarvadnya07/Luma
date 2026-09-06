@@ -15,7 +15,6 @@ const MAINTENANCE_REBUILD_INDEX_MSG: &str = "Search index rebuilt successfully."
 const MAINTENANCE_CLEANUP_CACHES_MSG: &str = "Caches cleaned up successfully.";
 const MAINTENANCE_VACUUM_DB_MSG: &str = "Database vacuumed successfully.";
 
-
 // ============================================================================
 // Tauri Commands
 // ============================================================================
@@ -27,15 +26,16 @@ pub fn maintenance_reconcile_files(
 ) -> Result<MaintenanceResult, BackendError> {
     debug!("Running maintenance: reconcile files");
 
-    let result = ctx
-        .maintenance_service
-        .reconcile_files()
-        .map_err(|e| {
-            error!(error = %e, "Reconcile files failed");
-            BackendError::from(e)
-        })?;
+    let result = ctx.maintenance_service.reconcile_files().map_err(|e| {
+        error!(error = %e, "Reconcile files failed");
+        BackendError::from(e)
+    })?;
 
-    info!(items_processed = result.items_processed, duration_ms = result.duration_ms, MAINTENANCE_RECONCILE_MSG);
+    info!(
+        items_processed = result.items_processed,
+        duration_ms = result.duration_ms,
+        MAINTENANCE_RECONCILE_MSG
+    );
     Ok(result)
 }
 
@@ -55,7 +55,11 @@ pub async fn maintenance_rebuild_search_index(
             BackendError::from(e)
         })?;
 
-    info!(items_processed = result.items_processed, duration_ms = result.duration_ms, MAINTENANCE_REBUILD_INDEX_MSG);
+    info!(
+        items_processed = result.items_processed,
+        duration_ms = result.duration_ms,
+        MAINTENANCE_REBUILD_INDEX_MSG
+    );
     Ok(result)
 }
 
@@ -75,7 +79,11 @@ pub async fn maintenance_cleanup_caches(
             BackendError::from(e)
         })?;
 
-    info!(items_processed = result.items_processed, duration_ms = result.duration_ms, MAINTENANCE_CLEANUP_CACHES_MSG);
+    info!(
+        items_processed = result.items_processed,
+        duration_ms = result.duration_ms,
+        MAINTENANCE_CLEANUP_CACHES_MSG
+    );
     Ok(result)
 }
 
@@ -86,14 +94,15 @@ pub fn maintenance_vacuum_database(
 ) -> Result<MaintenanceResult, BackendError> {
     debug!("Running maintenance: vacuum database");
 
-    let result = ctx
-        .maintenance_service
-        .vacuum_database()
-        .map_err(|e| {
-            error!(error = %e, "Vacuum database failed");
-            BackendError::from(e)
-        })?;
+    let result = ctx.maintenance_service.vacuum_database().map_err(|e| {
+        error!(error = %e, "Vacuum database failed");
+        BackendError::from(e)
+    })?;
 
-    info!(items_processed = result.items_processed, duration_ms = result.duration_ms, MAINTENANCE_VACUUM_DB_MSG);
+    info!(
+        items_processed = result.items_processed,
+        duration_ms = result.duration_ms,
+        MAINTENANCE_VACUUM_DB_MSG
+    );
     Ok(result)
 }

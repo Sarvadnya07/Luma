@@ -1,7 +1,6 @@
 use tauri::State;
 use tracing::{debug, info, instrument};
 
-
 use luma_core::error::BackendError;
 use luma_storage::jobs::JobProgress;
 

@@ -41,13 +41,10 @@ pub fn get_setting(
     validate_key(&key)?;
     debug!(?key, "Retrieving setting");
 
-    let value = ctx
-        .settings_service
-        .get_setting(&key)
-        .map_err(|e| {
-            error!(error = %e, "Failed to get setting");
-            BackendError::from(e)
-        })?;
+    let value = ctx.settings_service.get_setting(&key).map_err(|e| {
+        error!(error = %e, "Failed to get setting");
+        BackendError::from(e)
+    })?;
 
     if value.is_some() {
         debug!(?value, SETTING_RETRIEVED_MSG);
@@ -85,13 +82,10 @@ pub fn get_all_settings(
 ) -> Result<HashMap<String, Value>, BackendError> {
     debug!("Retrieving all settings");
 
-    let settings = ctx
-        .settings_service
-        .get_all_settings()
-        .map_err(|e| {
-            error!(error = %e, "Failed to get all settings");
-            BackendError::from(e)
-        })?;
+    let settings = ctx.settings_service.get_all_settings().map_err(|e| {
+        error!(error = %e, "Failed to get all settings");
+        BackendError::from(e)
+    })?;
 
     debug!(count = settings.len(), ALL_SETTINGS_RETRIEVED_MSG);
     Ok(settings)

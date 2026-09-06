@@ -3,10 +3,11 @@ use luma_core::models::book::Book;
 use luma_storage::cache::CacheManager;
 use luma_storage::db::Database;
 use luma_storage::events::EventBus;
-use luma_storage::repos::{AuthorRepository, BookRepository, LibraryFilterOptions, LibrarySortOptions};
+use luma_storage::repos::{
+    AuthorRepository, BookRepository, LibraryFilterOptions, LibrarySortOptions,
+};
 use luma_storage::services::SearchService;
 use std::time::Instant;
-
 
 #[tokio::test]
 async fn test_benchmark_library_query_hot_path() {
@@ -24,7 +25,6 @@ async fn test_benchmark_library_query_hot_path() {
         author_ids.push(auth.id);
     }
 
-
     // Insert 1,000 books with author relationships into the database
     let insert_start = Instant::now();
     for i in 0..1000 {
@@ -33,7 +33,10 @@ async fn test_benchmark_library_query_hot_path() {
         book_repo.insert(&b).expect("insert");
     }
     let insert_duration = insert_start.elapsed();
-    println!("Time to insert 1000 books with authors: {:?}", insert_duration);
+    println!(
+        "Time to insert 1000 books with authors: {:?}",
+        insert_duration
+    );
 
     // Benchmark 20 consecutive list queries of page size 50 with batch author population
     let filter = LibraryFilterOptions::default();
@@ -46,7 +49,10 @@ async fn test_benchmark_library_query_hot_path() {
         assert!(!page_results[0].author_ids.is_empty());
     }
     let list_duration = list_start.elapsed();
-    println!("Time for 20 pages of list queries (1000 items total with batch authors): {:?}", list_duration);
+    println!(
+        "Time for 20 pages of list queries (1000 items total with batch authors): {:?}",
+        list_duration
+    );
 }
 
 #[tokio::test]

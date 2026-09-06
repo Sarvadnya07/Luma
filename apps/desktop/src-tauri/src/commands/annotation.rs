@@ -14,7 +14,8 @@ use crate::context::LumaAppContext;
 // ============================================================================
 
 const INVALID_BOOK_ID_MSG: &str = "Invalid book_id format. Expected a valid BookId.";
-const INVALID_ANNOTATION_ID_MSG: &str = "Invalid annotation_id format. Expected a valid AnnotationId.";
+const INVALID_ANNOTATION_ID_MSG: &str =
+    "Invalid annotation_id format. Expected a valid AnnotationId.";
 const INVALID_QUOTE_MSG: &str = "Quote cannot be empty.";
 const RESOLVE_ANCHOR_SUCCESS: &str = "Anchor resolved successfully.";
 
@@ -58,12 +59,10 @@ pub fn list_all_annotations(
 ) -> Result<Vec<Annotation>, BackendError> {
     debug!("Listing all annotations across library");
 
-    ctx.annotation_service
-        .list_all()
-        .map_err(|e| {
-            error!(error = %e, "Failed to list all annotations");
-            BackendError::from(e)
-        })
+    ctx.annotation_service.list_all().map_err(|e| {
+        error!(error = %e, "Failed to list all annotations");
+        BackendError::from(e)
+    })
 }
 
 #[instrument(skip(ctx, annotation), fields(annotation_id = %annotation.id))]

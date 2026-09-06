@@ -25,8 +25,7 @@ struct AppConfig {
 
 impl AppConfig {
     fn from_env() -> Self {
-        let log_filter = std::env::var("RUST_LOG")
-            .unwrap_or_else(|_| DEFAULT_RUST_LOG.to_string());
+        let log_filter = std::env::var("RUST_LOG").unwrap_or_else(|_| DEFAULT_RUST_LOG.to_string());
 
         let data_dir = std::env::var(DATA_DIR_ENV_VAR)
             .ok()
@@ -37,8 +36,10 @@ impl AppConfig {
                     .join(DEFAULT_DATA_DIR_NAME)
             });
 
-        Self { data_dir, log_filter }
-
+        Self {
+            data_dir,
+            log_filter,
+        }
     }
 }
 
@@ -55,7 +56,10 @@ fn main() {
         .with(tracing_subscriber::fmt::layer())
         .init();
 
-    tracing::info!("Initializing LumaAppContext at: {}", config.data_dir.display());
+    tracing::info!(
+        "Initializing LumaAppContext at: {}",
+        config.data_dir.display()
+    );
 
     let context_config = LumaAppContextConfig::new(&config.data_dir);
     let context = LumaAppContext::new(context_config);
@@ -64,8 +68,6 @@ fn main() {
     tauri::Builder::default()
         .manage(context)
         .setup(move |app| {
-
-
             app_ctx.spawn_event_bridge(app.handle().clone());
             tracing::info!("{}", INIT_LOG_MESSAGE);
             Ok(())

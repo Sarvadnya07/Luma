@@ -104,7 +104,6 @@ impl ReaderService {
         let annotations = ann_repo.list_by_book(book_id).unwrap_or_default();
         let bookmarks = bm_repo.list_by_book_id(book_id).unwrap_or_default();
 
-
         let author_repo = crate::repos::AuthorRepository::new(self.db.clone());
         let author_names: Vec<String> = author_repo
             .get_authors_for_book(book_id)
@@ -192,7 +191,11 @@ impl ReaderService {
         })
     }
 
-    pub async fn get_chapter(&self, book_id: &BookId, spine_index: usize) -> Result<ChapterContent> {
+    pub async fn get_chapter(
+        &self,
+        book_id: &BookId,
+        spine_index: usize,
+    ) -> Result<ChapterContent> {
         // Fast path: Check active session cache
         {
             let sessions = self.epub_sessions.read().await;
@@ -328,4 +331,3 @@ impl ReaderService {
             .map_err(|e| LumaError::StorageError(format!("Failed to read file bytes: {}", e)))
     }
 }
-

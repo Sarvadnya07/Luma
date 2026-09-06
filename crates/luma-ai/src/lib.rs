@@ -1,7 +1,6 @@
 use async_trait::async_trait;
-use luma_core::error::{Result, LumaError};
+use luma_core::error::{LumaError, Result};
 use serde::{Deserialize, Serialize};
-
 
 // ============================================================================
 // Constants – centralised defaults
@@ -100,14 +99,17 @@ pub trait AiProvider: Send + Sync {
 /// Validate that a request has non‑empty fields.
 pub fn validate_summary_request(req: &SummaryRequest) -> Result<()> {
     if req.document_title.trim().is_empty() {
-        return Err(LumaError::ValidationError("Document title cannot be empty".to_string()));
+        return Err(LumaError::ValidationError(
+            "Document title cannot be empty".to_string(),
+        ));
     }
     if req.section_text.trim().is_empty() {
-        return Err(LumaError::ValidationError("Section text cannot be empty".to_string()));
+        return Err(LumaError::ValidationError(
+            "Section text cannot be empty".to_string(),
+        ));
     }
     Ok(())
 }
-
 
 // ============================================================================
 // Tests

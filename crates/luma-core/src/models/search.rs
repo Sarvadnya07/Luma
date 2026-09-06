@@ -75,7 +75,12 @@ pub struct SearchHit {
 
 impl SearchHit {
     /// Creates a new search hit with default values.
-    pub fn new(book_id: BookId, snippet: impl Into<String>, locator: impl Into<String>, score: f32) -> Self {
+    pub fn new(
+        book_id: BookId,
+        snippet: impl Into<String>,
+        locator: impl Into<String>,
+        score: f32,
+    ) -> Self {
         Self {
             book_id,
             snippet: snippet.into(),

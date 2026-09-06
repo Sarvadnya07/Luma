@@ -42,13 +42,10 @@ pub fn list_bookmarks(
     let bid = parse_book_id(&book_id)?;
     debug!(?bid, "Listing bookmarks for book");
 
-    let bookmarks = ctx
-        .bookmark_service
-        .list_by_book(&bid)
-        .map_err(|e| {
-            error!(error = %e, "Failed to list bookmarks");
-            BackendError::from(e)
-        })?;
+    let bookmarks = ctx.bookmark_service.list_by_book(&bid).map_err(|e| {
+        error!(error = %e, "Failed to list bookmarks");
+        BackendError::from(e)
+    })?;
     debug!(count = bookmarks.len(), "Retrieved bookmarks");
     Ok(bookmarks)
 }
@@ -70,14 +67,7 @@ pub fn create_bookmark(
 
     let bookmark = ctx
         .bookmark_service
-        .create_bookmark(
-            bid,
-            locator,
-            title,
-            chapter_title,
-            page_number,
-            device_id,
-        )
+        .create_bookmark(bid, locator, title, chapter_title, page_number, device_id)
         .map_err(|e| {
             error!(error = %e, "Failed to create bookmark");
             BackendError::from(e)
@@ -95,8 +85,7 @@ pub fn delete_bookmark(
     let bmid = parse_bookmark_id(&bookmark_id)?;
     debug!(?bmid, "Deleting bookmark");
 
-    ctx
-        .bookmark_service
+    ctx.bookmark_service
         .delete_bookmark(&bmid, None)
         .map_err(|e| {
             error!(error = %e, "Failed to delete bookmark");

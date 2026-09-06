@@ -1,5 +1,5 @@
-use std::str::FromStr;
 use serde::Deserialize;
+use std::str::FromStr;
 use tauri::State;
 use tracing::{debug, error, info, instrument, warn};
 
@@ -16,12 +16,15 @@ use crate::context::LumaAppContext;
 // ============================================================================
 
 const INVALID_BOOK_ID_MSG: &str = "Invalid book_id format. Expected a valid BookId.";
-const INVALID_COLLECTION_ID_MSG: &str = "Invalid collection_id format. Expected a valid CollectionId.";
+const INVALID_COLLECTION_ID_MSG: &str =
+    "Invalid collection_id format. Expected a valid CollectionId.";
 const INVALID_READING_STATUS_MSG: &str = "Invalid reading_status format. Expected one of: unread, reading, completed, want_to_read, on_hold, did_not_finish.";
 const INVALID_AUTHOR_ID_MSG: &str = "Invalid author_id format. Expected a valid AuthorId.";
 const INVALID_SERIES_ID_MSG: &str = "Invalid series_id format. Expected a valid SeriesId.";
-const INVALID_LIBRARY_STATE_MSG: &str = "Invalid library_state format. Expected 'active' or 'trashed'.";
-const INVALID_FORMAT_MSG: &str = "Invalid format. Expected one of: epub, pdf, cbz, cbr, txt, md, html, htm.";
+const INVALID_LIBRARY_STATE_MSG: &str =
+    "Invalid library_state format. Expected 'active' or 'trashed'.";
+const INVALID_FORMAT_MSG: &str =
+    "Invalid format. Expected one of: epub, pdf, cbz, cbr, txt, md, html, htm.";
 
 const BOOKS_LISTED_MSG: &str = "Books listed successfully.";
 const BOOK_DETAILS_RETRIEVED_MSG: &str = "Book details retrieved successfully.";
@@ -94,15 +97,21 @@ fn parse_series_id(id: &str) -> Result<SeriesId, BackendError> {
 }
 
 fn parse_reading_status(status: &str) -> Result<ReadingStatus, BackendError> {
-    status.parse::<ReadingStatus>().map_err(|_| BackendError::validation(INVALID_READING_STATUS_MSG))
+    status
+        .parse::<ReadingStatus>()
+        .map_err(|_| BackendError::validation(INVALID_READING_STATUS_MSG))
 }
 
 fn parse_library_state(state: &str) -> Result<LibraryState, BackendError> {
-    state.parse::<LibraryState>().map_err(|_| BackendError::validation(INVALID_LIBRARY_STATE_MSG))
+    state
+        .parse::<LibraryState>()
+        .map_err(|_| BackendError::validation(INVALID_LIBRARY_STATE_MSG))
 }
 
 fn parse_format(format: &str) -> Result<DocumentFormat, BackendError> {
-    format.parse::<DocumentFormat>().map_err(|_| BackendError::validation(INVALID_FORMAT_MSG))
+    format
+        .parse::<DocumentFormat>()
+        .map_err(|_| BackendError::validation(INVALID_FORMAT_MSG))
 }
 
 fn parse_sort_by(sort: &str) -> LibrarySortBy {
@@ -158,7 +167,8 @@ pub fn list_books(
 
     debug!(?filter_opts, ?sort_opts, page, page_size, "Listing books");
 
-    let books = ctx.library_service
+    let books = ctx
+        .library_service
         .list_books(&filter_opts, &sort_opts, page, page_size)
         .map_err(|e| {
             error!(error = %e, "Failed to list books");
@@ -178,7 +188,8 @@ pub fn get_book_details(
     let parsed_id = parse_book_id(&book_id)?;
     debug!(?parsed_id, "Getting book details");
 
-    let details = ctx.library_service
+    let details = ctx
+        .library_service
         .get_book_details(&parsed_id)
         .map_err(|e| {
             error!(error = %e, "Failed to get book details");
@@ -204,13 +215,11 @@ pub fn bulk_add_tags(
     let book_ids: Vec<BookId> = payload
         .book_ids
         .into_iter()
-        .filter_map(|s| {
-            match parse_book_id(&s) {
-                Ok(id) => Some(id),
-                Err(e) => {
-                    warn!(book_id = %s, error = %e, "Invalid book_id skipped in bulk operation");
-                    None
-                }
+        .filter_map(|s| match parse_book_id(&s) {
+            Ok(id) => Some(id),
+            Err(e) => {
+                warn!(book_id = %s, error = %e, "Invalid book_id skipped in bulk operation");
+                None
             }
         })
         .collect();
@@ -219,7 +228,8 @@ pub fn bulk_add_tags(
         return Err(BackendError::validation("No valid book IDs provided"));
     }
 
-    let result = ctx.library_service
+    let result = ctx
+        .library_service
         .bulk_add_tags(&book_ids, &payload.tag_names, DeviceId::new())
         .map_err(|e| {
             error!(error = %e, "Failed to bulk add tags");
@@ -255,7 +265,8 @@ pub fn bulk_add_to_collection(
         return Err(BackendError::validation("No valid book IDs provided"));
     }
 
-    let result = ctx.library_service
+    let result = ctx
+        .library_service
         .bulk_add_to_collection(&col_id, &book_ids)
         .map_err(|e| {
             error!(error = %e, "Failed to bulk add to collection");
@@ -287,12 +298,10 @@ pub fn bulk_trash_books(
         return Err(BackendError::validation("No valid book IDs provided"));
     }
 
-    let result = ctx.library_service
-        .bulk_trash(&parsed_ids)
-        .map_err(|e| {
-            error!(error = %e, "Failed to bulk trash books");
-            BackendError::from(e)
-        })?;
+    let result = ctx.library_service.bulk_trash(&parsed_ids).map_err(|e| {
+        error!(error = %e, "Failed to bulk trash books");
+        BackendError::from(e)
+    })?;
 
     info!(BULK_TRASHED_MSG);
     Ok(result)
@@ -321,7 +330,8 @@ pub fn bulk_set_reading_status(
         return Err(BackendError::validation("No valid book IDs provided"));
     }
 
-    let result = ctx.library_service
+    let result = ctx
+        .library_service
         .bulk_set_status(&parsed_ids, status)
         .map_err(|e| {
             error!(error = %e, "Failed to bulk set reading status");

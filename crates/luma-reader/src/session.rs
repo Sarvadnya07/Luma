@@ -97,7 +97,14 @@ impl DocumentSession {
         total_pages_or_spines: Option<u32>,
     ) -> Self {
         let config = DocumentSessionConfig::default();
-        Self::with_config(book_id, file_id, format, initial_locator, total_pages_or_spines, &config)
+        Self::with_config(
+            book_id,
+            file_id,
+            format,
+            initial_locator,
+            total_pages_or_spines,
+            &config,
+        )
     }
 
     /// Creates a new document session with a custom configuration.
@@ -110,8 +117,7 @@ impl DocumentSession {
         config: &DocumentSessionConfig,
     ) -> Self {
         let now = Utc::now();
-        let locator = initial_locator
-            .unwrap_or_else(|| config.default_locator(format).to_string());
+        let locator = initial_locator.unwrap_or_else(|| config.default_locator(format).to_string());
 
         Self {
             book_id,
@@ -228,13 +234,20 @@ impl DocumentSessionBuilder {
     }
 
     pub fn build(self) -> Result<DocumentSession, String> {
-        let book_id = self.book_id.ok_or_else(|| "book_id is required".to_string())?;
-        let file_id = self.file_id.ok_or_else(|| "file_id is required".to_string())?;
-        let format = self.format.ok_or_else(|| "format is required".to_string())?;
+        let book_id = self
+            .book_id
+            .ok_or_else(|| "book_id is required".to_string())?;
+        let file_id = self
+            .file_id
+            .ok_or_else(|| "file_id is required".to_string())?;
+        let format = self
+            .format
+            .ok_or_else(|| "format is required".to_string())?;
 
         let config = self.config.unwrap_or_default();
         let now = Utc::now();
-        let locator = self.initial_locator
+        let locator = self
+            .initial_locator
             .unwrap_or_else(|| config.default_locator(format).to_string());
 
         let mut session = DocumentSession {
@@ -243,9 +256,13 @@ impl DocumentSessionBuilder {
             format,
             current_locator: locator,
             current_chapter_title: self.current_chapter_title,
-            current_page_number: self.current_page_number.or(Some(config.default_page_number)),
+            current_page_number: self
+                .current_page_number
+                .or(Some(config.default_page_number)),
             total_pages_or_spines: self.total_pages_or_spines,
-            progress_percentage: self.progress_percentage.unwrap_or(config.default_progress_percentage),
+            progress_percentage: self
+                .progress_percentage
+                .unwrap_or(config.default_progress_percentage),
             opened_at: now,
             last_interaction_at: now,
         };

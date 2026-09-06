@@ -4,12 +4,13 @@ use luma_reader::PdfDocument;
 use luma_storage::cache::CacheManager;
 use luma_storage::db::Database;
 use luma_storage::events::EventBus;
-use luma_storage::repos::{AuthorRepository, BookRepository, LibraryFilterOptions, LibrarySortOptions};
+use luma_storage::repos::{
+    AuthorRepository, BookRepository, LibraryFilterOptions, LibrarySortOptions,
+};
 use luma_storage::services::{ReaderService, SearchService};
 use std::fs::File;
 use std::io::Write;
 use std::time::Instant;
-
 
 fn create_synthetic_pdf(num_pages: usize) -> tempfile::NamedTempFile {
     let temp_file = tempfile::NamedTempFile::new().expect("temp file");
@@ -53,7 +54,10 @@ async fn test_benchmark_pdf_random_access_and_caching() {
         assert_eq!(page.page_number, p);
     }
     let seq_duration = seq_start.elapsed();
-    println!("PDF 20 Sequential Page Navigation (Cold extraction): {:?}", seq_duration);
+    println!(
+        "PDF 20 Sequential Page Navigation (Cold extraction): {:?}",
+        seq_duration
+    );
 
     // 3. Page Cache Hit Navigation (Page 1 -> 20 revisited)
     let cache_start = Instant::now();
@@ -167,7 +171,10 @@ async fn test_benchmark_large_scale_10k_library() {
         assert!(!results[0].author_ids.is_empty());
     }
     let list_duration = list_start.elapsed();
-    println!("100 Paginated List Queries (5,000 books fetched total from 10k db): {:?}", list_duration);
+    println!(
+        "100 Paginated List Queries (5,000 books fetched total from 10k db): {:?}",
+        list_duration
+    );
 
     // 2. Filtered Query (reading_status = Reading)
     let reading_filter = LibraryFilterOptions {
@@ -177,11 +184,16 @@ async fn test_benchmark_large_scale_10k_library() {
 
     let filter_start = Instant::now();
     for page in 0..20 {
-        let results = book_repo.list(&reading_filter, &sort, page, 50).expect("filter list");
+        let results = book_repo
+            .list(&reading_filter, &sort, page, 50)
+            .expect("filter list");
         assert_eq!(results.len(), 50);
     }
     let filter_duration = filter_start.elapsed();
-    println!("20 Filtered List Queries (reading_status = Reading): {:?}", filter_duration);
+    println!(
+        "20 Filtered List Queries (reading_status = Reading): {:?}",
+        filter_duration
+    );
 }
 
 #[tokio::test]
@@ -194,6 +206,9 @@ async fn test_benchmark_startup_and_initialization() {
     let _reader = ReaderService::new(db.clone(), cache.clone());
     let startup_duration = start.elapsed();
 
-    println!("Full App Context & Database Startup Duration: {:?}", startup_duration);
+    println!(
+        "Full App Context & Database Startup Duration: {:?}",
+        startup_duration
+    );
     assert!(startup_duration.as_millis() < 500);
 }

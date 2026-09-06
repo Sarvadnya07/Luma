@@ -1,5 +1,5 @@
-use std::str::FromStr;
 use std::path::Path;
+use std::str::FromStr;
 use tauri::State;
 use tracing::{debug, error, info, instrument};
 
@@ -10,8 +10,8 @@ use serde::Deserialize;
 use luma_core::error::BackendError;
 use luma_core::ids::BookId;
 use luma_core::models::book::ReadingStatus;
+use luma_storage::repos::{BookFileRepository, BookRepository, CoverRepository};
 use luma_storage::services::UpdateBookMetadataRequest;
-use luma_storage::repos::{BookRepository, BookFileRepository, CoverRepository};
 
 use crate::context::LumaAppContext;
 
@@ -124,13 +124,10 @@ pub async fn trash_book(
     let parsed_id = parse_book_id(&book_id)?;
     debug!(?parsed_id, "Trashing book");
 
-    ctx.book_service
-        .trash_book(&parsed_id)
-        .await
-        .map_err(|e| {
-            error!(error = %e, "Failed to trash book");
-            BackendError::from(e)
-        })?;
+    ctx.book_service.trash_book(&parsed_id).await.map_err(|e| {
+        error!(error = %e, "Failed to trash book");
+        BackendError::from(e)
+    })?;
     info!(BOOK_TASHED_MSG);
     Ok(())
 }
@@ -219,12 +216,10 @@ pub async fn get_book_cover_data_url(
     // 2. Fallback: on-demand extraction from book file
     debug!("No stored cover found; attempting extraction from file");
     let file_repo = BookFileRepository::new(ctx.db.clone());
-    let files = file_repo
-        .list_by_book_id(&parsed_id)
-        .map_err(|e| {
-            error!(error = %e, "Failed to list book files");
-            BackendError::storage(e.to_string())
-        })?;
+    let files = file_repo.list_by_book_id(&parsed_id).map_err(|e| {
+        error!(error = %e, "Failed to list book files");
+        BackendError::storage(e.to_string())
+    })?;
 
     if let Some(first_file) = files.first() {
         let file_path = Path::new(&first_file.relative_path);
@@ -257,22 +252,18 @@ pub async fn get_book_cover_data_url(
 
                 // Update cover repository and book record
                 let cover_repo = CoverRepository::new(ctx.db.clone());
-                cover_repo
-                    .insert(&saved_cover)
-                    .map_err(|e| {
-                        error!(error = %e, "Failed to insert cover record");
-                        BackendError::storage(e.to_string())
-                    })?;
+                cover_repo.insert(&saved_cover).map_err(|e| {
+                    error!(error = %e, "Failed to insert cover record");
+                    BackendError::storage(e.to_string())
+                })?;
 
                 let mut updated_book = book.clone();
                 updated_book.cover_image_id = Some(saved_cover.id);
                 updated_book.cover_image_path = Some(saved_cover.relative_path);
-                book_repo
-                    .update(&updated_book)
-                    .map_err(|e| {
-                        error!(error = %e, "Failed to update book with cover");
-                        BackendError::storage(e.to_string())
-                    })?;
+                book_repo.update(&updated_book).map_err(|e| {
+                    error!(error = %e, "Failed to update book with cover");
+                    BackendError::storage(e.to_string())
+                })?;
 
                 let b64 = BASE64_STANDARD.encode(&cover.data);
                 return Ok(Some(format!("data:{};base64,{}", cover.mime_type, b64)));
@@ -283,7 +274,6 @@ pub async fn get_book_cover_data_url(
             debug!(path = %file_path.display(), "Book file does not exist");
         }
     }
-
 
     debug!("No cover found");
     Ok(None)

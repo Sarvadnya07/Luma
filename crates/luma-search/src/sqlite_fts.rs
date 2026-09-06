@@ -72,58 +72,64 @@ impl SqliteFtsSearchEngine {
     }
 
     /// Helper to execute the search query and collect results.
-    fn execute_search_query(&self, fts_query: &str, book_filter: &Option<BookId>, max: i64) -> Result<Vec<SearchHit>> {
+    fn execute_search_query(
+        &self,
+        fts_query: &str,
+        book_filter: &Option<BookId>,
+        max: i64,
+    ) -> Result<Vec<SearchHit>> {
         let (sql, has_filter) = Self::build_search_sql(book_filter);
 
-        self.db.with_read_conn(move |conn| {
-            let mut hits_vec = Vec::new();
+        self.db
+            .with_read_conn(move |conn| {
+                let mut hits_vec = Vec::new();
 
-            if has_filter {
-                let bid = book_filter.as_ref().unwrap().to_string();
-                let mut stmt = conn.prepare(&sql)?;
-                let rows = stmt.query_map(params![fts_query, bid, max], |r| {
-                    let id_str: String = r.get(0)?;
-                    let snippet: String = r.get(1)?;
-                    let rank: f64 = r.get(2)?;
-                    Ok((id_str, snippet, rank))
-                })?;
-                for item in rows {
-                    let (id_str, snip, rank) = item?;
-                    if let Ok(parsed_id) = id_str.parse::<BookId>() {
-                        hits_vec.push(SearchHit {
-                            book_id: parsed_id,
-                            snippet: snip,
-                            locator: String::new(),
-                            score: (-rank) as f32,
-                            match_field: DEFAULT_MATCH_FIELD.to_string(),
-                        });
+                if has_filter {
+                    let bid = book_filter.as_ref().unwrap().to_string();
+                    let mut stmt = conn.prepare(&sql)?;
+                    let rows = stmt.query_map(params![fts_query, bid, max], |r| {
+                        let id_str: String = r.get(0)?;
+                        let snippet: String = r.get(1)?;
+                        let rank: f64 = r.get(2)?;
+                        Ok((id_str, snippet, rank))
+                    })?;
+                    for item in rows {
+                        let (id_str, snip, rank) = item?;
+                        if let Ok(parsed_id) = id_str.parse::<BookId>() {
+                            hits_vec.push(SearchHit {
+                                book_id: parsed_id,
+                                snippet: snip,
+                                locator: String::new(),
+                                score: (-rank) as f32,
+                                match_field: DEFAULT_MATCH_FIELD.to_string(),
+                            });
+                        }
+                    }
+                } else {
+                    let mut stmt = conn.prepare(&sql)?;
+                    let rows = stmt.query_map(params![fts_query, max], |r| {
+                        let id_str: String = r.get(0)?;
+                        let snippet: String = r.get(1)?;
+                        let rank: f64 = r.get(2)?;
+                        Ok((id_str, snippet, rank))
+                    })?;
+                    for item in rows {
+                        let (id_str, snip, rank) = item?;
+                        if let Ok(parsed_id) = id_str.parse::<BookId>() {
+                            hits_vec.push(SearchHit {
+                                book_id: parsed_id,
+                                snippet: snip,
+                                locator: String::new(),
+                                score: (-rank) as f32,
+                                match_field: DEFAULT_MATCH_FIELD.to_string(),
+                            });
+                        }
                     }
                 }
-            } else {
-                let mut stmt = conn.prepare(&sql)?;
-                let rows = stmt.query_map(params![fts_query, max], |r| {
-                    let id_str: String = r.get(0)?;
-                    let snippet: String = r.get(1)?;
-                    let rank: f64 = r.get(2)?;
-                    Ok((id_str, snippet, rank))
-                })?;
-                for item in rows {
-                    let (id_str, snip, rank) = item?;
-                    if let Ok(parsed_id) = id_str.parse::<BookId>() {
-                        hits_vec.push(SearchHit {
-                            book_id: parsed_id,
-                            snippet: snip,
-                            locator: String::new(),
-                            score: (-rank) as f32,
-                            match_field: DEFAULT_MATCH_FIELD.to_string(),
-                        });
-                    }
-                }
-            }
 
-            Ok(hits_vec)
-        })
-        .map_err(|e| LumaError::StorageError(format!("FTS storage error: {e}")))
+                Ok(hits_vec)
+            })
+            .map_err(|e| LumaError::StorageError(format!("FTS storage error: {e}")))
     }
 }
 
@@ -191,12 +197,13 @@ mod tests {
 
     #[tokio::test]
     async fn test_index_and_search() -> Result<()> {
-        let db = Database::open_in_memory()
-            .map_err(|e| LumaError::StorageError(e.to_string()))?;
+        let db = Database::open_in_memory().map_err(|e| LumaError::StorageError(e.to_string()))?;
 
         let engine = SqliteFtsSearchEngine::new(db);
         let book_id = BookId::new();
-        engine.index_book(&book_id, "Luma is a modern reading platform.").await?;
+        engine
+            .index_book(&book_id, "Luma is a modern reading platform.")
+            .await?;
 
         let query = SearchQuery {
             raw_query: "reading".to_string(),

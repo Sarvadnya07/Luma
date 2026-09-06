@@ -12,29 +12,36 @@ fn create_sample_epub(num_chapters: usize) -> tempfile::NamedTempFile {
     let options = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
 
     // mimetype
-    let raw_options = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
+    let raw_options =
+        SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
     zip.start_file("mimetype", raw_options).expect("mimetype");
     zip.write_all(b"application/epub+zip").expect("write");
 
     // container.xml
-    zip.start_file("META-INF/container.xml", options).expect("container");
-    zip.write_all(br#"<?xml version="1.0"?>
+    zip.start_file("META-INF/container.xml", options)
+        .expect("container");
+    zip.write_all(
+        br#"<?xml version="1.0"?>
 <container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
   <rootfiles>
     <rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/>
   </rootfiles>
-</container>"#).expect("write");
+</container>"#,
+    )
+    .expect("write");
 
     // content.opf
     zip.start_file("OEBPS/content.opf", options).expect("opf");
-    let mut opf_manifest = String::from(r#"<?xml version="1.0" encoding="utf-8"?>
+    let mut opf_manifest = String::from(
+        r#"<?xml version="1.0" encoding="utf-8"?>
 <package xmlns="http://www.idpf.org/2007/opf" version="3.0">
   <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
     <dc:title>Performance Test EPUB</dc:title>
     <dc:language>en</dc:language>
   </metadata>
   <manifest>
-"#);
+"#,
+    );
 
     let mut opf_spine = String::from("  <spine>\n");
 
@@ -49,11 +56,13 @@ fn create_sample_epub(num_chapters: usize) -> tempfile::NamedTempFile {
     }
     opf_manifest.push_str("  </manifest>\n");
     opf_spine.push_str("  </spine>\n</package>");
-    zip.write_all(format!("{}{}", opf_manifest, opf_spine).as_bytes()).expect("write");
+    zip.write_all(format!("{}{}", opf_manifest, opf_spine).as_bytes())
+        .expect("write");
 
     // Write chapter files
     for i in 0..num_chapters {
-        zip.start_file(format!("OEBPS/ch{}.xhtml", i), options).expect("ch");
+        zip.start_file(format!("OEBPS/ch{}.xhtml", i), options)
+            .expect("ch");
         zip.write_all(format!(
             r#"<!DOCTYPE html><html><body><h1>Chapter {}</h1><p>Content for chapter number {} with extensive text content.</p></body></html>"#,
             i, i
@@ -77,7 +86,10 @@ fn test_benchmark_epub_reopen_vs_session_reuse() {
         assert_eq!(chapter.spine_index, i);
     }
     let reopen_duration = reopen_start.elapsed();
-    println!("Baseline: 50 chapter reads with repeated EpubDocument::open = {:?}", reopen_duration);
+    println!(
+        "Baseline: 50 chapter reads with repeated EpubDocument::open = {:?}",
+        reopen_duration
+    );
 
     // Optimized: Reusing a single open EpubDocument session
     let session_start = Instant::now();
@@ -87,7 +99,10 @@ fn test_benchmark_epub_reopen_vs_session_reuse() {
         assert_eq!(chapter.spine_index, i);
     }
     let session_duration = session_start.elapsed();
-    println!("Optimized: 50 chapter reads with session reuse = {:?}", session_duration);
+    println!(
+        "Optimized: 50 chapter reads with session reuse = {:?}",
+        session_duration
+    );
 
     assert!(session_duration < reopen_duration);
     let speedup = reopen_duration.as_secs_f64() / session_duration.as_secs_f64();

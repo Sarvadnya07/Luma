@@ -154,11 +154,10 @@ pub trait DocumentEngine: Send + Sync {
 
 /// Convenience prelude module: imports the most frequently used types.
 pub mod prelude {
-    pub use super::{
-        ChapterContent, CoverStore, DocumentEngine, DocumentMetadata, DocumentSearchMatch,
-        EpubDocument, FormatCapabilities, FormatDetector, PdfDocument, PdfPageData,
-        TocItem,
-    };
     pub use super::epub_doc::SpineItem;
     pub use super::session::DocumentSession;
+    pub use super::{
+        ChapterContent, CoverStore, DocumentEngine, DocumentMetadata, DocumentSearchMatch,
+        EpubDocument, FormatCapabilities, FormatDetector, PdfDocument, PdfPageData, TocItem,
+    };
 }

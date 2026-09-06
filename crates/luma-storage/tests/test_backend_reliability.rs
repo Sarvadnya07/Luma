@@ -35,8 +35,8 @@ fn test_database_foreign_key_cascade_deletion() {
         "Crucial insight".to_string(),
         "{}".to_string(),
         device_id,
-    ).with_color("#FFDD00");
-
+    )
+    .with_color("#FFDD00");
 
     book_repo.insert(&book).expect("insert book");
     file_repo.insert(&file).expect("insert file");
@@ -153,11 +153,11 @@ fn test_security_bounds_and_defenses() {
     assert!(verify_archive_safety(1_000, 200_000_000, 5).is_err()); // 200,000:1 ratio
 
     // 3. HTML Sanitization
-    let xss_payload = "<p>Valid text</p><script>evil()</script><a href='javascript:steal()'>Link</a>";
+    let xss_payload =
+        "<p>Valid text</p><script>evil()</script><a href='javascript:steal()'>Link</a>";
     let cleaned = sanitize_untrusted_html(xss_payload);
     assert!(!cleaned.contains("<script"));
     assert!(!cleaned.contains("href='javascript:"));
     assert!(cleaned.contains("blocked-javascript:"));
     assert!(cleaned.contains("Valid text"));
 }
-

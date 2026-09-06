@@ -62,6 +62,10 @@ pub async fn search_library(
             BackendError::from(e)
         })?;
 
-    info!(hit_count = result.total_count, query_duration_ms = result.query_duration_ms, SEARCH_SUCCESS_MSG);
+    info!(
+        hit_count = result.total_count,
+        query_duration_ms = result.query_duration_ms,
+        SEARCH_SUCCESS_MSG
+    );
     Ok(result)
 }

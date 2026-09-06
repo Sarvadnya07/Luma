@@ -105,4 +105,3 @@ impl AnnotationService {
         AnchorEngine::default().resolve_quote(&anchor, document_text)
     }
 }
-

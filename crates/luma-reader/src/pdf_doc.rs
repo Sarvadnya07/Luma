@@ -233,7 +233,13 @@ impl PdfDocument {
         let stream_markers: Vec<usize> = buffer
             .windows(STREAM_MARKER.len())
             .enumerate()
-            .filter_map(|(i, w)| if w == STREAM_MARKER { Some(i + STREAM_MARKER.len()) } else { None })
+            .filter_map(|(i, w)| {
+                if w == STREAM_MARKER {
+                    Some(i + STREAM_MARKER.len())
+                } else {
+                    None
+                }
+            })
             .collect();
 
         let end_markers: Vec<usize> = buffer

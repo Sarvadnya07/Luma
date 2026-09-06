@@ -1,7 +1,6 @@
 use std::path::Path;
 use tauri::{AppHandle, Emitter, Runtime};
 
-
 use luma_storage::cache::CacheManager;
 use luma_storage::db::Database;
 use luma_storage::events::{DomainEvent, EventBus};
@@ -92,8 +91,7 @@ impl LumaAppContext {
 
         // Ensure data directory exists
 
-        std::fs::create_dir_all(&data_dir)
-            .expect("Failed to create data directory");
+        std::fs::create_dir_all(&data_dir).expect("Failed to create data directory");
 
         // Open database, falling back to in-memory on failure
         let db = Database::open(&db_path).unwrap_or_else(|e| {
@@ -102,10 +100,8 @@ impl LumaAppContext {
                 db_path.display(),
                 e
             );
-            Database::open_in_memory()
-                .expect(IN_MEMORY_DB_FAIL)
+            Database::open_in_memory().expect(IN_MEMORY_DB_FAIL)
         });
-
 
         let event_bus = EventBus::default();
         let file_service = FileService::new(&data_dir);
@@ -208,4 +204,4 @@ impl LumaAppContext {
         });
         tracing::info!("{}", SHUTDOWN_COMPLETE_MSG);
     }
-}   
+}

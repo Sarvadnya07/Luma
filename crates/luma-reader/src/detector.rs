@@ -154,12 +154,14 @@ impl FormatDetector {
     }
 
     /// Inspects a ZIP archive to detect EPUB or CBZ.
-    fn inspect_zip_container<R: Read + Seek>(&self, archive: &mut zip::ZipArchive<R>) -> Option<DocumentFormat> {
+    fn inspect_zip_container<R: Read + Seek>(
+        &self,
+        archive: &mut zip::ZipArchive<R>,
+    ) -> Option<DocumentFormat> {
         // Check for EPUB signature
         if let Ok(mut entry) = archive.by_name("mimetype") {
             let mut content = String::new();
-            if entry.read_to_string(&mut content).is_ok()
-                && content.trim().contains(EPUB_MIME_TYPE)
+            if entry.read_to_string(&mut content).is_ok() && content.trim().contains(EPUB_MIME_TYPE)
             {
                 return Some(DocumentFormat::Epub);
             }

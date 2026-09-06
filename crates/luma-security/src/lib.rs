@@ -65,10 +65,8 @@ impl Default for SanitizerConfig {
             .collect();
         Self {
             dangerous_tag_pairs: pairs,
-            event_handler_regex: regex::Regex::new(EVENT_HANDLER_REGEX_STR)
-                .expect("Valid regex"),
-            js_proto_regex: regex::Regex::new(JS_PROTO_REGEX_STR)
-                .expect("Valid regex"),
+            event_handler_regex: regex::Regex::new(EVENT_HANDLER_REGEX_STR).expect("Valid regex"),
+            js_proto_regex: regex::Regex::new(JS_PROTO_REGEX_STR).expect("Valid regex"),
             js_replacement: BLOCKED_JS_URI_REPLACEMENT.to_string(),
         }
     }
@@ -205,7 +203,9 @@ pub fn sanitize_untrusted_html_with_config(input: &str, config: &SanitizerConfig
     let cleaned = config.event_handler_regex.replace_all(&cleaned, " ");
 
     // 3. Neutralize `javascript:` URIs
-    let cleaned = config.js_proto_regex.replace_all(&cleaned, config.js_replacement.as_str());
+    let cleaned = config
+        .js_proto_regex
+        .replace_all(&cleaned, config.js_replacement.as_str());
 
     cleaned.into_owned()
 }
@@ -271,9 +271,7 @@ mod tests {
 
     #[test]
     fn test_custom_sanitizer_config() {
-        let custom_pairs = vec![
-            ("<evil".to_string(), "</evil>".to_string()),
-        ];
+        let custom_pairs = vec![("<evil".to_string(), "</evil>".to_string())];
         let config = SanitizerConfig::with_tag_pairs(custom_pairs);
         let input = "<evil>bad</evil>Hello World";
         let cleaned = sanitize_untrusted_html_with_config(input, &config);

@@ -25,8 +25,6 @@ pub const FORMAT_MARKDOWN: &str = "markdown";
 pub const FORMAT_HTM: &str = "htm";
 pub const FORMAT_XHTML: &str = "xhtml";
 
-
-
 // ReadingStatus string representations
 pub const STATUS_UNREAD: &str = "unread";
 pub const STATUS_READING: &str = "reading";
@@ -221,7 +219,6 @@ impl FromStr for FileAvailability {
         }
     }
 }
-
 
 // ============================================================================
 // BookFile

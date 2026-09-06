@@ -39,7 +39,8 @@ pub fn create_backup(
     prefix: Option<String>,
 ) -> Result<BackupRecord, BackendError> {
     debug!("Creating backup with prefix: {:?}", prefix);
-    let record = ctx.backup_service
+    let record = ctx
+        .backup_service
         .create_backup(prefix.as_deref())
         .map_err(|e| {
             error!(error = %e, "Failed to create backup");
@@ -53,12 +54,10 @@ pub fn create_backup(
 #[tauri::command]
 pub fn list_backups(ctx: State<'_, LumaAppContext>) -> Result<Vec<BackupRecord>, BackendError> {
     debug!("Listing backups");
-    let backups = ctx.backup_service
-        .list_backups()
-        .map_err(|e| {
-            error!(error = %e, "Failed to list backups");
-            BackendError::from(e)
-        })?;
+    let backups = ctx.backup_service.list_backups().map_err(|e| {
+        error!(error = %e, "Failed to list backups");
+        BackendError::from(e)
+    })?;
     debug!(count = backups.len(), "Retrieved backups");
     Ok(backups)
 }
@@ -71,12 +70,10 @@ pub fn inspect_backup(
 ) -> Result<BackupPreview, BackendError> {
     let path = parse_backup_path(&backup_path)?;
     debug!(?path, "Inspecting backup");
-    let preview = ctx.backup_service
-        .inspect_backup(path)
-        .map_err(|e| {
-            error!(error = %e, "Failed to inspect backup");
-            BackendError::from(e)
-        })?;
+    let preview = ctx.backup_service.inspect_backup(path).map_err(|e| {
+        error!(error = %e, "Failed to inspect backup");
+        BackendError::from(e)
+    })?;
     debug!(?preview, "Backup inspection successful");
     Ok(preview)
 }
@@ -89,12 +86,10 @@ pub fn restore_backup(
 ) -> Result<BackupManifest, BackendError> {
     let path = parse_backup_path(&backup_path)?;
     debug!(?path, "Restoring backup");
-    let manifest = ctx.backup_service
-        .restore_backup(path)
-        .map_err(|e| {
-            error!(error = %e, "Failed to restore backup");
-            BackendError::from(e)
-        })?;
+    let manifest = ctx.backup_service.restore_backup(path).map_err(|e| {
+        error!(error = %e, "Failed to restore backup");
+        BackendError::from(e)
+    })?;
     info!(BACKUP_RESTORED_MSG);
     Ok(manifest)
 }

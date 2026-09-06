@@ -34,8 +34,6 @@ pub const CATEGORY_READER: &str = "Reader";
 pub const CATEGORY_ANNOTATION: &str = "Annotation";
 pub const CATEGORY_SECURITY: &str = "Security";
 
-
-
 // ============================================================================
 // LumaError Enum
 // ============================================================================
@@ -141,11 +139,21 @@ impl BackendError {
     }
 
     pub fn permission_denied<S: Into<String>>(message: S) -> Self {
-        Self::new(ERR_CODE_PERMISSION_DENIED, CATEGORY_PERMISSION, message, false)
+        Self::new(
+            ERR_CODE_PERMISSION_DENIED,
+            CATEGORY_PERMISSION,
+            message,
+            false,
+        )
     }
 
     pub fn unsupported_format<S: Into<String>>(message: S) -> Self {
-        Self::new(ERR_CODE_UNSUPPORTED_FORMAT, CATEGORY_UNSUPPORTED, message, false)
+        Self::new(
+            ERR_CODE_UNSUPPORTED_FORMAT,
+            CATEGORY_UNSUPPORTED,
+            message,
+            false,
+        )
     }
 
     pub fn storage<S: Into<String>>(message: S) -> Self {
@@ -173,31 +181,31 @@ impl From<LumaError> for BackendError {
             }
             LumaError::NotFound { entity_type, id } => BackendError::not_found(&entity_type, &id),
             LumaError::ValidationError(msg) => BackendError::validation(msg),
-            LumaError::UnsupportedFormat(fmt) => BackendError::unsupported_format(
-                format!("Document format '{}' is not supported", fmt)
+            LumaError::UnsupportedFormat(fmt) => BackendError::unsupported_format(format!(
+                "Document format '{}' is not supported",
+                fmt
+            )),
+            LumaError::CorruptedDocument(msg) => BackendError::new(
+                ERR_CODE_CORRUPTED,
+                CATEGORY_INVALID,
+                format!("Document file is corrupted: {}", msg),
+                false,
             ),
-            LumaError::CorruptedDocument(msg) => {
-                BackendError::new(
-                    ERR_CODE_CORRUPTED,
-                    CATEGORY_INVALID,
-                    format!("Document file is corrupted: {}", msg),
-                    false,
-                )
-            }
             LumaError::DocumentError(msg) => {
                 BackendError::new(ERR_CODE_DOCUMENT, CATEGORY_READER, msg, false)
             }
             LumaError::AnchorResolutionFailed(msg) => {
                 BackendError::new(ERR_CODE_ANCHOR_FAILED, CATEGORY_ANNOTATION, msg, false)
             }
-            LumaError::AmbiguousAnchor { score, threshold } => {
-                BackendError::new(
-                    ERR_CODE_AMBIGUOUS_ANCHOR,
-                    CATEGORY_ANNOTATION,
-                    format!("Anchor resolution is ambiguous (score {} < threshold {})", score, threshold),
-                    false,
-                )
-            }
+            LumaError::AmbiguousAnchor { score, threshold } => BackendError::new(
+                ERR_CODE_AMBIGUOUS_ANCHOR,
+                CATEGORY_ANNOTATION,
+                format!(
+                    "Anchor resolution is ambiguous (score {} < threshold {})",
+                    score, threshold
+                ),
+                false,
+            ),
             LumaError::StorageError(msg) => BackendError::storage(msg),
             LumaError::SecurityError(msg) => {
                 BackendError::new(ERR_CODE_SECURITY, CATEGORY_SECURITY, msg, false)
@@ -236,4 +244,3 @@ mod tests {
         assert!(be2.retryable);
     }
 }
-   

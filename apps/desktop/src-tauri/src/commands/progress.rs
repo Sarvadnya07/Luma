@@ -38,13 +38,10 @@ pub fn get_reading_progress(
     let bid = parse_book_id(&book_id)?;
     debug!(?bid, "Getting reading progress");
 
-    let progress = ctx
-        .progress_service
-        .get_progress(&bid)
-        .map_err(|e| {
-            error!(error = %e, "Failed to get reading progress");
-            BackendError::from(e)
-        })?;
+    let progress = ctx.progress_service.get_progress(&bid).map_err(|e| {
+        error!(error = %e, "Failed to get reading progress");
+        BackendError::from(e)
+    })?;
 
     if progress.is_some() {
         debug!(PROGRESS_RETRIEVED_MSG);
@@ -62,13 +59,10 @@ pub fn save_reading_progress(
 ) -> Result<(), BackendError> {
     debug!(?progress, "Saving reading progress");
 
-    ctx
-        .progress_service
-        .save_progress(&progress)
-        .map_err(|e| {
-            error!(error = %e, "Failed to save reading progress");
-            BackendError::from(e)
-        })?;
+    ctx.progress_service.save_progress(&progress).map_err(|e| {
+        error!(error = %e, "Failed to save reading progress");
+        BackendError::from(e)
+    })?;
 
     info!(PROGRESS_SAVED_MSG);
     Ok(())

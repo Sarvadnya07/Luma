@@ -5,7 +5,9 @@ use luma_storage::db::Database;
 use luma_storage::events::EventBus;
 use luma_storage::files::FileService;
 use luma_storage::jobs::JobManager;
-use luma_storage::repos::{BookRepository, JobRepository, LibraryFilterOptions, LibrarySortOptions};
+use luma_storage::repos::{
+    BookRepository, JobRepository, LibraryFilterOptions, LibrarySortOptions,
+};
 use luma_storage::services::{ImportService, ReaderService, ReadingProgressService, SearchService};
 use serde_json::json;
 use std::fs::File;
@@ -51,7 +53,8 @@ fn create_epub(dest_path: &Path, title: &str, author: &str, num_chapters: usize)
     let file = File::create(dest_path).context("Failed to open file for EPUB creation")?;
     let mut zip = ZipWriter::new(file);
     let options = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
-    let raw_options = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
+    let raw_options =
+        SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
 
     zip.start_file("mimetype", raw_options)?;
     zip.write_all(b"application/epub+zip")?;
@@ -235,13 +238,14 @@ async fn test_benchmark_end_to_end_real_import_pipeline() -> Result<()> {
         .await
         .context("Failed to open document")?;
     let open_duration = open_start.elapsed();
-    eprintln!("Real Backend Open Document Pipeline (Consolidated Payload): {:?}", open_duration);
+    eprintln!(
+        "Real Backend Open Document Pipeline (Consolidated Payload): {:?}",
+        open_duration
+    );
     assert_eq!(
-        doc_data.total_pages_or_spines,
-        config.num_chapters_per_book as u32,
+        doc_data.total_pages_or_spines, config.num_chapters_per_book as u32,
         "Expected {} pages/spines, got {}",
-        config.num_chapters_per_book,
-        doc_data.total_pages_or_spines
+        config.num_chapters_per_book, doc_data.total_pages_or_spines
     );
 
     // 4. Retrieve chapter
@@ -251,7 +255,10 @@ async fn test_benchmark_end_to_end_real_import_pipeline() -> Result<()> {
         .await
         .context("Failed to get chapter 0")?;
     let chapter_duration = chapter_start.elapsed();
-    eprintln!("Real Chapter 0 Retrieval (Session cached): {:?}", chapter_duration);
+    eprintln!(
+        "Real Chapter 0 Retrieval (Session cached): {:?}",
+        chapter_duration
+    );
     assert!(
         ch0.html_content.contains("Chapter 1"),
         "Chapter content missing expected text"

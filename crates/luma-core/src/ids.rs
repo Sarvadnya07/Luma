@@ -5,8 +5,6 @@ use uuid::Uuid;
 
 use crate::error::LumaError;
 
-
-
 // ============================================================================
 // ID Macro
 // ============================================================================
@@ -20,7 +18,6 @@ use crate::error::LumaError;
 /// assert_eq!(id.to_string(), format!("book_{}", id.as_uuid().simple()));
 /// ```
 macro_rules! define_id {
-
     ($name:ident, $prefix:literal) => {
         #[derive(
             Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
@@ -67,11 +64,14 @@ macro_rules! define_id {
                     s
                 };
 
-                Uuid::parse_str(trimmed)
-                    .map(Self)
-                    .map_err(|e| LumaError::InvalidId(format!("Invalid ID format for {}: {}", stringify!($name), e)))
+                Uuid::parse_str(trimmed).map(Self).map_err(|e| {
+                    LumaError::InvalidId(format!(
+                        "Invalid ID format for {}: {}",
+                        stringify!($name),
+                        e
+                    ))
+                })
             }
-
         }
 
         impl From<Uuid> for $name {
@@ -131,4 +131,4 @@ mod tests {
         let err = "invalid-uuid-string".parse::<BookId>();
         assert!(err.is_err());
     }
-}   
+}

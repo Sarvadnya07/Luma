@@ -106,14 +106,17 @@ impl AnchorEngine {
         Self::default()
     }
 
-
     /// Resolve an anchor against target text content using the configured thresholds.
     pub fn resolve(&self, anchor: &CompositeAnchor, document_text: &str) -> ResolutionResult {
         self.resolve_quote(&anchor.quote_anchor, document_text)
     }
 
     /// Resolve a TextQuoteAnchor against target text.
-    pub fn resolve_quote(&self, quote_anchor: &TextQuoteAnchor, document_text: &str) -> ResolutionResult {
+    pub fn resolve_quote(
+        &self,
+        quote_anchor: &TextQuoteAnchor,
+        document_text: &str,
+    ) -> ResolutionResult {
         let normalized_doc = normalize_text(document_text);
         let normalized_target = normalize_text(&quote_anchor.exact);
 
@@ -206,7 +209,6 @@ impl AnchorEngine {
 
     #[allow(clippy::too_many_arguments)]
     fn evaluate_candidate(
-
         &self,
         doc: &str,
         start_char: usize,
@@ -250,7 +252,12 @@ impl AnchorEngine {
         }
     }
 
-    fn evaluate_prefix(&self, prefix_context: Option<&str>, doc: &str, start_char: usize) -> (f32, bool) {
+    fn evaluate_prefix(
+        &self,
+        prefix_context: Option<&str>,
+        doc: &str,
+        start_char: usize,
+    ) -> (f32, bool) {
         if let Some(prefix) = prefix_context {
             let norm_prefix = normalize_text(prefix);
             if !norm_prefix.is_empty() {
@@ -284,7 +291,12 @@ impl AnchorEngine {
         (1.0, true)
     }
 
-    fn evaluate_suffix(&self, suffix_context: Option<&str>, doc: &str, end_char: usize) -> (f32, bool) {
+    fn evaluate_suffix(
+        &self,
+        suffix_context: Option<&str>,
+        doc: &str,
+        end_char: usize,
+    ) -> (f32, bool) {
         if let Some(suffix) = suffix_context {
             let norm_suffix = normalize_text(suffix);
             if !norm_suffix.is_empty() {
@@ -347,7 +359,8 @@ impl AnchorEngine {
                 continue;
             }
             let mut start = 0;
-            let inner_step = (step / self.config.fuzzy_sliding_step_divisor).max(self.config.fuzzy_window_step_min);
+            let inner_step = (step / self.config.fuzzy_sliding_step_divisor)
+                .max(self.config.fuzzy_window_step_min);
             while start + w_size <= doc.len() {
                 let slice = &doc[start..start + w_size];
                 let sim = similarity_ratio(target, slice);
@@ -373,11 +386,7 @@ impl AnchorEngine {
     fn generate_window_sizes(&self, base_len: usize) -> [usize; 3] {
         let step = (base_len / 4).max(1);
 
-        [
-            base_len.saturating_sub(step),
-            base_len,
-            base_len + step,
-        ]
+        [base_len.saturating_sub(step), base_len, base_len + step]
     }
 }
 
