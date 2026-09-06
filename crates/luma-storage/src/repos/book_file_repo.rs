@@ -10,6 +10,7 @@ use crate::error::StorageResult;
 // ============================================================================
 
 // SQL query templates (with placeholders)
+#[allow(dead_code)]
 const SQL_INSERT_BOOK_FILE: &str = r#"
     INSERT INTO book_files (
         id, book_id, original_filename, relative_path, canonical_path,
@@ -18,6 +19,7 @@ const SQL_INSERT_BOOK_FILE: &str = r#"
     ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?10, ?11, ?12)
 "#;
 
+#[allow(dead_code)]
 const SQL_SELECT_BOOK_FILE_BY_ID: &str = r#"
     SELECT id, book_id, original_filename, relative_path, canonical_path,
            format, mime_type, file_size_bytes, sha256_hash, imported_at,
@@ -26,6 +28,7 @@ const SQL_SELECT_BOOK_FILE_BY_ID: &str = r#"
     WHERE id = ?1
 "#;
 
+#[allow(dead_code)]
 const SQL_SELECT_BOOK_FILE_BY_HASH: &str = r#"
     SELECT id, book_id, original_filename, relative_path, canonical_path,
            format, mime_type, file_size_bytes, sha256_hash, imported_at,
@@ -34,6 +37,7 @@ const SQL_SELECT_BOOK_FILE_BY_HASH: &str = r#"
     WHERE sha256_hash = ?1
 "#;
 
+#[allow(dead_code)]
 const SQL_SELECT_BOOK_FILES_BY_BOOK: &str = r#"
     SELECT id, book_id, original_filename, relative_path, canonical_path,
            format, mime_type, file_size_bytes, sha256_hash, imported_at,
@@ -43,6 +47,7 @@ const SQL_SELECT_BOOK_FILES_BY_BOOK: &str = r#"
     ORDER BY imported_at ASC
 "#;
 
+#[allow(dead_code)]
 const SQL_SELECT_ALL_BOOK_FILES: &str = r#"
     SELECT id, book_id, original_filename, relative_path, canonical_path,
            format, mime_type, file_size_bytes, sha256_hash, imported_at,
@@ -50,6 +55,7 @@ const SQL_SELECT_ALL_BOOK_FILES: &str = r#"
     FROM book_files
 "#;
 
+#[allow(dead_code)]
 const SQL_UPDATE_AVAILABILITY: &str = r#"
     UPDATE book_files
     SET availability = ?1, modified_at = datetime('now')
@@ -57,7 +63,9 @@ const SQL_UPDATE_AVAILABILITY: &str = r#"
 "#;
 
 // Fallback values for parsing errors
+#[allow(dead_code)]
 const FALLBACK_FORMAT: DocumentFormat = DocumentFormat::Epub;
+#[allow(dead_code)]
 const FALLBACK_AVAILABILITY: FileAvailability = FileAvailability::Available;
 
 // ============================================================================

@@ -1,0 +1,8 @@
+[licenses]
+# Deny unknown or problematic licenses by default; allow standard permissive licenses.
+unknown = "deny"
+allow = ["MIT", "Apache-2.0"]
+
+[advisories]
+# Keep advisories strict in CI; teams can opt to whitelist specific advisories after review.
+ignore = []
