@@ -8,6 +8,9 @@ use std::io::Read;
 use std::path::{Path, PathBuf};
 
 use luma_core::error::{LumaError, Result};
+use luma_core::models::canonical::{
+    DocumentPosition, DocumentRange, DocumentStructure, NodeKind, ResourceDescriptor, StructureNode,
+};
 use luma_security::sanitize_untrusted_html;
 
 use crate::encoding::{decode_text_bytes, decode_xml_and_html_entities, is_binary_resource};
@@ -250,7 +253,9 @@ impl EpubDocument {
                     let snippet_start = absolute_char_idx.saturating_sub(40);
                     let snippet_end =
                         (absolute_char_idx + clean_q.len() + 40).min(chapter.text_content.len());
-                    let snippet = chapter.text_content[snippet_start..snippet_end]
+                    let safe_start = chapter.text_content.floor_char_boundary(snippet_start);
+                    let safe_end = chapter.text_content.ceil_char_boundary(snippet_end);
+                    let snippet = chapter.text_content[safe_start..safe_end]
                         .replace('\n', " ")
                         .trim()
                         .to_string();
@@ -275,6 +280,212 @@ impl EpubDocument {
         }
 
         Ok(matches)
+    }
+
+    /// Build canonical structured outline for the EPUB document.
+    pub fn structure(&self) -> Result<DocumentStructure> {
+        static BLOCK_RE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+            Regex::new(r"(?is)<(h[1-6]|p)[^>]*>(.*?)</([a-zA-Z0-9]+)>").expect("Valid regex")
+        });
+        static TAG_RE: std::sync::LazyLock<Regex> =
+            std::sync::LazyLock::new(|| Regex::new(TAG_REGEX).expect("Valid regex"));
+
+        let mut section_nodes = Vec::with_capacity(self.spine.len());
+
+        for (spine_idx, item) in self.spine.iter().enumerate() {
+            let chapter = self.get_chapter(spine_idx)?;
+            let mut chapter_nodes = Vec::new();
+            let mut current_offset = 0;
+
+            for cap in BLOCK_RE.captures_iter(&chapter.html_content) {
+                let tag = cap
+                    .get(1)
+                    .map(|m| m.as_str().to_lowercase())
+                    .unwrap_or_default();
+                let close_tag = cap
+                    .get(3)
+                    .map(|m| m.as_str().to_lowercase())
+                    .unwrap_or_default();
+                if tag != close_tag {
+                    continue;
+                }
+                let inner = cap.get(2).map(|m| m.as_str()).unwrap_or_default();
+                let stripped = TAG_RE.replace_all(inner, " ");
+                let clean_text = decode_xml_and_html_entities(&stripped)
+                    .split_whitespace()
+                    .collect::<Vec<_>>()
+                    .join(" ");
+
+                if clean_text.is_empty() {
+                    continue;
+                }
+
+                let char_len = clean_text.chars().count();
+                if tag.starts_with('h') {
+                    let level = tag
+                        .as_bytes()
+                        .get(1)
+                        .map(|b| b.saturating_sub(b'0'))
+                        .unwrap_or(1);
+                    let id = format!("h-{}-{}", spine_idx, chapter_nodes.len());
+                    let start_pos = DocumentPosition::new(spine_idx, current_offset)
+                        .with_node(&id)
+                        .with_locator(&item.href);
+                    let end_pos = DocumentPosition::new(spine_idx, current_offset + char_len)
+                        .with_node(&id)
+                        .with_locator(&item.href);
+                    chapter_nodes.push(
+                        StructureNode::new(&id, NodeKind::Heading { level })
+                            .with_text(&clean_text)
+                            .with_range(DocumentRange::new(start_pos, end_pos)),
+                    );
+                } else {
+                    let id = format!("p-{}-{}", spine_idx, chapter_nodes.len());
+                    let start_pos = DocumentPosition::new(spine_idx, current_offset)
+                        .with_node(&id)
+                        .with_locator(&item.href);
+                    let end_pos = DocumentPosition::new(spine_idx, current_offset + char_len)
+                        .with_node(&id)
+                        .with_locator(&item.href);
+                    chapter_nodes.push(
+                        StructureNode::new(&id, NodeKind::Paragraph { index: chapter_nodes.len() })
+                            .with_text(&clean_text)
+                            .with_range(DocumentRange::new(start_pos, end_pos)),
+                    );
+                }
+                current_offset += char_len + 1;
+            }
+
+            if chapter_nodes.is_empty() {
+                let id = format!("p-{}-0", spine_idx);
+                let p_node = StructureNode::new(
+                    &id,
+                    NodeKind::Paragraph {
+                        index: 0,
+                    },
+                )
+                .with_text(&chapter.text_content)
+                .with_range(DocumentRange::new(
+                    DocumentPosition::new(spine_idx, 0),
+                    DocumentPosition::new(spine_idx, chapter.text_content.chars().count()),
+                ));
+                chapter_nodes.push(p_node);
+            }
+
+            let sec_id = format!("section-{}", spine_idx);
+            let sec_node = StructureNode::new(
+                &sec_id,
+                NodeKind::Section {
+                    index: spine_idx,
+                    title: Some(chapter.title.clone()),
+                },
+            )
+            .with_text(chapter.title)
+            .with_children(chapter_nodes);
+
+            section_nodes.push(sec_node);
+        }
+
+        let root_title = self
+            .file_path
+            .file_name()
+            .map(|n| n.to_string_lossy().to_string())
+            .unwrap_or_else(|| "EPUB Document".to_string());
+
+        let root_node = StructureNode::new("doc-root", NodeKind::Document)
+            .with_text(root_title)
+            .with_children(section_nodes);
+
+        Ok(DocumentStructure::new(root_node))
+    }
+
+    /// Retrieve the text of a specific paragraph within a chapter.
+    pub fn get_paragraph(&self, spine_index: usize, paragraph_index: usize) -> Result<String> {
+        let chapter = self.get_chapter(spine_index)?;
+        static P_RE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+            Regex::new(r"(?is)<p[^>]*>(.*?)</p>").expect("Valid regex")
+        });
+        static TAG_RE: std::sync::LazyLock<Regex> =
+            std::sync::LazyLock::new(|| Regex::new(TAG_REGEX).expect("Valid regex"));
+
+        let mut current_idx = 0;
+        for cap in P_RE.captures_iter(&chapter.html_content) {
+            if current_idx == paragraph_index {
+                let inner = cap.get(1).map(|m| m.as_str()).unwrap_or_default();
+                let stripped = TAG_RE.replace_all(inner, " ");
+                let clean = decode_xml_and_html_entities(&stripped)
+                    .split_whitespace()
+                    .collect::<Vec<_>>()
+                    .join(" ");
+                return Ok(clean);
+            }
+            current_idx += 1;
+        }
+
+        Err(LumaError::NotFound {
+            entity_type: "Paragraph".to_string(),
+            id: format!("spine:{spine_index}:p:{paragraph_index}"),
+        })
+    }
+
+    /// Retrieve plaintext for a contiguous document range.
+    pub fn get_range_text(&self, range: &DocumentRange) -> Result<String> {
+        let chapter = self.get_chapter(range.start.section_index)?;
+        let chars: Vec<char> = chapter.text_content.chars().collect();
+        let start = range.start.char_offset.min(chars.len());
+        let end = range.end.char_offset.min(chars.len());
+        if start <= end {
+            Ok(chars[start..end].iter().collect())
+        } else {
+            Ok(String::new())
+        }
+    }
+
+    /// Collect all declared resources from manifest.
+    pub fn get_resources(&self) -> Vec<ResourceDescriptor> {
+        self.manifest
+            .iter()
+            .map(|(id, (href, media_type))| ResourceDescriptor {
+                id: id.clone(),
+                href: href.clone(),
+                media_type: media_type.clone(),
+                byte_size: None,
+                dimensions: None,
+            })
+            .collect()
+    }
+
+    /// Read raw bytes of an embedded resource by href.
+    pub fn read_resource(&self, href: &str) -> Result<Vec<u8>> {
+        let file = File::open(&self.file_path)
+            .map_err(|e| LumaError::DocumentError(format!("Failed to open epub: {}", e)))?;
+        let mut archive = zip::ZipArchive::new(file)
+            .map_err(|e| LumaError::CorruptedDocument(format!("Failed to open zip archive: {}", e)))?;
+
+        let res_path = if self.opf_dir.as_os_str().is_empty() {
+            href.to_string()
+        } else {
+            self.opf_dir.join(href).to_string_lossy().replace('\\', "/")
+        };
+
+        let has_res = archive.by_name(&res_path).is_ok();
+        let mut entry = if has_res {
+            archive.by_name(&res_path).map_err(|_| LumaError::NotFound {
+                entity_type: "Resource".to_string(),
+                id: href.to_string(),
+            })?
+        } else {
+            archive.by_name(href).map_err(|_| LumaError::NotFound {
+                entity_type: "Resource".to_string(),
+                id: href.to_string(),
+            })?
+        };
+
+        let mut data = Vec::new();
+        entry
+            .read_to_end(&mut data)
+            .map_err(|e| LumaError::DocumentError(format!("Failed to read resource {}: {}", href, e)))?;
+        Ok(data)
     }
 
     // ------------------------------------------------------------------------

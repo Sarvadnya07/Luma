@@ -7,6 +7,9 @@ use crate::encoding::decode_text_bytes;
 use crate::epub_doc::{ChapterContent, DocumentSearchMatch};
 use crate::TocItem;
 use luma_core::error::{LumaError, Result};
+use luma_core::models::canonical::{
+    DocumentPosition, DocumentRange, DocumentStructure, NodeKind, StructureNode,
+};
 use luma_security::sanitize_untrusted_html;
 
 /// Document engine for standalone HTML documents (.html, .htm).
@@ -16,6 +19,8 @@ pub struct HtmlDocument {
     raw_text: String,
     html_content: String,
     toc: Vec<TocItem>,
+    structure: DocumentStructure,
+    paragraph_texts: Vec<String>,
 }
 
 impl HtmlDocument {
@@ -95,6 +100,93 @@ impl HtmlDocument {
             std::sync::LazyLock::new(|| Regex::new(r"<[^>]+>").expect("Valid regex"));
         let raw_text = TAG_STRIPPER.replace_all(&sanitized, " ").to_string();
 
+        static BLOCK_REGEX: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+            Regex::new(r"(?is)<(h[1-6]|p)[^>]*>(.*?)</([a-zA-Z0-9]+)>").expect("Valid regex")
+        });
+
+        let mut structure_nodes = Vec::new();
+        let mut paragraph_texts = Vec::new();
+        let mut current_offset = 0;
+
+        for cap in BLOCK_REGEX.captures_iter(&sanitized) {
+            let tag = cap
+                .get(1)
+                .map(|m| m.as_str().to_lowercase())
+                .unwrap_or_default();
+            let close_tag = cap
+                .get(3)
+                .map(|m| m.as_str().to_lowercase())
+                .unwrap_or_default();
+            if tag != close_tag {
+                continue;
+            }
+            let inner = cap.get(2).map(|m| m.as_str()).unwrap_or_default();
+            let clean_text = TAG_STRIPPER.replace_all(inner, " ").trim().to_string();
+            if clean_text.is_empty() {
+                continue;
+            }
+
+            let char_len = clean_text.chars().count();
+            if tag.starts_with('h') {
+                let level = tag
+                    .as_bytes()
+                    .get(1)
+                    .map(|b| b.saturating_sub(b'0'))
+                    .unwrap_or(1);
+                let id = format!("heading-{}", structure_nodes.len());
+                let start_pos = DocumentPosition::new(0, current_offset)
+                    .with_node(&id)
+                    .with_locator(&id);
+                let end_pos = DocumentPosition::new(0, current_offset + char_len)
+                    .with_node(&id)
+                    .with_locator(&id);
+                structure_nodes.push(
+                    StructureNode::new(&id, NodeKind::Heading { level })
+                        .with_text(&clean_text)
+                        .with_range(DocumentRange::new(start_pos, end_pos)),
+                );
+            } else {
+                let p_idx = paragraph_texts.len();
+                let id = format!("p{}", p_idx);
+                let start_pos = DocumentPosition::new(0, current_offset)
+                    .with_node(&id)
+                    .with_locator(&id);
+                let end_pos = DocumentPosition::new(0, current_offset + char_len)
+                    .with_node(&id)
+                    .with_locator(&id);
+                structure_nodes.push(
+                    StructureNode::new(&id, NodeKind::Paragraph { index: p_idx })
+                        .with_text(&clean_text)
+                        .with_range(DocumentRange::new(start_pos, end_pos)),
+                );
+                paragraph_texts.push(clean_text);
+            }
+            current_offset += char_len + 1;
+        }
+
+        if structure_nodes.is_empty() {
+            let p_node = StructureNode::new("p0", NodeKind::Paragraph { index: 0 })
+                .with_text(&raw_text)
+                .with_range(DocumentRange::new(
+                    DocumentPosition::new(0, 0),
+                    DocumentPosition::new(0, raw_text.chars().count()),
+                ));
+            structure_nodes.push(p_node);
+            paragraph_texts.push(raw_text.clone());
+        }
+
+        let root_node = StructureNode::new(
+            "section-0",
+            NodeKind::Section {
+                index: 0,
+                title: Some(title.clone()),
+            },
+        )
+        .with_text(title.clone())
+        .with_children(structure_nodes);
+
+        let structure = DocumentStructure::new(root_node);
+
         // Wrap inside reader container
         let wrapped_html = format!(
             "<div class=\"reader-html-container font-serif text-lg leading-relaxed text-[#1C1917] dark:text-[#F5F1EA] max-w-2xl mx-auto px-6 py-12 space-y-4\">\n{}\n</div>",
@@ -107,6 +199,8 @@ impl HtmlDocument {
             raw_text,
             html_content: wrapped_html,
             toc,
+            structure,
+            paragraph_texts,
         })
     }
 
@@ -120,6 +214,25 @@ impl HtmlDocument {
 
     pub fn toc(&self) -> &[TocItem] {
         &self.toc
+    }
+
+    pub fn structure(&self) -> &DocumentStructure {
+        &self.structure
+    }
+
+    pub fn get_paragraph(&self, idx: usize) -> Option<&str> {
+        self.paragraph_texts.get(idx).map(|s| s.as_str())
+    }
+
+    pub fn get_range_text(&self, range: &DocumentRange) -> Result<String> {
+        let chars: Vec<char> = self.raw_text.chars().collect();
+        let start = range.start.char_offset.min(chars.len());
+        let end = range.end.char_offset.min(chars.len());
+        if start <= end {
+            Ok(chars[start..end].iter().collect())
+        } else {
+            Ok(String::new())
+        }
     }
 
     pub fn get_chapter(&self, spine_index: usize) -> Result<ChapterContent> {

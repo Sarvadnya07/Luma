@@ -28,6 +28,8 @@
 //! use luma_reader::prelude::*;
 //! ```
 
+pub mod canonical;
+pub mod cbz_doc;
 pub mod cover;
 pub mod detector;
 pub mod encoding;
@@ -47,6 +49,8 @@ use luma_core::error::Result;
 use luma_core::models::book::DocumentFormat;
 
 // Re‑export core types for easy access.
+pub use canonical::CanonicalDocument;
+pub use cbz_doc::{CbzDocument, CbzPageInfo};
 pub use cover::CoverStore;
 pub use detector::FormatDetector;
 pub use epub_doc::{ChapterContent, DocumentSearchMatch, EpubDocument, SpineItem};

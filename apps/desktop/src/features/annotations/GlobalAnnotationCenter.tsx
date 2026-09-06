@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from "react";
+import React, { useState, useMemo, useCallback, useEffect } from "react";
 import {
   BookOpen,
   Search,
@@ -9,6 +9,7 @@ import {
   Download,
   Check,
 } from "lucide-react";
+import { LumaApi } from "../../lib/tauri";
 import { AnnotationRepairWorkflow } from "./AnnotationRepairWorkflow";
 
 // ------------------------------------------------------------------
@@ -25,7 +26,7 @@ export interface AnnotationItem {
   created_at: string; // ISO date string
   color: string; // hex
   needs_repair?: boolean;
-  type?: "highlight" | "note" | "bookmark"; // for filtering
+  type?: "highlight" | "note" | "bookmark" | "underline"; // for filtering
 }
 
 export interface GlobalAnnotationCenterProps {
@@ -177,7 +178,7 @@ const FilterSidebar: React.FC<FilterSidebarProps> = ({
 // ------------------------------------------------------------------
 
 export const GlobalAnnotationCenter: React.FC<GlobalAnnotationCenterProps> = ({
-  annotations = [],
+  annotations,
   onOpenBook,
   onRepairAccept,
   libraryLabel = "Library",
@@ -186,6 +187,7 @@ export const GlobalAnnotationCenter: React.FC<GlobalAnnotationCenterProps> = ({
     { value: "highlight", label: "Highlights", defaultChecked: true },
     { value: "note", label: "Notes", defaultChecked: true },
     { value: "bookmark", label: "Bookmarks", defaultChecked: false },
+    { value: "underline", label: "Underlines", defaultChecked: true },
   ],
 }) => {
   const [searchQuery, setSearchQuery] = useState("");
@@ -195,21 +197,88 @@ export const GlobalAnnotationCenter: React.FC<GlobalAnnotationCenterProps> = ({
   );
   const [isRepairOpen, setIsRepairOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [loadedAnnotations, setLoadedAnnotations] = useState<AnnotationItem[]>([]);
+  const [recentBooks, setRecentBooks] = useState<{ id: string; title: string; author: string }[]>([]);
+
+  useEffect(() => {
+    let mounted = true;
+    async function fetchAll() {
+      try {
+        const [rawAnns, books, authors] = await Promise.all([
+          LumaApi.listAllAnnotations(),
+          LumaApi.listBooks(),
+          LumaApi.listAuthors().catch(() => []),
+        ]);
+        if (!mounted) return;
+
+        const authorMap = new Map<string, string>();
+        for (const a of authors) {
+          authorMap.set(a.id, a.name);
+        }
+
+        const bookMap = new Map<string, { title: string; author: string }>();
+        for (const b of books) {
+          const authorName =
+            (b.author_ids && b.author_ids.length > 0 ? authorMap.get(b.author_ids[0]!) : undefined) ||
+            "Unknown Author";
+          bookMap.set(b.id, { title: b.title, author: authorName });
+        }
+
+        const items: AnnotationItem[] = rawAnns.map((ann) => {
+          const meta = bookMap.get(ann.book_id);
+          return {
+            id: ann.id,
+            book_id: ann.book_id,
+            book_title: meta?.title || "Unknown Book",
+            author: meta?.author || "Unknown Author",
+            quote: ann.quote,
+            note: ann.note ?? null,
+            created_at: ann.sync?.created_at || new Date().toISOString(),
+            color: ann.color_hex || "#FEF08A",
+            type: ann.annotation_type || "highlight",
+            needs_repair: false,
+          };
+        });
+
+        setLoadedAnnotations(items);
+        setRecentBooks(
+          books.slice(0, 5).map((b) => ({
+            id: b.id,
+            title: b.title,
+            author:
+              (b.author_ids && b.author_ids.length > 0 ? authorMap.get(b.author_ids[0]!) : undefined) ||
+              "Unknown Author",
+          }))
+        );
+      } catch (err) {
+        console.warn("[GlobalAnnotationCenter] Failed to load annotations:", err);
+      }
+    }
+
+    if (!annotations || annotations.length === 0) {
+      fetchAll();
+    }
+    return () => {
+      mounted = false;
+    };
+  }, [annotations]);
+
+  const effectiveAnnotations = annotations && annotations.length > 0 ? annotations : loadedAnnotations;
 
   // Derived counts and filtered items
   const counts = useMemo(() => {
-    const total = annotations.length;
-    const attention = annotations.filter((a) => a.needs_repair).length;
+    const total = effectiveAnnotations.length;
+    const attention = effectiveAnnotations.filter((a) => a.needs_repair).length;
     const resolved = total - attention;
     const byType = filterTypes.reduce((acc, f) => {
-      const count = annotations.filter((a) => (a.type || "highlight") === f.value).length;
+      const count = effectiveAnnotations.filter((a) => (a.type || "highlight") === f.value).length;
       return { ...acc, [f.value]: count };
     }, {} as Record<string, number>);
     return { total, attention, resolved, byType };
-  }, [annotations, filterTypes]);
+  }, [effectiveAnnotations, filterTypes]);
 
   const filteredItems = useMemo(() => {
-    return annotations.filter((item) => {
+    return effectiveAnnotations.filter((item) => {
       // Status filter
       if (activeStatus === "attention" && !item.needs_repair) return false;
       if (activeStatus === "resolved" && item.needs_repair) return false;
@@ -229,7 +298,7 @@ export const GlobalAnnotationCenter: React.FC<GlobalAnnotationCenterProps> = ({
       }
       return true;
     });
-  }, [annotations, activeStatus, typeFilters, searchQuery]);
+  }, [effectiveAnnotations, activeStatus, typeFilters, searchQuery]);
 
   const handleTypeToggle = useCallback((type: string) => {
     setTypeFilters((prev) => ({ ...prev, [type]: !prev[type] }));
@@ -246,13 +315,14 @@ export const GlobalAnnotationCenter: React.FC<GlobalAnnotationCenterProps> = ({
     });
   }, [filteredItems, exportMarkdownTemplate]);
 
-  // Mock recent books (could be derived from annotations or passed as prop)
-  const recentBooks = useMemo(() => {
+  // Recent books derived from state or annotations
+  const displayRecentBooks = useMemo(() => {
+    if (recentBooks.length > 0) return recentBooks;
     const uniqueBooks = Array.from(
-      new Map(annotations.map((a) => [a.book_id, { id: a.book_id, title: a.book_title, author: a.author }]))
+      new Map(effectiveAnnotations.map((a) => [a.book_id, { id: a.book_id, title: a.book_title, author: a.author }]))
     ).map(([_, value]) => value);
-    return uniqueBooks.slice(0, 3); // show top 3
-  }, [annotations]);
+    return uniqueBooks.slice(0, 3);
+  }, [recentBooks, effectiveAnnotations]);
 
   return (
     <div className="flex-1 flex h-full overflow-hidden bg-[#FAF7F2] text-[#1C1917]">
@@ -264,7 +334,7 @@ export const GlobalAnnotationCenter: React.FC<GlobalAnnotationCenterProps> = ({
             <h1 className="font-serif text-2xl font-bold text-[#1C1917]">Annotations</h1>
             <div className="flex items-center gap-4 text-xs font-medium text-[#78716C]">
               <span className="text-[#18181B] font-semibold cursor-pointer">
-                {libraryLabel} ({annotations.length})
+                {libraryLabel} ({effectiveAnnotations.length})
               </span>
             </div>
           </div>
@@ -386,7 +456,7 @@ export const GlobalAnnotationCenter: React.FC<GlobalAnnotationCenterProps> = ({
         typeFilters={typeFilters}
         onTypeToggle={handleTypeToggle}
         counts={counts}
-        recentBooks={recentBooks}
+        recentBooks={displayRecentBooks}
         onOpenBook={onOpenBook}
       />
 

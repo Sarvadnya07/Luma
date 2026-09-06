@@ -15,6 +15,7 @@
 
 pub mod annotation;
 pub mod book;
+pub mod canonical;
 pub mod ingest;
 pub mod knowledge;
 pub mod metadata;
@@ -24,6 +25,7 @@ pub mod search;
 // Re‑export all public items from each submodule to flatten the API.
 pub use annotation::*;
 pub use book::*;
+pub use canonical::*;
 pub use ingest::*;
 pub use knowledge::*;
 pub use metadata::*;

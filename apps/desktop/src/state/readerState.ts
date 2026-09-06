@@ -54,8 +54,14 @@ export interface ReaderStoreState {
   jumpToLocator: (locator: string) => Promise<void>;
   updateSettings: (settings: Partial<ReaderSettings>) => void;
   setSidebarTab: (tab: ReaderSidebarTab) => void;
-  toggleTypography: () => void;
-  createHighlight: (colorHex: string, quote: string, prefix?: string, suffix?: string, note?: string) => Promise<void>;
+  createHighlight: (
+    colorHex: string,
+    quote: string,
+    prefix?: string,
+    suffix?: string,
+    note?: string,
+    pageNumber?: number
+  ) => Promise<void>;
   deleteAnnotation: (id: string) => Promise<void>;
   updateAnnotationNote: (id: string, note: string) => Promise<void>;
   toggleBookmark: () => Promise<void>;
@@ -63,6 +69,7 @@ export interface ReaderStoreState {
   searchInDoc: (query: string) => Promise<void>;
   clearSearch: () => void;
   setStatusMessage: (msg: string | null) => void;
+  toggleTypography: () => void;
 }
 
 // ----------------------------------------------------------------------------
@@ -405,18 +412,19 @@ export function createReaderStore(config: ReaderStoreConfig = {}) {
       set((state) => ({ isTypographyOpen: !state.isTypographyOpen }));
     },
 
-    createHighlight: async (colorHex, quote, prefix, suffix, note) => {
+    createHighlight: async (colorHex, quote, prefix, suffix, note, pageNumber) => {
       const { currentBook, currentSpineIndex, currentPdfPage, documentData } = get();
       if (!currentBook) return;
 
       const isPdf = documentData?.file.format === "pdf";
+      const targetPage = pageNumber !== undefined ? pageNumber : currentPdfPage;
       const payload = JSON.stringify({
         exact: quote,
         prefix: prefix || null,
         suffix: suffix || null,
         normalized_exact: quote.toLowerCase().replace(/\s+/g, " "),
         spine_index: isPdf ? undefined : currentSpineIndex,
-        page_number: isPdf ? currentPdfPage : undefined,
+        page_number: isPdf ? targetPage : undefined,
       });
 
       const newAnn: Annotation = {

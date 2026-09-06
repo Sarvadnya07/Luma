@@ -5,6 +5,9 @@ use std::io::Read;
 use std::path::{Path, PathBuf};
 
 use luma_core::error::{LumaError, Result};
+use luma_core::models::canonical::{
+    BoundingBox, DocumentPosition, DocumentRange, DocumentStructure, NodeKind, StructureNode,
+};
 use luma_security::sanitize_untrusted_html;
 
 use crate::{DocumentSearchMatch, TocItem};
@@ -220,6 +223,125 @@ impl PdfDocument {
         }
 
         Ok(page_data)
+    }
+
+    /// Build canonical structured outline for the PDF document with geometry.
+    pub fn structure(&self) -> Result<DocumentStructure> {
+        let mut page_nodes = Vec::with_capacity(self.page_count as usize);
+
+        for page_num in 1..=self.page_count {
+            let page_data = self.get_page(page_num)?;
+            let page_id = format!("page-{}", page_num);
+            let bbox = BoundingBox::new(0.0, 0.0, page_data.width_pt, page_data.height_pt);
+
+            let mut paragraph_nodes = Vec::new();
+            let mut current_offset = 0;
+
+            let paragraphs: Vec<&str> = page_data
+                .text_content
+                .split("\n\n")
+                .map(|p| p.trim())
+                .filter(|p| !p.is_empty())
+                .collect();
+
+            for (p_idx, p_text) in paragraphs.iter().enumerate() {
+                let p_id = format!("page-{}-p{}", page_num, p_idx);
+                let char_len = p_text.chars().count();
+                let start_pos = DocumentPosition::new(page_num as usize - 1, current_offset)
+                    .with_page(page_num)
+                    .with_geometry(bbox)
+                    .with_node(&p_id)
+                    .with_locator(format!("page={}", page_num));
+                let end_pos = DocumentPosition::new(page_num as usize - 1, current_offset + char_len)
+                    .with_page(page_num)
+                    .with_geometry(bbox)
+                    .with_node(&p_id)
+                    .with_locator(format!("page={}", page_num));
+
+                paragraph_nodes.push(
+                    StructureNode::new(&p_id, NodeKind::Paragraph { index: p_idx })
+                        .with_text(*p_text)
+                        .with_range(DocumentRange::new(start_pos, end_pos)),
+                );
+                current_offset += char_len + 2;
+            }
+
+            let page_range_start = DocumentPosition::new(page_num as usize - 1, 0)
+                .with_page(page_num)
+                .with_geometry(bbox)
+                .with_node(&page_id)
+                .with_locator(format!("page={}", page_num));
+            let page_range_end = DocumentPosition::new(
+                page_num as usize - 1,
+                page_data.text_content.chars().count(),
+            )
+            .with_page(page_num)
+            .with_geometry(bbox)
+            .with_node(&page_id)
+            .with_locator(format!("page={}", page_num));
+
+            let page_node = StructureNode::new(
+                &page_id,
+                NodeKind::Section {
+                    index: page_num as usize - 1,
+                    title: Some(format!("Page {}", page_num)),
+                },
+            )
+            .with_text(format!("Page {}", page_num))
+            .with_range(DocumentRange::new(page_range_start, page_range_end))
+            .with_children(paragraph_nodes);
+
+            page_nodes.push(page_node);
+        }
+
+        let root_title = self
+            .file_path
+            .file_name()
+            .map(|n| n.to_string_lossy().to_string())
+            .unwrap_or_else(|| "PDF Document".to_string());
+
+        let root_node = StructureNode::new("doc-root", NodeKind::Document)
+            .with_text(root_title)
+            .with_children(page_nodes);
+
+        Ok(DocumentStructure::new(root_node))
+    }
+
+    /// Retrieve plaintext of a specific paragraph on a given page.
+    pub fn get_paragraph(&self, page_number: u32, paragraph_index: usize) -> Result<String> {
+        let page_data = self.get_page(page_number)?;
+        let paragraphs: Vec<&str> = page_data
+            .text_content
+            .split("\n\n")
+            .map(|p| p.trim())
+            .filter(|p| !p.is_empty())
+            .collect();
+
+        if let Some(p) = paragraphs.get(paragraph_index) {
+            Ok(p.to_string())
+        } else {
+            Err(LumaError::NotFound {
+                entity_type: "Paragraph".to_string(),
+                id: format!("page:{page_number}:p:{paragraph_index}"),
+            })
+        }
+    }
+
+    /// Retrieve plaintext for a contiguous document range.
+    pub fn get_range_text(&self, range: &DocumentRange) -> Result<String> {
+        let page_num = range
+            .start
+            .page_number
+            .unwrap_or((range.start.section_index + 1) as u32);
+        let page_data = self.get_page(page_num)?;
+        let chars: Vec<char> = page_data.text_content.chars().collect();
+        let start = range.start.char_offset.min(chars.len());
+        let end = range.end.char_offset.min(chars.len());
+        if start <= end {
+            Ok(chars[start..end].iter().collect())
+        } else {
+            Ok(String::new())
+        }
     }
 
     // ------------------------------------------------------------------------
@@ -533,9 +655,11 @@ impl PdfDocument {
                     let start_snippet = idx.saturating_sub(SNIPPET_CONTEXT_SIZE);
                     let end_snippet = (idx + clean_q.len() + SNIPPET_CONTEXT_SIZE)
                         .min(page_data.text_content.len());
+                    let safe_start = page_data.text_content.floor_char_boundary(start_snippet);
+                    let safe_end = page_data.text_content.ceil_char_boundary(end_snippet);
                     let snippet = format!(
                         "...{}...",
-                        &page_data.text_content[start_snippet..end_snippet]
+                        &page_data.text_content[safe_start..safe_end]
                     );
 
                     matches.push(DocumentSearchMatch {

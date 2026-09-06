@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
   ChevronLeft,
   ChevronRight,
@@ -35,10 +35,19 @@ export const PdfReaderView: React.FC = () => {
   const [sidebarTab, setSidebarTab] = useState<"contents" | "thumbnails" | "bookmarks">("thumbnails");
   const [selectionPos, setSelectionPos] = useState<{ top: number; left: number } | null>(null);
   const [selectedText, setSelectedText] = useState<string>("");
+  const [selectedPageNum, setSelectedPageNum] = useState<number | undefined>(undefined);
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
 
   const totalPages = Math.max(1, pdfDoc?.numPages || documentData?.total_pages_or_spines || 1);
-  const leftPageNum = currentPdfPage % 2 === 0 ? currentPdfPage : Math.max(1, currentPdfPage - 1);
+  const leftPageNum = Math.floor((currentPdfPage - 1) / 2) * 2 + 1;
   const rightPageNum = Math.min(totalPages, leftPageNum + 1);
+
+  // Scroll to top whenever the current page or dual spread mode changes
+  useEffect(() => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTop = 0;
+    }
+  }, [currentPdfPage, isDualSpread]);
 
   // Load PDF Document bytes into PDF.js proxy
   useEffect(() => {
@@ -117,6 +126,16 @@ export const PdfReaderView: React.FC = () => {
     const range = selection.getRangeAt(0);
     const rect = range.getBoundingClientRect();
 
+    // Determine which page the selection is within
+    const anchorNode = selection.anchorNode;
+    const pageContainer = (anchorNode instanceof HTMLElement ? anchorNode : anchorNode?.parentElement)?.closest("[data-page-num]");
+    const pageNumAttr = pageContainer?.getAttribute("data-page-num");
+    if (pageNumAttr) {
+      setSelectedPageNum(parseInt(pageNumAttr, 10));
+    } else {
+      setSelectedPageNum(isDualSpread ? leftPageNum : currentPdfPage);
+    }
+
     setSelectedText(text);
     setSelectionPos({
       top: rect.top,
@@ -133,7 +152,7 @@ export const PdfReaderView: React.FC = () => {
         position={selectionPos}
         selectedText={selectedText}
         onHighlight={(colorHex, note) => {
-          createHighlight(colorHex, selectedText, undefined, undefined, note);
+          createHighlight(colorHex, selectedText, undefined, undefined, note, selectedPageNum);
           window.getSelection()?.removeAllRanges();
           setSelectionPos(null);
         }}
@@ -310,7 +329,7 @@ export const PdfReaderView: React.FC = () => {
         </div>
 
         {/* Dual / Single Page Spread Viewport */}
-        <div className="flex-1 overflow-auto p-8 flex justify-center items-start">
+        <div ref={scrollContainerRef} className="flex-1 overflow-auto p-8 flex justify-center items-start">
           <div className="flex gap-6 items-start transition-transform duration-150">
             {/* Left / Primary Page Canvas */}
             <div className="flex flex-col items-center">
@@ -320,6 +339,7 @@ export const PdfReaderView: React.FC = () => {
                 zoom={zoom}
                 fallbackText={leftPdfPageData?.text_content}
                 hasTextLayer={leftPdfPageData?.has_text_layer}
+                targetWidth={isDualSpread ? 480 : 640}
               />
               <div className="text-center font-mono text-[10px] text-[#78716C] pt-2">
                 Page {isDualSpread ? leftPageNum : currentPdfPage}
@@ -335,6 +355,7 @@ export const PdfReaderView: React.FC = () => {
                   zoom={zoom}
                   fallbackText={rightPdfPageData?.text_content}
                   hasTextLayer={rightPdfPageData?.has_text_layer}
+                  targetWidth={480}
                 />
                 <div className="text-center font-mono text-[10px] text-[#78716C] pt-2">
                   Page {rightPageNum}

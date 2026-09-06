@@ -6,6 +6,9 @@ use crate::encoding::decode_text_bytes;
 use crate::epub_doc::{ChapterContent, DocumentSearchMatch};
 use crate::TocItem;
 use luma_core::error::{LumaError, Result};
+use luma_core::models::canonical::{
+    DocumentPosition, DocumentRange, DocumentStructure, NodeKind, StructureNode,
+};
 
 /// Document engine for standalone plaintext files (.txt).
 pub struct TextDocument {
@@ -14,6 +17,8 @@ pub struct TextDocument {
     raw_text: String,
     html_content: String,
     toc: Vec<TocItem>,
+    structure: DocumentStructure,
+    paragraph_texts: Vec<String>,
 }
 
 impl TextDocument {
@@ -42,7 +47,7 @@ impl TextDocument {
             _ => fallback_title,
         };
 
-        // Render paragraphs into safe HTML
+        // Render paragraphs into safe HTML and build structured nodes
         let mut html = String::with_capacity(raw_text.len() + 2048);
         html.push_str("<div class=\"reader-text-container font-serif text-lg leading-relaxed text-[#1C1917] dark:text-[#F5F1EA] max-w-2xl mx-auto px-6 py-12 space-y-4\">\n");
 
@@ -52,10 +57,39 @@ impl TextDocument {
             .filter(|p| !p.is_empty())
             .collect();
 
+        let mut structure_nodes = Vec::with_capacity(paragraphs.len());
+        let mut paragraph_texts = Vec::with_capacity(paragraphs.len());
+        let mut current_offset = 0;
+
         if paragraphs.is_empty() {
             html.push_str("<p class=\"reader-paragraph\" id=\"p0\"></p>\n");
+            let p_node = StructureNode::new("p0", NodeKind::Paragraph { index: 0 })
+                .with_text("")
+                .with_range(DocumentRange::new(
+                    DocumentPosition::new(0, 0),
+                    DocumentPosition::new(0, 0),
+                ));
+            structure_nodes.push(p_node);
+            paragraph_texts.push(String::new());
         } else {
             for (idx, p) in paragraphs.iter().enumerate() {
+                paragraph_texts.push(p.to_string());
+                let p_id = format!("p{}", idx);
+                let p_char_len = p.chars().count();
+                let start_pos = DocumentPosition::new(0, current_offset)
+                    .with_node(&p_id)
+                    .with_locator(format!("p{}", idx));
+                let end_pos = DocumentPosition::new(0, current_offset + p_char_len)
+                    .with_node(&p_id)
+                    .with_locator(format!("p{}", idx));
+
+                let p_node = StructureNode::new(&p_id, NodeKind::Paragraph { index: idx })
+                    .with_text(*p)
+                    .with_range(DocumentRange::new(start_pos, end_pos));
+                structure_nodes.push(p_node);
+
+                current_offset += p_char_len + 2; // account for newline separation
+
                 html.push_str(&format!("<p class=\"reader-paragraph\" id=\"p{}\">", idx));
                 // Escape HTML characters
                 for ch in p.chars() {
@@ -81,12 +115,26 @@ impl TextDocument {
             children: Vec::new(),
         }];
 
+        let root_node = StructureNode::new(
+            "section-0",
+            NodeKind::Section {
+                index: 0,
+                title: Some(title.clone()),
+            },
+        )
+        .with_text(title.clone())
+        .with_children(structure_nodes);
+
+        let structure = DocumentStructure::new(root_node);
+
         Ok(Self {
             file_path: path_ref.to_path_buf(),
             title,
             raw_text,
             html_content: html,
             toc,
+            structure,
+            paragraph_texts,
         })
     }
 
@@ -100,6 +148,25 @@ impl TextDocument {
 
     pub fn toc(&self) -> &[TocItem] {
         &self.toc
+    }
+
+    pub fn structure(&self) -> &DocumentStructure {
+        &self.structure
+    }
+
+    pub fn get_paragraph(&self, idx: usize) -> Option<&str> {
+        self.paragraph_texts.get(idx).map(|s| s.as_str())
+    }
+
+    pub fn get_range_text(&self, range: &DocumentRange) -> Result<String> {
+        let chars: Vec<char> = self.raw_text.chars().collect();
+        let start = range.start.char_offset.min(chars.len());
+        let end = range.end.char_offset.min(chars.len());
+        if start <= end {
+            Ok(chars[start..end].iter().collect())
+        } else {
+            Ok(String::new())
+        }
     }
 
     pub fn get_chapter(&self, spine_index: usize) -> Result<ChapterContent> {
@@ -139,26 +206,19 @@ impl TextDocument {
             let snippet_start = actual_pos.saturating_sub(40);
             let snippet_end = (actual_pos + q.len() + 40).min(self.raw_text.len());
 
-            // Avoid splitting UTF-8 code points
             let safe_start = self.raw_text.floor_char_boundary(snippet_start);
             let safe_end = self.raw_text.ceil_char_boundary(snippet_end);
-
-            let snippet = format!("...{}...", &self.raw_text[safe_start..safe_end]);
 
             matches.push(DocumentSearchMatch {
                 spine_index: 0,
                 chapter_title: self.title.clone(),
-                locator: format!("text:offset={}", actual_pos),
-                snippet,
+                locator: format!("offset:{}", actual_pos),
+                snippet: self.raw_text[safe_start..safe_end].to_string(),
                 match_char_offset: actual_pos,
             });
 
-            if matches.len() >= 50 {
-                break;
-            }
-
             start_idx = actual_pos + q.len();
-            if start_idx >= lower_text.len() {
+            if matches.len() >= 100 {
                 break;
             }
         }

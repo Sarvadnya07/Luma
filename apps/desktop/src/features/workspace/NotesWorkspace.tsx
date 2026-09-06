@@ -21,55 +21,9 @@ export interface NoteItem {
   bookId?: string;
 }
 
-const INITIAL_NOTES: NoteItem[] = [
-  {
-    id: "note_1",
-    sourceType: "Book",
-    sourceTitle: "Meditations",
-    timeAgo: "2h ago",
-    title: "On the nature of rational soul",
-    preview: "The properties of the rational soul: it looks on itself, it shapes itself...",
-    content: `Marcus Aurelius defines the rational soul by its capacity for self-reflection and self-determination. Unlike physical objects or even lesser forms of life, the rational soul "looks on itself, it shapes itself."
-
-This suggests a radical autonomy of the intellect. The mind is not merely a passive recipient of impressions, but an active architect of its own character. This relates closely to his recurring theme of the 'inner citadel' — the part of us that remains free regardless of external circumstances.
-
-Need to cross-reference this with Epictetus's concept of prohairesis (moral purpose/choice) in the Discourses.`,
-    quote: "The properties of the rational soul: it looks on itself, it shapes itself, it renders itself whatever it wishes to be; it gathers for itself the fruit which it bears...",
-    bookId: "book_meditations",
-  },
-  {
-    id: "note_2",
-    sourceType: "Article",
-    sourceTitle: "Tractatus Logico-Philosophicus",
-    timeAgo: "10:30 AM",
-    title: "Logical Space and Truth",
-    preview: "The world is determined by the facts, and by these being all the facts...",
-    content: `Wittgenstein's Tractatus lays out the architecture of logical atomism. Facts exist in logical space as configurations of objects.
-
-A proposition is a picture of reality. To understand a proposition means to know what is the case if it is true.
-
-The limits of my language mean the limits of my world.`,
-    quote: "The world is determined by the facts, and by these being all the facts.",
-    bookId: "book_phenomenology",
-  },
-  {
-    id: "note_3",
-    sourceType: "Book",
-    sourceTitle: "The Republic",
-    timeAgo: "Nov 14",
-    title: "The Allegory of the Cave",
-    preview: "Compare our natural condition, so far as education and ignorance are concerned...",
-    content: `Plato's subterranean cavern is a model for epistemic confinement. Shadows cast on the cave wall are treated as primary reality until ascent towards the sun occurs.
-
-The philosopher's duty is not merely contemplation of the Good, but descent back into the cave to guide those still chained.`,
-    quote: "Compare our natural condition, so far as education and ignorance are concerned, to a state of things like the...",
-    bookId: "book_republic",
-  },
-];
-
 export const NotesWorkspace: React.FC = () => {
-  const [notes, setNotes] = useState<NoteItem[]>(INITIAL_NOTES);
-  const [selectedNoteId, setSelectedNoteId] = useState<string>("note_1");
+  const [notes, setNotes] = useState<NoteItem[]>([]);
+  const [selectedNoteId, setSelectedNoteId] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState("");
   const [copiedCitation, setCopiedCitation] = useState(false);
 
@@ -78,26 +32,8 @@ export const NotesWorkspace: React.FC = () => {
     async function loadNotes() {
       try {
         await LumaApi.migrateLegacyKnowledge();
-        let fetched = await LumaApi.listNotes();
-        if (fetched.length === 0) {
-          for (const init of INITIAL_NOTES) {
-            await LumaApi.createNote({
-              id: init.id,
-              book_id: init.bookId || null,
-              annotation_id: null,
-              source_type: init.sourceType,
-              source_title: init.sourceTitle,
-              title: init.title,
-              content: init.content,
-              quote: init.quote || null,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-              is_deleted: false,
-            });
-          }
-          fetched = await LumaApi.listNotes();
-        }
-        if (mounted && fetched.length > 0) {
+        const fetched = await LumaApi.listNotes();
+        if (mounted) {
           const items: NoteItem[] = fetched.map((n) => ({
             id: n.id,
             sourceType: n.source_type,
@@ -110,7 +46,11 @@ export const NotesWorkspace: React.FC = () => {
             bookId: n.book_id || undefined,
           }));
           setNotes(items);
-          setSelectedNoteId((curr) => items.some((i) => i.id === curr) ? curr : items[0]!.id);
+          if (items.length > 0) {
+            setSelectedNoteId((curr) => (curr && items.some((i) => i.id === curr) ? curr : items[0]!.id));
+          } else {
+            setSelectedNoteId("");
+          }
         }
       } catch (err) {
         console.error("Failed to load notes from SQLite:", err);
@@ -122,7 +62,7 @@ export const NotesWorkspace: React.FC = () => {
     };
   }, []);
 
-  const activeNote = notes.find((n) => n.id === selectedNoteId) || notes[0];
+  const activeNote = notes.find((n) => n.id === selectedNoteId);
 
   const handleUpdateActiveNote = (updates: Partial<NoteItem>) => {
     if (!activeNote) return;
@@ -324,8 +264,19 @@ export const NotesWorkspace: React.FC = () => {
           </div>
         </div>
       ) : (
-        <div className="flex-1 flex items-center justify-center text-xs text-[#78716C]">
-          Select or create a note to begin.
+        <div className="flex-1 flex flex-col items-center justify-center p-12 text-center text-[#78716C] bg-[#FAF7F2]">
+          <BookOpen className="w-10 h-10 text-[#A8A29E] mb-3" />
+          <h3 className="font-serif text-base font-bold text-[#1C1917]">No note selected</h3>
+          <p className="text-xs text-[#78716C] max-w-sm mt-1 mb-4">
+            Select a note from the list or create a new note to start capturing your thoughts and citations.
+          </p>
+          <button
+            onClick={handleCreateNote}
+            className="py-2 px-4 bg-[#18181B] hover:bg-[#27272A] text-white text-xs font-semibold rounded-xl flex items-center gap-1.5 shadow-2xs transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Create New Note</span>
+          </button>
         </div>
       )}
 

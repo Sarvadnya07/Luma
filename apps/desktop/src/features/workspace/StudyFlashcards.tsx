@@ -10,32 +10,8 @@ export interface Flashcard {
   citation: string;
 }
 
-const INITIAL_CARDS: Flashcard[] = [
-  {
-    id: "card_1",
-    deck: "EPISTEMOLOGY & LOGIC",
-    question: "What is the 'Problem of Induction' as articulated by David Hume?",
-    answer: "Hume argues that inductive reasoning—inferring universal causal laws from past observations—presupposes the principle of the uniformity of nature, which cannot itself be rationally justified through either deductive logic or non-circular empirical observation.",
-    citation: "Hume, D. (1748). An Enquiry Concerning Human Understanding, Section IV.",
-  },
-  {
-    id: "card_2",
-    deck: "ANCIENT PHILOSOPHY",
-    question: "What constitutes the 'Hegemonikon' in Stoic psychological theory?",
-    answer: "The commanding faculty or ruling center of the soul, responsible for synthesizing perceptions, generating assent, evaluating impressions, and directing impulse and action.",
-    citation: "Marcus Aurelius, Meditations, Book IV; Long & Sedley 53.",
-  },
-  {
-    id: "card_3",
-    deck: "PHILOSOPHY OF SCIENCE",
-    question: "How does Karl Popper demarcate scientific theories from non-scientific ones?",
-    answer: "Through the criterion of falsifiability: a statement or theory is scientific if and only if it is capable of being conflicting with possible, or conceivable, observations.",
-    citation: "Popper, K. (1934). The Logic of Scientific Discovery.",
-  },
-];
-
 export const StudyFlashcards: React.FC = () => {
-  const [cards, setCards] = useState<Flashcard[]>(INITIAL_CARDS);
+  const [cards, setCards] = useState<Flashcard[]>([]);
   const [isFlipped, setIsFlipped] = useState(false);
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
   const [reviewedCount, setReviewedCount] = useState(0);
@@ -50,30 +26,8 @@ export const StudyFlashcards: React.FC = () => {
     async function loadCards() {
       try {
         await LumaApi.migrateLegacyKnowledge();
-        let fetched = await LumaApi.listFlashcards();
-        if (fetched.length === 0) {
-          for (const init of INITIAL_CARDS) {
-            await LumaApi.createFlashcard({
-              id: init.id,
-              front: init.question,
-              back: init.answer,
-              source_book_id: null,
-              source_annotation_id: null,
-              deck_id: init.deck,
-              state: "new",
-              interval_days: 1,
-              ease_factor: 2.5,
-              repetitions: 0,
-              due_at: new Date().toISOString(),
-              last_reviewed_at: null,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-              is_deleted: false,
-            });
-          }
-          fetched = await LumaApi.listFlashcards();
-        }
-        if (mounted && fetched.length > 0) {
+        const fetched = await LumaApi.listFlashcards();
+        if (mounted) {
           setCards(
             fetched.map((c) => ({
               id: c.id,
@@ -94,7 +48,7 @@ export const StudyFlashcards: React.FC = () => {
     };
   }, []);
 
-  const currentCard = cards[currentCardIndex % (cards.length || 1)] || INITIAL_CARDS[0]!;
+  const currentCard = cards.length > 0 ? cards[currentCardIndex % cards.length] : null;
   const isSessionComplete = reviewedCount >= cards.length && cards.length > 0;
 
   const handleNext = useCallback((grade?: string) => {
@@ -179,7 +133,7 @@ export const StudyFlashcards: React.FC = () => {
       <div className="h-14 border-b border-[#E5DFD3] px-8 flex items-center justify-between z-10 flex-shrink-0 bg-[#FAF7F2]">
         <div className="space-y-0.5">
           <span className="text-[10px] font-bold uppercase tracking-widest text-[#78716C] font-mono block">
-            DECK: {currentCard.deck}
+            DECK: {currentCard ? currentCard.deck : "ALL DECKS"}
           </span>
           <h2 className="font-serif text-sm font-bold text-[#1C1917]">
             Spaced Repetition Review
@@ -204,7 +158,22 @@ export const StudyFlashcards: React.FC = () => {
 
       {/* Main Flashcard Container */}
       <div className="flex-1 flex flex-col items-center justify-center p-8">
-        {isSessionComplete ? (
+        {cards.length === 0 ? (
+          <div className="w-full max-w-md bg-[#FFFFFF] dark:bg-[#27231E] border border-[#18181B]/15 dark:border-white/15 rounded-3xl p-8 shadow-sm text-center space-y-4">
+            <Sparkles className="w-10 h-10 text-[#A8A29E] mx-auto" />
+            <h2 className="font-serif text-lg font-bold text-[#1C1917] dark:text-[#EAE5DC]">No Flashcards Available</h2>
+            <p className="text-xs text-[#78716C] dark:text-[#B5ADA3] leading-relaxed">
+              Create your first flashcard for active recall study and spaced repetition.
+            </p>
+            <button
+              onClick={() => setIsAddingCard(true)}
+              className="py-2 px-4 bg-[#18181B] hover:bg-[#27272A] text-white text-xs font-semibold rounded-xl flex items-center justify-center gap-1.5 mx-auto transition-colors shadow-2xs"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Create Flashcard</span>
+            </button>
+          </div>
+        ) : isSessionComplete ? (
           <div className="w-full max-w-md bg-[#FFFFFF] dark:bg-[#27231E] border border-[#18181B]/15 dark:border-white/15 rounded-3xl p-8 shadow-xl text-center space-y-4 animate-in zoom-in-95 duration-200">
             <CheckCircle2 className="w-12 h-12 text-teal-700 mx-auto" />
             <h2 className="font-serif text-xl font-bold text-[#1C1917] dark:text-[#EAE5DC]">Session Complete!</h2>
@@ -234,14 +203,14 @@ export const StudyFlashcards: React.FC = () => {
               <div className="max-w-md my-auto space-y-4">
                 {!isFlipped ? (
                   <h1 className="font-serif text-2xl font-bold text-[#1C1917] leading-relaxed">
-                    {currentCard.question}
+                    {currentCard?.question}
                   </h1>
                 ) : (
                   <div className="space-y-3 animate-in fade-in zoom-in-95 duration-200">
                     <p className="font-serif text-sm leading-relaxed text-[#292524]">
-                      {currentCard.answer}
+                      {currentCard?.answer}
                     </p>
-                    {currentCard.citation && (
+                    {currentCard?.citation && (
                       <p className="text-[10px] text-[#78716C] font-mono italic">
                         {currentCard.citation}
                       </p>

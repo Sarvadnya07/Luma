@@ -1,9 +1,15 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   CheckCircle2,
   AlertTriangle,
+  Plus,
+  Trash2,
+  BookOpen,
+  FileText,
+  HelpCircle,
 } from "lucide-react";
 import { LumaApi } from "../../lib/tauri";
+import type { ResearchProject } from "@luma/shared-types";
 
 interface EvidenceItem {
   id: string;
@@ -25,182 +31,252 @@ interface QuestionItem {
 export const ResearchProjectWorkspace: React.FC = () => {
   const [activeTab, setActiveTab] = useState<"overview" | "questions" | "evidence" | "draft">("evidence");
   const [filterType, setFilterType] = useState<"all" | "supporting" | "counter">("all");
-  const [projectId, setProjectId] = useState("proj_spatial_forms");
-  const [projectTitle, setProjectTitle] = useState("The History of Architecture");
-  const [projectDescription, setProjectDescription] = useState(
-    "This research project investigates how architectural innovations between the 11th and 14th centuries reflected shifts in theological epistemology, geometric mathematics, and civic institutional power in medieval Europe."
-  );
 
-  const [evidenceList, setEvidenceList] = useState<EvidenceItem[]>([
-    {
-      id: "ev_1",
-      type: "supporting",
-      strength: "Strong",
-      quote: "The ogival rib-vault was one of the decisive elements: the pointed arches allowed for a significant reduction in lateral thrust compared to semi-circular Romanesque vaults, meaning thinner walls and larger window openings.",
-      citation: "Viollet-le-Duc, E. (1854). Dictionnaire raisonné du mobilier français, Vol 4, p. 45.",
-      diagram: false,
-    },
-    {
-      id: "ev_2",
-      type: "supporting",
-      strength: "Moderate",
-      quote: "Visual analysis of stress distribution models confirms lower lateral thrust vectors in pointed designs.",
-      citation: "Pevsner, N. (1943). An Outline of European Architecture.",
-      diagram: true,
-      diagramLabel: "Arch Structural Load Vectors",
-    },
-    {
-      id: "ev_3",
-      type: "counter",
-      strength: "Nuanced",
-      quote: "While the structural advantages of the pointed arch are undeniable, its initial adoption in the Île-de-France was heavily influenced by aesthetic movements in proto-scholastic mysticism during the 12th century, suggesting aesthetic preference preceded full structural comprehension.",
-      citation: "Bony, J. (1983). French Gothic Architecture of the 12th and 13th Centuries.",
-      diagram: false,
-    },
-  ]);
+  const [projects, setProjects] = useState<ResearchProject[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [projectTitle, setProjectTitle] = useState("");
+  const [projectDescription, setProjectDescription] = useState("");
 
-  const [questionsList, setQuestionsList] = useState<QuestionItem[]>([
-    {
-      id: "q_1",
-      q: "How did rib-vaulting change interior acoustic propagation in choir areas?",
-      status: "Open Inquiry",
-      source: "Gothic Acoustics Vol II",
-    },
-    {
-      id: "q_2",
-      q: "Did proto-scholastic mysticism influence light distribution through clerestory windows?",
-      status: "Evidence Corroborated",
-      source: "Suger of Saint-Denis, De Consecratione",
-    },
-    {
-      id: "q_3",
-      q: "What was the guild apprenticeship transmission rate for geometric stonecutters?",
-      status: "Under Review",
-      source: "Masons and Master Builders",
-    },
-  ]);
+  const [evidenceList, setEvidenceList] = useState<EvidenceItem[]>([]);
+  const [questionsList, setQuestionsList] = useState<QuestionItem[]>([]);
+  const [draftTitle, setDraftTitle] = useState("");
+  const [draftContent, setDraftContent] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
 
-  const [draftTitle, setDraftTitle] = useState("Section II: Load-Bearing Geometry in 12th-Century Île-de-France");
-  const [draftContent, setDraftContent] = useState(
-    "The emergence of the pointed arch in the royal domain of France marked a critical juncture in Gothic architecture. By altering the thrust vectors from a radial arc toward a steeper vertical tangent, medieval master masons solved the fundamental limitation of Romanesque barrel vaulting.\n\nAs documented by Viollet-le-Duc, this geometric evolution permitted vault bays of unequal spans to reach uniform apex heights without clumsy stilting or segmental distortions. Consequently, structural loads could be concentrated upon slender compound piers rather than distributed along massive continuous masonry walls."
-  );
+  // Creation Modals / Inline Forms
+  const [isCreatingProject, setIsCreatingProject] = useState(false);
+  const [newProjectTitle, setNewProjectTitle] = useState("");
+  const [newProjectDesc, setNewProjectDesc] = useState("");
+
+  const [isAddingQuestion, setIsAddingQuestion] = useState(false);
+  const [newQuestionText, setNewQuestionText] = useState("");
+  const [newQuestionSource, setNewQuestionSource] = useState("");
+
+  const [isAddingEvidence, setIsAddingEvidence] = useState(false);
+  const [newEvidenceQuote, setNewEvidenceQuote] = useState("");
+  const [newEvidenceCitation, setNewEvidenceCitation] = useState("");
+  const [newEvidenceType, setNewEvidenceType] = useState<"supporting" | "counter">("supporting");
+  const [newEvidenceNotes, setNewEvidenceNotes] = useState("");
+
+  const loadProjectDetails = useCallback(async (projId: string) => {
+    try {
+      const [questions, evidence, draft] = await Promise.all([
+        LumaApi.listResearchQuestions(projId),
+        LumaApi.listResearchEvidence(projId),
+        LumaApi.getResearchDraft(projId),
+      ]);
+
+      setQuestionsList(
+        questions.map((q) => ({
+          id: q.id,
+          q: q.question,
+          status: q.status,
+          source: "Project Inquiry",
+        }))
+      );
+
+      setEvidenceList(
+        evidence.map((ev) => ({
+          id: ev.id,
+          type: ev.stance === "counter" ? "counter" : "supporting",
+          strength: "Verified",
+          quote: ev.quote,
+          citation: ev.source_title,
+          diagram: !!ev.notes,
+          diagramLabel: ev.notes || undefined,
+        }))
+      );
+
+      if (draft) {
+        setDraftTitle(draft.title);
+        setDraftContent(draft.content);
+      } else {
+        setDraftTitle("Working Draft");
+        setDraftContent("");
+      }
+    } catch (err) {
+      console.error("Failed to load project details:", err);
+    }
+  }, []);
+
+  const loadProjects = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const projs = await LumaApi.listResearchProjects();
+      setProjects(projs);
+
+      if (projs.length > 0) {
+        const activeProj = selectedProjectId
+          ? projs.find((p) => p.id === selectedProjectId) || projs[0]!
+          : projs[0]!;
+        setSelectedProjectId(activeProj.id);
+        setProjectTitle(activeProj.title);
+        setProjectDescription(activeProj.description || "");
+        await loadProjectDetails(activeProj.id);
+      } else {
+        setSelectedProjectId(null);
+        setProjectTitle("");
+        setProjectDescription("");
+        setQuestionsList([]);
+        setEvidenceList([]);
+        setDraftTitle("");
+        setDraftContent("");
+      }
+    } catch (err) {
+      console.error("Failed to load research projects from SQLite:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [selectedProjectId, loadProjectDetails]);
 
   useEffect(() => {
-    let mounted = true;
-    async function loadProjectData() {
-      try {
-        let projects = await LumaApi.listResearchProjects();
-        if (projects.length === 0) {
-          // Seed initial project into SQLite
-          await LumaApi.createResearchProject({
-            id: "proj_spatial_forms",
-            title: "The History of Architecture",
-            description: projectDescription,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-            is_deleted: false,
-          });
-
-          // Seed questions
-          for (const q of questionsList) {
-            await LumaApi.createResearchQuestion({
-              id: q.id,
-              project_id: "proj_spatial_forms",
-              question: q.q,
-              status: q.status,
-              created_at: new Date().toISOString(),
-            });
-          }
-
-          // Seed evidence
-          for (const ev of evidenceList) {
-            await LumaApi.createResearchEvidence({
-              id: ev.id,
-              project_id: "proj_spatial_forms",
-              question_id: null,
-              source_title: ev.citation,
-              quote: ev.quote,
-              notes: ev.diagramLabel || null,
-              stance: ev.type,
-              book_id: null,
-              locator: null,
-              created_at: new Date().toISOString(),
-            });
-          }
-
-          // Seed draft
-          await LumaApi.saveResearchDraft({
-            id: "draft_spatial_forms",
-            project_id: "proj_spatial_forms",
-            title: draftTitle,
-            content: draftContent,
-            updated_at: new Date().toISOString(),
-          });
-
-          projects = await LumaApi.listResearchProjects();
-        }
-
-        if (mounted && projects.length > 0) {
-          const currentProj = projects[0]!;
-          setProjectId(currentProj.id);
-          setProjectTitle(currentProj.title);
-          if (currentProj.description) setProjectDescription(currentProj.description);
-
-          // Fetch questions
-          const qFromDb = await LumaApi.listResearchQuestions(currentProj.id);
-          if (qFromDb.length > 0) {
-            setQuestionsList(
-              qFromDb.map((q) => ({
-                id: q.id,
-                q: q.question,
-                status: q.status,
-                source: "Project Inquiry",
-              }))
-            );
-          }
-
-          // Fetch evidence
-          const evFromDb = await LumaApi.listResearchEvidence(currentProj.id);
-          if (evFromDb.length > 0) {
-            setEvidenceList(
-              evFromDb.map((ev) => ({
-                id: ev.id,
-                type: ev.stance === "counter" ? "counter" : "supporting",
-                strength: "Verified",
-                quote: ev.quote,
-                citation: ev.source_title,
-                diagram: !!ev.notes,
-                diagramLabel: ev.notes || undefined,
-              }))
-            );
-          }
-
-          // Fetch draft
-          const draftFromDb = await LumaApi.getResearchDraft(currentProj.id);
-          if (draftFromDb) {
-            setDraftTitle(draftFromDb.title);
-            setDraftContent(draftFromDb.content);
-          }
-        }
-      } catch (err) {
-        console.error("Failed to load research project from SQLite:", err);
-      }
-    }
-    loadProjectData();
-    return () => {
-      mounted = false;
-    };
+    loadProjects();
   }, []);
+
+  const handleSelectProject = async (id: string) => {
+    const proj = projects.find((p) => p.id === id);
+    if (!proj) return;
+    setSelectedProjectId(id);
+    setProjectTitle(proj.title);
+    setProjectDescription(proj.description || "");
+    await loadProjectDetails(id);
+  };
+
+  const handleCreateProject = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newProjectTitle.trim()) return;
+
+    const newId = `proj_${Date.now()}`;
+    const newProj: ResearchProject = {
+      id: newId,
+      title: newProjectTitle.trim(),
+      description: newProjectDesc.trim() || null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      is_deleted: false,
+    };
+
+    try {
+      await LumaApi.createResearchProject(newProj);
+      await LumaApi.saveResearchDraft({
+        id: `draft_${newId}`,
+        project_id: newId,
+        title: "Working Draft",
+        content: "",
+        updated_at: new Date().toISOString(),
+      });
+      setNewProjectTitle("");
+      setNewProjectDesc("");
+      setIsCreatingProject(false);
+      setSelectedProjectId(newId);
+      await loadProjects();
+    } catch (err) {
+      console.error("Failed to create research project:", err);
+    }
+  };
 
   const handleDraftChange = (newContent: string) => {
     setDraftContent(newContent);
+    if (!selectedProjectId) return;
     LumaApi.saveResearchDraft({
-      id: `draft_${projectId}`,
-      project_id: projectId,
-      title: draftTitle,
+      id: `draft_${selectedProjectId}`,
+      project_id: selectedProjectId,
+      title: draftTitle || "Working Draft",
       content: newContent,
       updated_at: new Date().toISOString(),
     }).catch((e) => console.error("Failed to save research draft:", e));
+  };
+
+  const handleDraftTitleChange = (newTitle: string) => {
+    setDraftTitle(newTitle);
+    if (!selectedProjectId) return;
+    LumaApi.saveResearchDraft({
+      id: `draft_${selectedProjectId}`,
+      project_id: selectedProjectId,
+      title: newTitle,
+      content: draftContent,
+      updated_at: new Date().toISOString(),
+    }).catch((e) => console.error("Failed to save draft title:", e));
+  };
+
+  const handleAddQuestion = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newQuestionText.trim() || !selectedProjectId) return;
+
+    const newQ = {
+      id: `q_${Date.now()}`,
+      project_id: selectedProjectId,
+      question: newQuestionText.trim(),
+      status: "Open Inquiry",
+      created_at: new Date().toISOString(),
+    };
+
+    try {
+      await LumaApi.createResearchQuestion(newQ);
+      setQuestionsList((prev) => [
+        ...prev,
+        {
+          id: newQ.id,
+          q: newQ.question,
+          status: newQ.status,
+          source: newQuestionSource.trim() || "Project Inquiry",
+        },
+      ]);
+      setNewQuestionText("");
+      setNewQuestionSource("");
+      setIsAddingQuestion(false);
+    } catch (err) {
+      console.error("Failed to create research question:", err);
+    }
+  };
+
+  const handleAddEvidence = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newEvidenceQuote.trim() || !selectedProjectId) return;
+
+    const newEv = {
+      id: `ev_${Date.now()}`,
+      project_id: selectedProjectId,
+      question_id: null,
+      source_title: newEvidenceCitation.trim() || "Reading Source",
+      quote: newEvidenceQuote.trim(),
+      notes: newEvidenceNotes.trim() || null,
+      stance: newEvidenceType,
+      book_id: null,
+      locator: null,
+      created_at: new Date().toISOString(),
+    };
+
+    try {
+      await LumaApi.createResearchEvidence(newEv);
+      setEvidenceList((prev) => [
+        ...prev,
+        {
+          id: newEv.id,
+          type: newEv.stance,
+          strength: "Verified",
+          quote: newEv.quote,
+          citation: newEv.source_title,
+          diagram: !!newEv.notes,
+          diagramLabel: newEv.notes || undefined,
+        },
+      ]);
+      setNewEvidenceQuote("");
+      setNewEvidenceCitation("");
+      setNewEvidenceNotes("");
+      setIsAddingEvidence(false);
+    } catch (err) {
+      console.error("Failed to create research evidence:", err);
+    }
+  };
+
+  const handleDeleteEvidence = async (id: string) => {
+    try {
+      await LumaApi.deleteResearchEvidence(id);
+      setEvidenceList((prev) => prev.filter((ev) => ev.id !== id));
+    } catch (err) {
+      console.error("Failed to delete evidence:", err);
+    }
   };
 
   const filteredEvidence = evidenceList.filter((ev) => {
@@ -208,15 +284,111 @@ export const ResearchProjectWorkspace: React.FC = () => {
     return ev.type === filterType;
   });
 
+  const supportingCount = evidenceList.filter((ev) => ev.type === "supporting").length;
+  const counterCount = evidenceList.filter((ev) => ev.type === "counter").length;
+  const draftWords = draftContent.trim() ? draftContent.trim().split(/\s+/).filter(Boolean).length : 0;
+
+  if (isLoading) {
+    return (
+      <div className="flex-1 flex items-center justify-center h-full bg-[#FAF7F2] text-[#78716C] font-mono text-xs">
+        Loading research workspace...
+      </div>
+    );
+  }
+
+  // Zero projects empty state
+  if (projects.length === 0) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center h-full bg-[#FAF7F2] text-[#1C1917] p-8">
+        <div className="w-full max-w-md bg-[#FFFFFF] dark:bg-[#27231E] border border-[#18181B]/15 dark:border-white/15 rounded-3xl p-8 shadow-sm text-center space-y-4">
+          <BookOpen className="w-10 h-10 text-[#A8A29E] mx-auto" />
+          <h2 className="font-serif text-lg font-bold text-[#1C1917] dark:text-[#EAE5DC]">
+            No Research Projects
+          </h2>
+          <p className="text-xs text-[#78716C] dark:text-[#B5ADA3] leading-relaxed">
+            Create a structured research project to formulate questions, synthesize citations, and draft scholarly arguments.
+          </p>
+          {isCreatingProject ? (
+            <form onSubmit={handleCreateProject} className="space-y-3 text-left pt-2">
+              <div>
+                <label className="text-[10px] font-bold uppercase text-[#78716C] font-mono block mb-1">
+                  Project Title
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={newProjectTitle}
+                  onChange={(e) => setNewProjectTitle(e.target.value)}
+                  placeholder="e.g., The Evolution of Gothic Architecture"
+                  className="w-full text-xs p-2.5 bg-white border border-[#E5DFD3] rounded-xl focus:outline-none focus:border-[#18181B]"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-bold uppercase text-[#78716C] font-mono block mb-1">
+                  Abstract / Thesis (Optional)
+                </label>
+                <textarea
+                  value={newProjectDesc}
+                  onChange={(e) => setNewProjectDesc(e.target.value)}
+                  rows={3}
+                  placeholder="Describe your research hypothesis and objectives..."
+                  className="w-full text-xs p-2.5 bg-white border border-[#E5DFD3] rounded-xl focus:outline-none focus:border-[#18181B] resize-none"
+                />
+              </div>
+              <div className="flex items-center justify-end gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setIsCreatingProject(false)}
+                  className="px-3 py-1.5 text-xs text-[#78716C] hover:text-[#1C1917]"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-1.5 bg-[#18181B] hover:bg-[#27272A] text-white text-xs font-semibold rounded-xl transition-colors shadow-2xs"
+                >
+                  Create Project
+                </button>
+              </div>
+            </form>
+          ) : (
+            <button
+              onClick={() => setIsCreatingProject(true)}
+              className="py-2 px-4 bg-[#18181B] hover:bg-[#27272A] text-white text-xs font-semibold rounded-xl flex items-center justify-center gap-1.5 mx-auto transition-colors shadow-2xs"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Create Project</span>
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex-1 flex flex-col h-full bg-[#FAF7F2] text-[#1C1917] overflow-y-auto px-8 py-6">
       {/* Top Header */}
       <div className="flex items-center justify-between border-b border-[#E5DFD3] pb-4">
         <div className="flex items-center gap-6">
           <div>
-            <span className="text-[10px] font-bold uppercase tracking-widest text-[#78716C] font-mono block">
-              PROJECT: SPATIAL FORMS
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-[#78716C] font-mono block">
+                PROJECT
+              </span>
+              {projects.length > 1 && (
+                <select
+                  value={selectedProjectId || ""}
+                  onChange={(e) => handleSelectProject(e.target.value)}
+                  className="text-[10px] font-mono bg-transparent border border-[#E5DFD3] rounded px-1.5 py-0.5 text-stone-600 focus:outline-none"
+                >
+                  {projects.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.title}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
             <h2 className="font-serif text-lg font-bold text-[#1C1917]">
               {projectTitle}
             </h2>
@@ -234,17 +406,78 @@ export const ResearchProjectWorkspace: React.FC = () => {
                 }`}
               >
                 {tab}
+                {tab === "questions" && questionsList.length > 0 && ` (${questionsList.length})`}
+                {tab === "evidence" && evidenceList.length > 0 && ` (${evidenceList.length})`}
               </button>
             ))}
           </div>
         </div>
 
-        <div className="flex items-center gap-2 text-[#78716C]">
+        <div className="flex items-center gap-3">
           <span className="text-[11px] font-mono bg-[#EFEAE1] px-2 py-0.5 rounded text-stone-600 font-medium">
-            3 Sources Active
+            {evidenceList.length} Evidence • {draftWords} Words
           </span>
+          <button
+            onClick={() => setIsCreatingProject(true)}
+            className="p-1.5 bg-[#18181B] hover:bg-[#27272A] text-white rounded-lg flex items-center gap-1 font-semibold text-xs transition-colors shadow-2xs"
+            title="Create New Project"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>New Project</span>
+          </button>
         </div>
       </div>
+
+      {/* New Project Modal */}
+      {isCreatingProject && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="w-full max-w-md bg-white rounded-2xl p-6 shadow-xl space-y-4 border border-[#E5DFD3]">
+            <h3 className="font-serif text-lg font-bold text-[#1C1917]">New Research Project</h3>
+            <form onSubmit={handleCreateProject} className="space-y-3">
+              <div>
+                <label className="text-[10px] font-bold uppercase text-[#78716C] font-mono block mb-1">
+                  Title
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={newProjectTitle}
+                  onChange={(e) => setNewProjectTitle(e.target.value)}
+                  placeholder="e.g., Medieval Epistemology and Architecture"
+                  className="w-full text-xs p-2.5 bg-stone-50 border border-[#E5DFD3] rounded-xl focus:outline-none focus:border-[#18181B]"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-bold uppercase text-[#78716C] font-mono block mb-1">
+                  Abstract / Thesis
+                </label>
+                <textarea
+                  value={newProjectDesc}
+                  onChange={(e) => setNewProjectDesc(e.target.value)}
+                  rows={3}
+                  placeholder="Describe your research hypothesis..."
+                  className="w-full text-xs p-2.5 bg-stone-50 border border-[#E5DFD3] rounded-xl focus:outline-none focus:border-[#18181B] resize-none"
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsCreatingProject(false)}
+                  className="px-3 py-1.5 text-xs text-[#78716C] hover:text-[#1C1917]"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-1.5 bg-[#18181B] hover:bg-[#27272A] text-white text-xs font-semibold rounded-xl"
+                >
+                  Create
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* OVERVIEW TAB */}
       {activeTab === "overview" && (
@@ -252,20 +485,26 @@ export const ResearchProjectWorkspace: React.FC = () => {
           <div className="bg-[#FFFFFF] dark:bg-[#27231E] border border-[#18181B]/15 dark:border-white/15 rounded-2xl p-6 shadow-sm space-y-4">
             <h3 className="font-serif text-lg font-bold text-[#1C1917] dark:text-[#EAE5DC]">Project Abstract</h3>
             <p className="text-xs text-[#57534E] dark:text-[#B5ADA3] leading-relaxed">
-              This research project investigates how architectural innovations between the 11th and 14th centuries reflected shifts in theological epistemology, geometric mathematics, and civic institutional power in medieval Europe.
+              {projectDescription || "No abstract provided for this project. Formulate your scholarly scope and hypothesis to orient your research."}
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
               <div className="p-3 bg-[#FAF7F2] dark:bg-[#1E1B18] rounded-xl border border-[#18181B]/15 dark:border-white/15 shadow-2xs">
                 <div className="text-[10px] font-bold uppercase text-[#78716C]">Key Questions</div>
-                <div className="text-base font-bold text-[#1C1917] dark:text-[#EAE5DC] mt-1">4 Active</div>
+                <div className="text-base font-bold text-[#1C1917] dark:text-[#EAE5DC] mt-1">
+                  {questionsList.length} Active
+                </div>
               </div>
               <div className="p-3 bg-[#FAF7F2] dark:bg-[#1E1B18] rounded-xl border border-[#18181B]/15 dark:border-white/15 shadow-2xs">
                 <div className="text-[10px] font-bold uppercase text-[#78716C]">Evidence Cited</div>
-                <div className="text-base font-bold text-[#1C1917] dark:text-[#EAE5DC] mt-1">{evidenceList.length} Items</div>
+                <div className="text-base font-bold text-[#1C1917] dark:text-[#EAE5DC] mt-1">
+                  {evidenceList.length} Items
+                </div>
               </div>
               <div className="p-3 bg-[#FAF7F2] dark:bg-[#1E1B18] rounded-xl border border-[#18181B]/15 dark:border-white/15 shadow-2xs">
                 <div className="text-[10px] font-bold uppercase text-[#78716C]">Working Draft</div>
-                <div className="text-base font-bold text-[#1C1917] dark:text-[#EAE5DC] mt-1">1,420 words</div>
+                <div className="text-base font-bold text-[#1C1917] dark:text-[#EAE5DC] mt-1">
+                  {draftWords} words
+                </div>
               </div>
             </div>
           </div>
@@ -276,38 +515,88 @@ export const ResearchProjectWorkspace: React.FC = () => {
       {activeTab === "questions" && (
         <div className="max-w-5xl mx-auto w-full space-y-4 pt-6 pb-16">
           <div className="flex justify-between items-center">
-            <h3 className="font-serif text-lg font-bold text-[#1C1917] dark:text-[#EAE5DC]">Guiding Scholarly Inquiries</h3>
+            <div>
+              <h3 className="font-serif text-lg font-bold text-[#1C1917] dark:text-[#EAE5DC]">Guiding Scholarly Inquiries</h3>
+              <p className="text-xs text-[#78716C]">Core questions shaping the scope of this project.</p>
+            </div>
+            <button
+              onClick={() => setIsAddingQuestion(true)}
+              className="p-1.5 bg-[#18181B] hover:bg-[#27272A] text-white rounded-lg flex items-center gap-1 font-semibold text-xs transition-colors shadow-2xs"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Add Question</span>
+            </button>
           </div>
-          <div className="space-y-3">
-            {[
-              {
-                q: "How did rib-vaulting change interior acoustic propagation in choir areas?",
-                status: "Open Inquiry",
-                source: "Gothic Acoustics Vol II",
-              },
-              {
-                q: "Did proto-scholastic mysticism influence light distribution through clerestory windows?",
-                status: "Evidence Corroborated",
-                source: "Suger of Saint-Denis, De Consecratione",
-              },
-              {
-                q: "What was the guild apprenticeship transmission rate for geometric stonecutters?",
-                status: "Under Review",
-                source: "Masons and Master Builders",
-              },
-            ].map((item, idx) => (
-              <div
-                key={idx}
-                className="bg-[#FFFFFF] dark:bg-[#27231E] border border-[#18181B]/15 dark:border-white/15 rounded-2xl p-5 shadow-xs space-y-2 hover:border-[#18181B]/30 dark:hover:border-white/30 hover:shadow-sm transition-all"
-              >
-                <div className="flex items-center justify-between text-[10px] font-mono text-[#78716C]">
-                  <span className="text-teal-800 font-bold">{item.status}</span>
-                  <span>Ref: {item.source}</span>
-                </div>
-                <h4 className="font-serif text-sm font-bold text-[#1C1917]">{item.q}</h4>
+
+          {isAddingQuestion && (
+            <form onSubmit={handleAddQuestion} className="bg-white border border-[#E5DFD3] rounded-2xl p-4 shadow-sm space-y-3">
+              <div>
+                <label className="text-[10px] font-bold uppercase text-[#78716C] font-mono block mb-1">
+                  Inquiry Question
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={newQuestionText}
+                  onChange={(e) => setNewQuestionText(e.target.value)}
+                  placeholder="e.g., How did rib-vaulting change interior acoustic propagation?"
+                  className="w-full text-xs p-2.5 bg-stone-50 border border-[#E5DFD3] rounded-xl focus:outline-none focus:border-[#18181B]"
+                />
               </div>
-            ))}
-          </div>
+              <div>
+                <label className="text-[10px] font-bold uppercase text-[#78716C] font-mono block mb-1">
+                  Source / Context (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={newQuestionSource}
+                  onChange={(e) => setNewQuestionSource(e.target.value)}
+                  placeholder="e.g., Gothic Acoustics Vol II"
+                  className="w-full text-xs p-2.5 bg-stone-50 border border-[#E5DFD3] rounded-xl focus:outline-none focus:border-[#18181B]"
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsAddingQuestion(false)}
+                  className="px-3 py-1.5 text-xs text-[#78716C] hover:text-[#1C1917]"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-1.5 bg-[#18181B] hover:bg-[#27272A] text-white text-xs font-semibold rounded-xl"
+                >
+                  Save Question
+                </button>
+              </div>
+            </form>
+          )}
+
+          {questionsList.length === 0 ? (
+            <div className="bg-[#FFFFFF] dark:bg-[#27231E] border border-[#18181B]/15 dark:border-white/15 rounded-2xl p-8 text-center space-y-2">
+              <HelpCircle className="w-8 h-8 text-[#A8A29E] mx-auto" />
+              <p className="font-serif text-sm font-bold text-[#1C1917] dark:text-[#EAE5DC]">No inquiries yet</p>
+              <p className="text-xs text-[#78716C] dark:text-[#B5ADA3]">
+                Add research questions to define hypotheses and guide your source examination.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {questionsList.map((item) => (
+                <div
+                  key={item.id}
+                  className="bg-[#FFFFFF] dark:bg-[#27231E] border border-[#18181B]/15 dark:border-white/15 rounded-2xl p-5 shadow-xs space-y-2 hover:border-[#18181B]/30 dark:hover:border-white/30 hover:shadow-sm transition-all"
+                >
+                  <div className="flex items-center justify-between text-[10px] font-mono text-[#78716C]">
+                    <span className="text-teal-800 font-bold">{item.status}</span>
+                    <span>Ref: {item.source}</span>
+                  </div>
+                  <h4 className="font-serif text-sm font-bold text-[#1C1917]">{item.q}</h4>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -318,10 +607,10 @@ export const ResearchProjectWorkspace: React.FC = () => {
           <div className="flex items-start justify-between">
             <div className="space-y-1">
               <h1 className="font-serif text-3xl font-bold text-[#1C1917] tracking-tight">
-                Claim Analysis
+                Synthesized Evidence
               </h1>
               <p className="text-xs text-[#78716C] max-w-xl leading-relaxed">
-                Examining the structural evolution from Romanesque to Gothic cathedral design, specifically focusing on load distribution techniques.
+                Examining corroborating and counter-evidence extracted from your library and readings.
               </p>
             </div>
 
@@ -341,7 +630,7 @@ export const ResearchProjectWorkspace: React.FC = () => {
                     filterType === "supporting" ? "bg-white text-[#1C1917] shadow-2xs font-bold" : "text-[#78716C]"
                   }`}
                 >
-                  Supporting
+                  Supporting ({supportingCount})
                 </button>
                 <button
                   onClick={() => setFilterType("counter")}
@@ -349,24 +638,102 @@ export const ResearchProjectWorkspace: React.FC = () => {
                     filterType === "counter" ? "bg-white text-[#1C1917] shadow-2xs font-bold" : "text-[#78716C]"
                   }`}
                 >
-                  Counter
+                  Counter ({counterCount})
                 </button>
               </div>
+
+              <button
+                onClick={() => setIsAddingEvidence(true)}
+                className="p-1.5 bg-[#18181B] hover:bg-[#27272A] text-white rounded-lg flex items-center gap-1 font-semibold text-xs transition-colors shadow-2xs"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Add Evidence</span>
+              </button>
             </div>
           </div>
 
-          {/* Claim Block */}
-          <div className="space-y-6">
-            <div className="space-y-1">
-              <h3 className="font-serif text-lg font-bold text-[#1C1917]">
-                • Claim: The pointed arch was structurally necessary, not merely aesthetic.
-              </h3>
-              <p className="text-[11px] text-[#78716C] font-mono">
-                Hypothesis 2.4 • 3 Evidence Items Verified
+          {isAddingEvidence && (
+            <form onSubmit={handleAddEvidence} className="bg-white border border-[#E5DFD3] rounded-2xl p-5 shadow-sm space-y-3">
+              <div>
+                <label className="text-[10px] font-bold uppercase text-[#78716C] font-mono block mb-1">
+                  Quotation / Claim
+                </label>
+                <textarea
+                  required
+                  rows={3}
+                  value={newEvidenceQuote}
+                  onChange={(e) => setNewEvidenceQuote(e.target.value)}
+                  placeholder="Paste quotation or observed evidence..."
+                  className="w-full text-xs p-2.5 bg-stone-50 border border-[#E5DFD3] rounded-xl focus:outline-none focus:border-[#18181B] resize-none"
+                />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[10px] font-bold uppercase text-[#78716C] font-mono block mb-1">
+                    Citation / Source
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={newEvidenceCitation}
+                    onChange={(e) => setNewEvidenceCitation(e.target.value)}
+                    placeholder="e.g., Viollet-le-Duc (1854), Vol 4, p. 45"
+                    className="w-full text-xs p-2 bg-stone-50 border border-[#E5DFD3] rounded-xl focus:outline-none focus:border-[#18181B]"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold uppercase text-[#78716C] font-mono block mb-1">
+                    Stance
+                  </label>
+                  <select
+                    value={newEvidenceType}
+                    onChange={(e) => setNewEvidenceType(e.target.value as "supporting" | "counter")}
+                    className="w-full text-xs p-2 bg-stone-50 border border-[#E5DFD3] rounded-xl focus:outline-none focus:border-[#18181B]"
+                  >
+                    <option value="supporting">Supporting</option>
+                    <option value="counter">Counter / Complicating</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="text-[10px] font-bold uppercase text-[#78716C] font-mono block mb-1">
+                  Notes / Diagram Label (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={newEvidenceNotes}
+                  onChange={(e) => setNewEvidenceNotes(e.target.value)}
+                  placeholder="e.g., Stress distribution diagram"
+                  className="w-full text-xs p-2 bg-stone-50 border border-[#E5DFD3] rounded-xl focus:outline-none focus:border-[#18181B]"
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setIsAddingEvidence(false)}
+                  className="px-3 py-1.5 text-xs text-[#78716C] hover:text-[#1C1917]"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-1.5 bg-[#18181B] hover:bg-[#27272A] text-white text-xs font-semibold rounded-xl"
+                >
+                  Save Evidence
+                </button>
+              </div>
+            </form>
+          )}
+
+          {filteredEvidence.length === 0 ? (
+            <div className="bg-[#FFFFFF] dark:bg-[#27231E] border border-[#18181B]/15 dark:border-white/15 rounded-2xl p-8 text-center space-y-2">
+              <FileText className="w-8 h-8 text-[#A8A29E] mx-auto" />
+              <p className="font-serif text-sm font-bold text-[#1C1917] dark:text-[#EAE5DC]">No evidence items found</p>
+              <p className="text-xs text-[#78716C] dark:text-[#B5ADA3]">
+                Extract evidence and citations while reading to corroborate your claims.
               </p>
             </div>
-
-            {/* Grid of Evidence Cards */}
+          ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {filteredEvidence.map((ev) => (
                 <div
@@ -391,7 +758,16 @@ export const ResearchProjectWorkspace: React.FC = () => {
                         )}
                         <span>{ev.type === "counter" ? "Counter / Complicating" : "Supporting"}</span>
                       </div>
-                      <span className="text-[10px] text-[#78716C] font-mono">Strength: {ev.strength}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-[#78716C] font-mono">Strength: {ev.strength}</span>
+                        <button
+                          onClick={() => handleDeleteEvidence(ev.id)}
+                          className="text-[#78716C] hover:text-rose-600 transition-colors"
+                          title="Delete Evidence"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
 
                     <p
@@ -403,9 +779,9 @@ export const ResearchProjectWorkspace: React.FC = () => {
                     </p>
 
                     {ev.diagram && (
-                      <div className="w-full h-20 bg-[#EAE4DA] dark:bg-[#1E1B18] rounded-lg border border-[#18181B]/15 dark:border-white/10 flex flex-col items-center justify-center p-2 text-center shadow-inner">
+                      <div className="w-full h-16 bg-[#EAE4DA] dark:bg-[#1E1B18] rounded-lg border border-[#18181B]/15 dark:border-white/10 flex flex-col items-center justify-center p-2 text-center shadow-inner">
                         <span className="font-serif italic text-xs text-[#78716C]">
-                          Visual Diagram: {ev.diagramLabel}
+                          Diagram / Note: {ev.diagramLabel}
                         </span>
                       </div>
                     )}
@@ -420,7 +796,7 @@ export const ResearchProjectWorkspace: React.FC = () => {
                 </div>
               ))}
             </div>
-          </div>
+          )}
         </div>
       )}
 
@@ -431,26 +807,19 @@ export const ResearchProjectWorkspace: React.FC = () => {
             <input
               type="text"
               value={draftTitle}
-              onChange={(e) => {
-                setDraftTitle(e.target.value);
-                LumaApi.saveResearchDraft({
-                  id: `draft_${projectId}`,
-                  project_id: projectId,
-                  title: e.target.value,
-                  content: draftContent,
-                  updated_at: new Date().toISOString(),
-                }).catch(console.error);
-              }}
+              onChange={(e) => handleDraftTitleChange(e.target.value)}
+              placeholder="Draft Section Title..."
               className="font-serif text-2xl font-bold text-[#1C1917] w-full border-b border-transparent hover:border-[#E5DFD3] focus:border-[#18181B] focus:outline-none pb-1"
             />
             <div className="space-y-2">
-              <span className="text-[10px] font-mono text-[#78716C] uppercase font-bold">
-                Working Draft (Auto-saved to SQLite)
-              </span>
+              <div className="flex items-center justify-between text-[10px] font-mono text-[#78716C] uppercase font-bold">
+                <span>Working Draft (Auto-saved to SQLite)</span>
+                <span>{draftWords} Words</span>
+              </div>
               <textarea
                 value={draftContent}
                 onChange={(e) => handleDraftChange(e.target.value)}
-                rows={12}
+                rows={14}
                 className="w-full text-xs leading-relaxed text-[#292524] bg-stone-50/50 border border-[#E5DFD3] rounded-xl p-4 focus:outline-none focus:border-[#18181B] resize-y font-serif"
                 placeholder="Compose research draft, synthesizing claims and citations..."
               />

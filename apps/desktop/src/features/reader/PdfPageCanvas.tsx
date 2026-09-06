@@ -12,6 +12,7 @@ interface PdfPageCanvasProps {
   className?: string;
   fallbackText?: string | null;
   hasTextLayer?: boolean;
+  targetWidth?: number;
   onPageLoaded?: (hasText: boolean) => void;
 }
 
@@ -32,6 +33,7 @@ export const PdfPageCanvas: React.FC<PdfPageCanvasProps> = ({
   className = "",
   fallbackText,
   hasTextLayer,
+  targetWidth,
   onPageLoaded,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -39,8 +41,8 @@ export const PdfPageCanvas: React.FC<PdfPageCanvasProps> = ({
   const [renderState, setRenderState] = useState<"loading" | "rendered" | "error">("loading");
   const [textSpans, setTextSpans] = useState<TextSpan[]>([]);
   const [pageDimensions, setPageDimensions] = useState<{ width: number; height: number }>({
-    width: isThumbnail ? 160 : 440,
-    height: isThumbnail ? 220 : 600,
+    width: isThumbnail ? 160 : (targetWidth || 480),
+    height: isThumbnail ? 220 : 640,
   });
   const [isScannedOnly, setIsScannedOnly] = useState<boolean>(false);
   const [isVisible, setIsVisible] = useState<boolean>(!isThumbnail);
@@ -77,7 +79,6 @@ export const PdfPageCanvas: React.FC<PdfPageCanvasProps> = ({
         return;
       }
 
-
       try {
         setRenderState("loading");
         const page = await pdfDoc.getPage(pageNum);
@@ -92,19 +93,19 @@ export const PdfPageCanvas: React.FC<PdfPageCanvasProps> = ({
         const unscaledViewport = page.getViewport({ scale: 1.0 });
         const dpr = window.devicePixelRatio || 1;
 
-        let targetWidth = 440;
+        let baseTargetWidth = targetWidth || 480;
         if (isThumbnail) {
-          targetWidth = 180;
+          baseTargetWidth = 180;
         }
 
-        const baseScale = targetWidth / unscaledViewport.width;
+        const baseScale = baseTargetWidth / unscaledViewport.width;
         const effectiveZoom = isThumbnail ? 1.0 : zoom / 100;
         const finalScale = baseScale * effectiveZoom;
 
-        const viewport = page.getViewport({ scale: finalScale * dpr });
-        const logicalViewport = page.getViewport({ scale: finalScale });
-        const logicalWidth = viewport.width / dpr;
-        const logicalHeight = viewport.height / dpr;
+        // Viewport at logical display scale
+        const viewport = page.getViewport({ scale: finalScale });
+        const logicalWidth = Math.floor(viewport.width);
+        const logicalHeight = Math.floor(viewport.height);
 
         setPageDimensions({ width: logicalWidth, height: logicalHeight });
 
@@ -113,7 +114,7 @@ export const PdfPageCanvas: React.FC<PdfPageCanvasProps> = ({
           const spans: TextSpan[] = [];
           for (const item of textContent.items) {
             if ("str" in item && typeof item.str === "string" && item.str.length > 0) {
-              const [vx, vy] = logicalViewport.convertToViewportPoint(
+              const [vx, vy] = viewport.convertToViewportPoint(
                 item.transform[4] as number,
                 item.transform[5] as number
               );
@@ -123,10 +124,10 @@ export const PdfPageCanvas: React.FC<PdfPageCanvasProps> = ({
               const itemWidth = (item.width || 0) * finalScale;
               spans.push({
                 str: item.str,
-                left: vx,
-                top: vy - fontHeight,
-                width: itemWidth,
-                height: fontHeight,
+                left: Math.round(vx),
+                top: Math.round(vy - fontHeight),
+                width: Math.max(1, Math.round(itemWidth)),
+                height: Math.max(1, Math.round(fontHeight)),
                 fontSize: Math.max(1, fontHeight),
               });
             }
@@ -143,23 +144,29 @@ export const PdfPageCanvas: React.FC<PdfPageCanvasProps> = ({
         const canvas = canvasRef.current;
         if (!canvas) return;
 
-        canvas.width = viewport.width;
-        canvas.height = viewport.height;
+        // High-DPI buffer scaling: internal buffer is scaled by DPR while CSS size is logical pixels
+        canvas.width = Math.floor(logicalWidth * dpr);
+        canvas.height = Math.floor(logicalHeight * dpr);
         canvas.style.width = `${logicalWidth}px`;
         canvas.style.height = `${logicalHeight}px`;
 
         const ctx = canvas.getContext("2d", { alpha: false });
         if (!ctx) return;
 
-        // White background baseline
+        // Reset transform to identity and clear background
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.fillStyle = "#FFFFFF";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+        // Transform for devicePixelRatio scaling
+        const transform = dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : undefined;
+
         renderTask = page.render({
-          canvasContext: ctx,
-          viewport: viewport,
           canvas: canvas,
-        });
+          canvasContext: ctx,
+          transform: transform,
+          viewport: viewport,
+        } as any);
 
         await renderTask.promise;
         if (!isCancelled) {
@@ -215,10 +222,11 @@ export const PdfPageCanvas: React.FC<PdfPageCanvasProps> = ({
   return (
     <div
       ref={containerRef}
-      className={`relative flex flex-col items-center justify-center bg-white border border-[#18181B]/15 dark:border-white/20 rounded-sm shadow-[0_4px_20px_rgba(0,0,0,0.12),0_1px_4px_rgba(0,0,0,0.08)] transition-all ${className}`}
+      data-page-num={pageNum}
+      className={`relative flex flex-col items-center bg-white border border-[#18181B]/15 dark:border-white/20 rounded-sm shadow-[0_4px_20px_rgba(0,0,0,0.12),0_1px_4px_rgba(0,0,0,0.08)] transition-all ${className}`}
       style={{
         width: `${pageDimensions.width}px`,
-        minHeight: `${pageDimensions.height}px`,
+        height: `${pageDimensions.height}px`,
       }}
     >
       {/* Visual Canvas Layer */}
@@ -242,10 +250,11 @@ export const PdfPageCanvas: React.FC<PdfPageCanvasProps> = ({
                 position: "absolute",
                 left: `${span.left}px`,
                 top: `${span.top}px`,
+                width: `${span.width}px`,
+                height: `${span.height}px`,
                 fontSize: `${span.fontSize}px`,
+                lineHeight: `${span.height}px`,
                 fontFamily: "sans-serif",
-                lineHeight: "1",
-                transformOrigin: "left top",
                 color: "transparent",
                 userSelect: "text",
                 whiteSpace: "pre",
