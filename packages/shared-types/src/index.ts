@@ -529,3 +529,105 @@ export interface ReadingAnalytics {
   time_focus_data: number[];
 }
 
+// ============================================================================
+// Canonical Document Model (ARCH-01)
+// ============================================================================
+
+export type DocumentFamily = "reflowable" | "fixed_layout" | "image_sequence";
+
+export interface BoundingBox {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface DocumentPosition {
+  section_index: number;
+  node_id?: string | null;
+  char_offset: number;
+  page_number?: number | null;
+  geometry?: BoundingBox | null;
+  locator?: string | null;
+}
+
+export interface DocumentRange {
+  start: DocumentPosition;
+  end: DocumentPosition;
+  text_snippet?: string | null;
+}
+
+export type NodeKind =
+  | { type: "document" }
+  | { type: "section"; data: { index: number; title?: string | null } }
+  | { type: "heading"; data: { level: number } }
+  | { type: "paragraph"; data: { index: number } }
+  | { type: "list"; data: { ordered: boolean } }
+  | { type: "list_item" }
+  | { type: "blockquote" }
+  | { type: "table" }
+  | { type: "table_row" }
+  | { type: "table_cell" }
+  | { type: "code_block"; data: { language?: string | null } }
+  | { type: "image"; data: { resource_id: string; alt?: string | null; dimensions?: [number, number] | null } }
+  | { type: "footnote"; data: { id: string } }
+  | { type: "link"; data: { href: string } }
+  | { type: "page_break"; data: { page_number: number } };
+
+export interface StructureNode {
+  id: string;
+  kind: NodeKind;
+  text?: string | null;
+  children: StructureNode[];
+  range?: DocumentRange | null;
+}
+
+export interface DocumentStructure {
+  root: StructureNode;
+  total_sections: number;
+  total_paragraphs: number;
+  total_words: number;
+}
+
+export interface DocumentCapabilities {
+  searchable: boolean;
+  selectable: boolean;
+  annotatable: boolean;
+  reflowable: boolean;
+  fixed_layout: boolean;
+  image_sequence: boolean;
+  extractable_text: boolean;
+  has_geometry: boolean;
+  has_resources: boolean;
+  has_toc: boolean;
+}
+
+export interface ResourceDescriptor {
+  id: string;
+  href: string;
+  media_type: string;
+  byte_size?: number | null;
+  dimensions?: [number, number] | null;
+}
+
+export interface CitationContext {
+  document_title: string;
+  authors: string[];
+  publisher?: string | null;
+  publication_date?: string | null;
+  section_title?: string | null;
+  page_number?: number | null;
+  locator: string;
+  quote: string;
+  formatted_citation: string;
+}
+
+export interface CanonicalSearchMatch {
+  range: DocumentRange;
+  section_index: number;
+  section_title: string;
+  snippet: string;
+  match_char_offset: number;
+  confidence_score: number;
+}
+

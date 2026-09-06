@@ -4,6 +4,10 @@ use tracing::{debug, error, info, instrument};
 
 use luma_core::error::BackendError;
 use luma_core::ids::{BookId, FileId};
+use luma_core::models::canonical::{
+    CanonicalSearchMatch, CitationContext, DocumentRange, DocumentStructure, ResourceDescriptor,
+    StructureNode,
+};
 use luma_reader::{ChapterContent, DocumentSearchMatch, PdfPageData};
 use luma_storage::services::OpenDocumentResult;
 
@@ -153,4 +157,200 @@ pub fn get_book_file_bytes(
 
     info!(bytes_len = bytes.len(), FILE_BYTES_RETRIEVED_MSG);
     Ok(bytes)
+}
+
+#[instrument(skip(ctx), fields(book_id = %book_id))]
+#[tauri::command]
+pub async fn get_document_structure(
+    ctx: State<'_, LumaAppContext>,
+    book_id: String,
+) -> Result<DocumentStructure, BackendError> {
+    let bid = parse_book_id(&book_id)?;
+    debug!(?bid, "Retrieving document structure");
+
+    let structure = ctx
+        .reader_service
+        .get_document_structure(&bid)
+        .await
+        .map_err(|e| {
+            error!(error = %e, "Failed to retrieve document structure");
+            BackendError::from(e)
+        })?;
+
+    Ok(structure)
+}
+
+#[instrument(skip(ctx), fields(book_id = %book_id, node_id = %node_id))]
+#[tauri::command]
+pub async fn get_document_node_text(
+    ctx: State<'_, LumaAppContext>,
+    book_id: String,
+    node_id: String,
+) -> Result<String, BackendError> {
+    let bid = parse_book_id(&book_id)?;
+    debug!(?bid, ?node_id, "Retrieving node text");
+
+    let text = ctx
+        .reader_service
+        .get_node_text(&bid, &node_id)
+        .await
+        .map_err(|e| {
+            error!(error = %e, "Failed to retrieve node text");
+            BackendError::from(e)
+        })?;
+
+    Ok(text)
+}
+
+#[instrument(skip(ctx), fields(book_id = %book_id))]
+#[tauri::command]
+pub async fn get_document_range_text(
+    ctx: State<'_, LumaAppContext>,
+    book_id: String,
+    range: DocumentRange,
+) -> Result<String, BackendError> {
+    let bid = parse_book_id(&book_id)?;
+    debug!(?bid, ?range, "Retrieving range text");
+
+    let text = ctx
+        .reader_service
+        .get_range_text(&bid, &range)
+        .await
+        .map_err(|e| {
+            error!(error = %e, "Failed to retrieve range text");
+            BackendError::from(e)
+        })?;
+
+    Ok(text)
+}
+
+#[instrument(skip(ctx), fields(book_id = %book_id, section_or_page = section_or_page, paragraph_index = paragraph_index))]
+#[tauri::command]
+pub async fn get_document_paragraph(
+    ctx: State<'_, LumaAppContext>,
+    book_id: String,
+    section_or_page: usize,
+    paragraph_index: usize,
+) -> Result<String, BackendError> {
+    let bid = parse_book_id(&book_id)?;
+    debug!(?bid, section_or_page, paragraph_index, "Retrieving paragraph");
+
+    let text = ctx
+        .reader_service
+        .get_paragraph(&bid, section_or_page, paragraph_index)
+        .await
+        .map_err(|e| {
+            error!(error = %e, "Failed to retrieve paragraph");
+            BackendError::from(e)
+        })?;
+
+    Ok(text)
+}
+
+#[instrument(skip(ctx), fields(book_id = %book_id))]
+#[tauri::command]
+pub async fn get_document_headings(
+    ctx: State<'_, LumaAppContext>,
+    book_id: String,
+) -> Result<Vec<StructureNode>, BackendError> {
+    let bid = parse_book_id(&book_id)?;
+    debug!(?bid, "Retrieving headings");
+
+    let headings = ctx
+        .reader_service
+        .get_document_headings(&bid)
+        .await
+        .map_err(|e| {
+            error!(error = %e, "Failed to retrieve headings");
+            BackendError::from(e)
+        })?;
+
+    Ok(headings)
+}
+
+#[instrument(skip(ctx), fields(book_id = %book_id))]
+#[tauri::command]
+pub async fn get_document_resources(
+    ctx: State<'_, LumaAppContext>,
+    book_id: String,
+) -> Result<Vec<ResourceDescriptor>, BackendError> {
+    let bid = parse_book_id(&book_id)?;
+    debug!(?bid, "Retrieving document resources");
+
+    let resources = ctx
+        .reader_service
+        .get_document_resources(&bid)
+        .await
+        .map_err(|e| {
+            error!(error = %e, "Failed to retrieve document resources");
+            BackendError::from(e)
+        })?;
+
+    Ok(resources)
+}
+
+#[instrument(skip(ctx), fields(book_id = %book_id, href_or_id = %href_or_id))]
+#[tauri::command]
+pub async fn read_document_resource(
+    ctx: State<'_, LumaAppContext>,
+    book_id: String,
+    href_or_id: String,
+) -> Result<Vec<u8>, BackendError> {
+    let bid = parse_book_id(&book_id)?;
+    debug!(?bid, ?href_or_id, "Reading document resource");
+
+    let (data, _mime) = ctx
+        .reader_service
+        .read_document_resource(&bid, &href_or_id)
+        .await
+        .map_err(|e| {
+            error!(error = %e, "Failed to read document resource");
+            BackendError::from(e)
+        })?;
+
+    Ok(data)
+}
+
+#[instrument(skip(ctx), fields(book_id = %book_id))]
+#[tauri::command]
+pub async fn get_document_citation(
+    ctx: State<'_, LumaAppContext>,
+    book_id: String,
+    range: DocumentRange,
+) -> Result<CitationContext, BackendError> {
+    let bid = parse_book_id(&book_id)?;
+    debug!(?bid, ?range, "Generating citation context");
+
+    let citation = ctx
+        .reader_service
+        .get_document_citation(&bid, &range)
+        .await
+        .map_err(|e| {
+            error!(error = %e, "Failed to generate citation context");
+            BackendError::from(e)
+        })?;
+
+    Ok(citation)
+}
+
+#[instrument(skip(ctx), fields(book_id = %book_id, query = %query))]
+#[tauri::command]
+pub async fn search_document_canonical(
+    ctx: State<'_, LumaAppContext>,
+    book_id: String,
+    query: String,
+) -> Result<Vec<CanonicalSearchMatch>, BackendError> {
+    let bid = parse_book_id(&book_id)?;
+    debug!(?bid, ?query, "Searching canonical document");
+
+    let matches = ctx
+        .reader_service
+        .search_canonical(&bid, &query)
+        .await
+        .map_err(|e| {
+            error!(error = %e, "Failed to search canonical document");
+            BackendError::from(e)
+        })?;
+
+    Ok(matches)
 }
