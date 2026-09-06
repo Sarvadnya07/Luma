@@ -16,6 +16,7 @@
 pub mod annotation;
 pub mod book;
 pub mod ingest;
+pub mod knowledge;
 pub mod metadata;
 pub mod reading;
 pub mod search;
@@ -24,6 +25,7 @@ pub mod search;
 pub use annotation::*;
 pub use book::*;
 pub use ingest::*;
+pub use knowledge::*;
 pub use metadata::*;
 pub use reading::*;
 pub use search::*;

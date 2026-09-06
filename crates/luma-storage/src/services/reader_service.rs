@@ -11,7 +11,8 @@ use luma_core::models::book::{Book, BookFile, DocumentFormat};
 use luma_core::models::reading::{Bookmark, ReadingProgress};
 use luma_reader::{
     ChapterContent, DocumentMetadata, DocumentSearchMatch, EpubDocument, FormatCapabilities,
-    PdfDocument, PdfPageData, TocItem,
+    HtmlDocument, MarkdownDocument, PdfDocument, PdfPageData, ReflowableDocument, TextDocument,
+    TocItem,
 };
 
 use crate::cache::CacheManager;
@@ -39,7 +40,7 @@ pub struct ReaderService {
     db: Database,
     #[allow(dead_code)]
     cache: CacheManager,
-    epub_sessions: Arc<RwLock<HashMap<BookId, Arc<EpubDocument>>>>,
+    reflow_sessions: Arc<RwLock<HashMap<BookId, Arc<ReflowableDocument>>>>,
     pdf_sessions: Arc<RwLock<HashMap<BookId, Arc<PdfDocument>>>>,
 }
 
@@ -50,7 +51,7 @@ impl ReaderService {
         Self {
             db,
             cache,
-            epub_sessions: Arc::new(RwLock::new(HashMap::new())),
+            reflow_sessions: Arc::new(RwLock::new(HashMap::new())),
             pdf_sessions: Arc::new(RwLock::new(HashMap::new())),
         }
     }
@@ -114,7 +115,7 @@ impl ReaderService {
 
         let (metadata, toc, total_count) = match file.format {
             DocumentFormat::Epub => {
-                let doc = Arc::new(EpubDocument::open(&file_path)?);
+                let doc = Arc::new(ReflowableDocument::Epub(EpubDocument::open(&file_path)?));
                 let spine_len = doc.spine_count() as u32;
                 let meta = DocumentMetadata {
                     title: book.title.clone(),
@@ -128,8 +129,76 @@ impl ReaderService {
                 };
                 let toc_items = doc.toc().to_vec();
 
-                // Cache active session
-                let mut sessions = self.epub_sessions.write().await;
+                let mut sessions = self.reflow_sessions.write().await;
+                if sessions.len() >= Self::MAX_CACHED_SESSIONS {
+                    sessions.clear();
+                }
+                sessions.insert(*book_id, doc);
+
+                (meta, toc_items, spine_len)
+            }
+            DocumentFormat::Txt => {
+                let doc = Arc::new(ReflowableDocument::Text(TextDocument::open(&file_path)?));
+                let spine_len = doc.spine_count() as u32;
+                let meta = DocumentMetadata {
+                    title: book.title.clone(),
+                    authors: author_names.clone(),
+                    language: book.language.clone(),
+                    publisher: book.publisher.clone(),
+                    description: book.description.clone(),
+                    isbn: book.isbn.clone(),
+                    format: DocumentFormat::Txt,
+                    total_pages_or_spines: Some(spine_len),
+                };
+                let toc_items = doc.toc().to_vec();
+
+                let mut sessions = self.reflow_sessions.write().await;
+                if sessions.len() >= Self::MAX_CACHED_SESSIONS {
+                    sessions.clear();
+                }
+                sessions.insert(*book_id, doc);
+
+                (meta, toc_items, spine_len)
+            }
+            DocumentFormat::Md => {
+                let doc = Arc::new(ReflowableDocument::Markdown(MarkdownDocument::open(&file_path)?));
+                let spine_len = doc.spine_count() as u32;
+                let meta = DocumentMetadata {
+                    title: book.title.clone(),
+                    authors: author_names.clone(),
+                    language: book.language.clone(),
+                    publisher: book.publisher.clone(),
+                    description: book.description.clone(),
+                    isbn: book.isbn.clone(),
+                    format: DocumentFormat::Md,
+                    total_pages_or_spines: Some(spine_len),
+                };
+                let toc_items = doc.toc().to_vec();
+
+                let mut sessions = self.reflow_sessions.write().await;
+                if sessions.len() >= Self::MAX_CACHED_SESSIONS {
+                    sessions.clear();
+                }
+                sessions.insert(*book_id, doc);
+
+                (meta, toc_items, spine_len)
+            }
+            DocumentFormat::Html => {
+                let doc = Arc::new(ReflowableDocument::Html(HtmlDocument::open(&file_path)?));
+                let spine_len = doc.spine_count() as u32;
+                let meta = DocumentMetadata {
+                    title: book.title.clone(),
+                    authors: author_names.clone(),
+                    language: book.language.clone(),
+                    publisher: book.publisher.clone(),
+                    description: book.description.clone(),
+                    isbn: book.isbn.clone(),
+                    format: DocumentFormat::Html,
+                    total_pages_or_spines: Some(spine_len),
+                };
+                let toc_items = doc.toc().to_vec();
+
+                let mut sessions = self.reflow_sessions.write().await;
                 if sessions.len() >= Self::MAX_CACHED_SESSIONS {
                     sessions.clear();
                 }
@@ -152,7 +221,6 @@ impl ReaderService {
                 };
                 let toc_items = doc.toc().to_vec();
 
-                // Cache active session
                 let mut sessions = self.pdf_sessions.write().await;
                 if sessions.len() >= Self::MAX_CACHED_SESSIONS {
                     sessions.clear();
@@ -198,7 +266,7 @@ impl ReaderService {
     ) -> Result<ChapterContent> {
         // Fast path: Check active session cache
         {
-            let sessions = self.epub_sessions.read().await;
+            let sessions = self.reflow_sessions.read().await;
             if let Some(doc) = sessions.get(book_id) {
                 return doc.get_chapter(spine_index);
             }
@@ -214,10 +282,25 @@ impl ReaderService {
             id: book_id.to_string(),
         })?;
 
-        let doc = Arc::new(EpubDocument::open(&file.relative_path)?);
+        let doc: Arc<ReflowableDocument> = match file.format {
+            DocumentFormat::Epub => {
+                Arc::new(ReflowableDocument::Epub(EpubDocument::open(&file.relative_path)?))
+            }
+            DocumentFormat::Txt => {
+                Arc::new(ReflowableDocument::Text(TextDocument::open(&file.relative_path)?))
+            }
+            DocumentFormat::Md => {
+                Arc::new(ReflowableDocument::Markdown(MarkdownDocument::open(&file.relative_path)?))
+            }
+            DocumentFormat::Html => {
+                Arc::new(ReflowableDocument::Html(HtmlDocument::open(&file.relative_path)?))
+            }
+            other => return Err(LumaError::UnsupportedFormat(format!("{:?}", other))),
+        };
+
         let chapter = doc.get_chapter(spine_index)?;
 
-        let mut sessions = self.epub_sessions.write().await;
+        let mut sessions = self.reflow_sessions.write().await;
         if sessions.len() >= Self::MAX_CACHED_SESSIONS {
             sessions.clear();
         }
@@ -264,7 +347,7 @@ impl ReaderService {
     ) -> Result<Vec<DocumentSearchMatch>> {
         // Fast path: Check active session cache
         {
-            let sessions = self.epub_sessions.read().await;
+            let sessions = self.reflow_sessions.read().await;
             if let Some(doc) = sessions.get(book_id) {
                 return doc.search(query);
             }
@@ -287,9 +370,30 @@ impl ReaderService {
 
         match file.format {
             DocumentFormat::Epub => {
-                let doc = Arc::new(EpubDocument::open(&file.relative_path)?);
+                let doc = Arc::new(ReflowableDocument::Epub(EpubDocument::open(&file.relative_path)?));
                 let matches = doc.search(query)?;
-                let mut sessions = self.epub_sessions.write().await;
+                let mut sessions = self.reflow_sessions.write().await;
+                sessions.insert(*book_id, doc);
+                Ok(matches)
+            }
+            DocumentFormat::Txt => {
+                let doc = Arc::new(ReflowableDocument::Text(TextDocument::open(&file.relative_path)?));
+                let matches = doc.search(query)?;
+                let mut sessions = self.reflow_sessions.write().await;
+                sessions.insert(*book_id, doc);
+                Ok(matches)
+            }
+            DocumentFormat::Md => {
+                let doc = Arc::new(ReflowableDocument::Markdown(MarkdownDocument::open(&file.relative_path)?));
+                let matches = doc.search(query)?;
+                let mut sessions = self.reflow_sessions.write().await;
+                sessions.insert(*book_id, doc);
+                Ok(matches)
+            }
+            DocumentFormat::Html => {
+                let doc = Arc::new(ReflowableDocument::Html(HtmlDocument::open(&file.relative_path)?));
+                let matches = doc.search(query)?;
+                let mut sessions = self.reflow_sessions.write().await;
                 sessions.insert(*book_id, doc);
                 Ok(matches)
             }

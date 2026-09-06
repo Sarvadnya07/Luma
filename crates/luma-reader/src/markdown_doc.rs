@@ -1,4 +1,4 @@
-﻿use std::fs::File;
+use std::fs::File;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 
@@ -27,7 +27,8 @@ impl MarkdownDocument {
         file.read_to_end(&mut bytes)
             .map_err(|e| LumaError::DocumentError(format!("Failed to read markdown file: {}", e)))?;
 
-        let raw_text = decode_text_bytes(&bytes);
+        let raw_bytes_text = decode_text_bytes(&bytes);
+        let raw_text = sanitize_untrusted_html(&raw_bytes_text);
 
         let fallback_title = path_ref
             .file_stem()

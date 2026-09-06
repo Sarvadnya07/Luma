@@ -1,4 +1,4 @@
-﻿use regex::Regex;
+use regex::Regex;
 use std::fs::File;
 use std::io::Read;
 use std::path::{Path, PathBuf};
@@ -61,7 +61,7 @@ impl HtmlDocument {
 
         // Extract TOC items from <h1> and <h2>
         static HEADING_REGEX: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-            Regex::new(r"(?i)<(h1|h2)[^>]*>([^<]+)</\1>").expect("Valid regex")
+            Regex::new(r"(?i)<(h1|h2)[^>]*>([^<]+)</(?:h1|h2)>").expect("Valid regex")
         });
 
         let mut toc = Vec::new();

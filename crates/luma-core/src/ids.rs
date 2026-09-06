@@ -99,6 +99,13 @@ define_id!(SessionId, "sess");
 define_id!(ChangeRecordId, "cr");
 define_id!(CoverImageId, "cov");
 define_id!(ImportJobId, "job");
+define_id!(NoteId, "note");
+define_id!(FlashcardId, "card");
+define_id!(StudyReviewId, "rev");
+define_id!(ResearchProjectId, "proj");
+define_id!(ResearchQuestionId, "q");
+define_id!(ResearchEvidenceId, "evi");
+define_id!(ResearchDraftId, "drf");
 
 // ============================================================================
 // Tests

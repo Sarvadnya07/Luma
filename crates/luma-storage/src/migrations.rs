@@ -395,6 +395,117 @@ pub fn run_migrations(conn: &mut Connection) -> StorageResult<()> {
         )?;
     }
 
+    if current_version < 4 {
+        tx.execute_batch(V4_KNOWLEDGE_AND_SESSIONS_SCHEMA)?;
+        tx.execute(
+            "INSERT INTO schema_migrations (version, applied_at) VALUES (4, datetime('now'))",
+            [],
+        )?;
+    }
+
     tx.commit()?;
     Ok(())
 }
+
+pub const V4_KNOWLEDGE_AND_SESSIONS_SCHEMA: &str = r#"
+-- Notes table
+CREATE TABLE IF NOT EXISTS notes (
+    id TEXT PRIMARY KEY,
+    book_id TEXT,
+    annotation_id TEXT,
+    source_type TEXT NOT NULL DEFAULT 'Book',
+    source_title TEXT NOT NULL DEFAULT '',
+    title TEXT NOT NULL,
+    content TEXT NOT NULL,
+    quote TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    is_deleted INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_notes_book_id ON notes(book_id);
+CREATE INDEX IF NOT EXISTS idx_notes_updated_at ON notes(updated_at);
+
+-- Flashcards table
+CREATE TABLE IF NOT EXISTS flashcards (
+    id TEXT PRIMARY KEY,
+    front TEXT NOT NULL,
+    back TEXT NOT NULL,
+    source_book_id TEXT,
+    source_annotation_id TEXT,
+    deck_id TEXT NOT NULL DEFAULT 'default',
+    state TEXT NOT NULL DEFAULT 'new',
+    interval_days INTEGER NOT NULL DEFAULT 1,
+    ease_factor REAL NOT NULL DEFAULT 2.5,
+    repetitions INTEGER NOT NULL DEFAULT 0,
+    due_at TEXT NOT NULL,
+    last_reviewed_at TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    is_deleted INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_flashcards_due_at ON flashcards(due_at);
+CREATE INDEX IF NOT EXISTS idx_flashcards_deck ON flashcards(deck_id);
+
+-- Study Reviews table
+CREATE TABLE IF NOT EXISTS study_reviews (
+    id TEXT PRIMARY KEY,
+    flashcard_id TEXT NOT NULL REFERENCES flashcards(id) ON DELETE CASCADE,
+    rating INTEGER NOT NULL,
+    interval_before INTEGER NOT NULL,
+    interval_after INTEGER NOT NULL,
+    ease_factor REAL NOT NULL,
+    reviewed_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_study_reviews_card_id ON study_reviews(flashcard_id);
+CREATE INDEX IF NOT EXISTS idx_study_reviews_reviewed_at ON study_reviews(reviewed_at);
+
+-- Research Projects table
+CREATE TABLE IF NOT EXISTS research_projects (
+    id TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    description TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    is_deleted INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_research_projects_updated ON research_projects(updated_at);
+
+-- Research Questions table
+CREATE TABLE IF NOT EXISTS research_questions (
+    id TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL REFERENCES research_projects(id) ON DELETE CASCADE,
+    question TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'open',
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_research_questions_project ON research_questions(project_id);
+
+-- Research Evidence table
+CREATE TABLE IF NOT EXISTS research_evidence (
+    id TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL REFERENCES research_projects(id) ON DELETE CASCADE,
+    question_id TEXT,
+    source_title TEXT NOT NULL,
+    quote TEXT NOT NULL,
+    notes TEXT,
+    stance TEXT NOT NULL DEFAULT 'supporting',
+    book_id TEXT,
+    locator TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_research_evidence_project ON research_evidence(project_id);
+
+-- Research Drafts table
+CREATE TABLE IF NOT EXISTS research_drafts (
+    id TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL REFERENCES research_projects(id) ON DELETE CASCADE,
+    title TEXT NOT NULL DEFAULT '',
+    content TEXT NOT NULL DEFAULT '',
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_research_drafts_project ON research_drafts(project_id);
+
+-- Analytics indexes on reading_sessions
+CREATE INDEX IF NOT EXISTS idx_reading_sessions_started ON reading_sessions(started_at);
+CREATE INDEX IF NOT EXISTS idx_reading_sessions_book_started ON reading_sessions(book_id, started_at);
+"#;
