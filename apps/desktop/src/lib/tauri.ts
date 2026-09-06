@@ -1217,7 +1217,12 @@ export class LumaApiClient {
     return this._call("create_note", { note }, () => {
       if (typeof localStorage !== "undefined") {
         const notes = this.listNotesSync();
-        notes.push(note);
+        const existingIdx = notes.findIndex((n) => n.id === note.id);
+        if (existingIdx >= 0) {
+          notes[existingIdx] = note;
+        } else {
+          notes.push(note);
+        }
         localStorage.setItem("luma_notes_workspace", JSON.stringify(notes));
       }
       return note;
@@ -1269,7 +1274,12 @@ export class LumaApiClient {
     return this._call("create_flashcard", { flashcard }, () => {
       if (typeof localStorage !== "undefined") {
         const cards = this.listFlashcardsSync();
-        cards.push(flashcard);
+        const existingIdx = cards.findIndex((c) => c.id === flashcard.id);
+        if (existingIdx >= 0) {
+          cards[existingIdx] = flashcard;
+        } else {
+          cards.push(flashcard);
+        }
         localStorage.setItem("luma_flashcards", JSON.stringify(cards));
       }
       return flashcard;
