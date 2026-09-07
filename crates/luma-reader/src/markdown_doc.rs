@@ -475,15 +475,15 @@ impl MarkdownDocument {
         }
         html.push_str("</div>\n");
 
-        if structure_nodes.is_empty() {
+        if structure_nodes.is_empty() && !text_body.trim().is_empty() {
             let p_node = StructureNode::new("p0", NodeKind::Paragraph { index: 0 })
-                .with_text("")
+                .with_text(text_body)
                 .with_range(DocumentRange::new(
                     DocumentPosition::new(0, 0),
-                    DocumentPosition::new(0, 0),
+                    DocumentPosition::new(0, text_body.chars().count()),
                 ));
             structure_nodes.push(p_node);
-            paragraph_texts.push(String::new());
+            paragraph_texts.push(text_body.to_string());
         }
 
         // Sanitize output through luma_security

@@ -63,14 +63,6 @@ impl TextDocument {
 
         if paragraphs.is_empty() {
             html.push_str("<p class=\"reader-paragraph\" id=\"p0\"></p>\n");
-            let p_node = StructureNode::new("p0", NodeKind::Paragraph { index: 0 })
-                .with_text("")
-                .with_range(DocumentRange::new(
-                    DocumentPosition::new(0, 0),
-                    DocumentPosition::new(0, 0),
-                ));
-            structure_nodes.push(p_node);
-            paragraph_texts.push(String::new());
         } else {
             for (idx, p) in paragraphs.iter().enumerate() {
                 paragraph_texts.push(p.to_string());
@@ -108,12 +100,16 @@ impl TextDocument {
         }
         html.push_str("</div>\n");
 
-        let toc = vec![TocItem {
-            title: title.clone(),
-            locator: "p0".to_string(),
-            play_order: Some(1),
-            children: Vec::new(),
-        }];
+        let toc = if paragraphs.is_empty() {
+            Vec::new()
+        } else {
+            vec![TocItem {
+                title: title.clone(),
+                locator: "p0".to_string(),
+                play_order: Some(1),
+                children: Vec::new(),
+            }]
+        };
 
         let root_node = StructureNode::new(
             "section-0",
@@ -122,7 +118,6 @@ impl TextDocument {
                 title: Some(title.clone()),
             },
         )
-        .with_text(title.clone())
         .with_children(structure_nodes);
 
         let structure = DocumentStructure::new(root_node);

@@ -164,7 +164,7 @@ impl HtmlDocument {
             current_offset += char_len + 1;
         }
 
-        if structure_nodes.is_empty() {
+        if structure_nodes.is_empty() && !raw_text.trim().is_empty() {
             let p_node = StructureNode::new("p0", NodeKind::Paragraph { index: 0 })
                 .with_text(&raw_text)
                 .with_range(DocumentRange::new(
@@ -182,7 +182,6 @@ impl HtmlDocument {
                 title: Some(title.clone()),
             },
         )
-        .with_text(title.clone())
         .with_children(structure_nodes);
 
         let structure = DocumentStructure::new(root_node);

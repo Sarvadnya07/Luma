@@ -104,27 +104,48 @@ impl CanonicalDocument {
             Self::Cbz(_) => Err(LumaError::UnsupportedFormat(
                 "ImageSequence format does not support paragraph text extraction".into(),
             )),
-            Self::Text(d) => d
-                .get_paragraph(paragraph_index)
-                .map(|s| s.to_string())
-                .ok_or_else(|| LumaError::NotFound {
-                    entity_type: "Paragraph".to_string(),
-                    id: paragraph_index.to_string(),
-                }),
-            Self::Markdown(d) => d
-                .get_paragraph(paragraph_index)
-                .map(|s| s.to_string())
-                .ok_or_else(|| LumaError::NotFound {
-                    entity_type: "Paragraph".to_string(),
-                    id: paragraph_index.to_string(),
-                }),
-            Self::Html(d) => d
-                .get_paragraph(paragraph_index)
-                .map(|s| s.to_string())
-                .ok_or_else(|| LumaError::NotFound {
-                    entity_type: "Paragraph".to_string(),
-                    id: paragraph_index.to_string(),
-                }),
+            Self::Text(d) => {
+                if section_or_page != 0 {
+                    return Err(LumaError::NotFound {
+                        entity_type: "Section".to_string(),
+                        id: section_or_page.to_string(),
+                    });
+                }
+                d.get_paragraph(paragraph_index)
+                    .map(|s| s.to_string())
+                    .ok_or_else(|| LumaError::NotFound {
+                        entity_type: "Paragraph".to_string(),
+                        id: paragraph_index.to_string(),
+                    })
+            }
+            Self::Markdown(d) => {
+                if section_or_page != 0 {
+                    return Err(LumaError::NotFound {
+                        entity_type: "Section".to_string(),
+                        id: section_or_page.to_string(),
+                    });
+                }
+                d.get_paragraph(paragraph_index)
+                    .map(|s| s.to_string())
+                    .ok_or_else(|| LumaError::NotFound {
+                        entity_type: "Paragraph".to_string(),
+                        id: paragraph_index.to_string(),
+                    })
+            }
+            Self::Html(d) => {
+                if section_or_page != 0 {
+                    return Err(LumaError::NotFound {
+                        entity_type: "Section".to_string(),
+                        id: section_or_page.to_string(),
+                    });
+                }
+                d.get_paragraph(paragraph_index)
+                    .map(|s| s.to_string())
+                    .ok_or_else(|| LumaError::NotFound {
+                        entity_type: "Paragraph".to_string(),
+                        id: paragraph_index.to_string(),
+                    })
+            }
         }
     }
 
