@@ -25,6 +25,7 @@ export const PdfReaderView: React.FC = () => {
   const leftPdfPageData = useReaderStore((s) => s.leftPdfPageData);
   const rightPdfPageData = useReaderStore((s) => s.rightPdfPageData);
   const bookmarks = useReaderStore((s) => s.bookmarks);
+  const annotations = useReaderStore((s) => s.annotations);
   const loadPdfPage = useReaderStore((s) => s.loadPdfPage);
   const createHighlight = useReaderStore((s) => s.createHighlight);
   const toggleBookmark = useReaderStore((s) => s.toggleBookmark);
@@ -340,6 +341,7 @@ export const PdfReaderView: React.FC = () => {
                 fallbackText={leftPdfPageData?.text_content}
                 hasTextLayer={leftPdfPageData?.has_text_layer}
                 targetWidth={isDualSpread ? 480 : 640}
+                annotations={annotations}
               />
               <div className="text-center font-mono text-[10px] text-[#78716C] pt-2">
                 Page {isDualSpread ? leftPageNum : currentPdfPage}
@@ -356,6 +358,7 @@ export const PdfReaderView: React.FC = () => {
                   fallbackText={rightPdfPageData?.text_content}
                   hasTextLayer={rightPdfPageData?.has_text_layer}
                   targetWidth={480}
+                  annotations={annotations}
                 />
                 <div className="text-center font-mono text-[10px] text-[#78716C] pt-2">
                   Page {rightPageNum}

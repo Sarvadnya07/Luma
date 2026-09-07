@@ -16,6 +16,7 @@ import { TypographySettingsDrawer } from "./TypographySettingsDrawer";
 import { EpubReaderView } from "./EpubReaderView";
 import { PdfReaderView } from "./PdfReaderView";
 import { EInkReaderView } from "./EInkReaderView";
+import { CbzReaderView } from "./CbzReaderView";
 import { perfTelemetry } from "../../lib/perfTelemetry";
 
 export interface ReaderViewProps {
@@ -110,6 +111,7 @@ export const ReaderView: React.FC<ReaderViewProps> = ({ book }) => {
   };
 
   const isPdf = documentData?.file.format === "pdf";
+  const isCbz = documentData?.file.format === "cbz" || documentData?.file.format === "cbr";
 
   return (
     <div className="relative w-full h-full flex flex-col bg-[#FAF7F2] text-[#1C1917] overflow-hidden">
@@ -236,6 +238,8 @@ export const ReaderView: React.FC<ReaderViewProps> = ({ book }) => {
             <EInkReaderView />
           ) : isPdf ? (
             <PdfReaderView />
+          ) : isCbz ? (
+            <CbzReaderView />
           ) : (
             <EpubReaderView />
           )}

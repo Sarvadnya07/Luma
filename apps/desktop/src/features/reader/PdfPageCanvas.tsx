@@ -1,6 +1,7 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useMemo } from "react";
 import type { PDFDocumentProxy } from "pdfjs-dist";
 import { Loader2, BookOpen, FileText } from "lucide-react";
+import { Annotation } from "@luma/shared-types";
 import { perfTelemetry } from "../../lib/perfTelemetry";
 
 
@@ -14,6 +15,7 @@ interface PdfPageCanvasProps {
   hasTextLayer?: boolean;
   targetWidth?: number;
   onPageLoaded?: (hasText: boolean) => void;
+  annotations?: Annotation[];
 }
 
 interface TextSpan {
@@ -35,6 +37,7 @@ export const PdfPageCanvas: React.FC<PdfPageCanvasProps> = ({
   hasTextLayer,
   targetWidth,
   onPageLoaded,
+  annotations,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -46,6 +49,47 @@ export const PdfPageCanvas: React.FC<PdfPageCanvasProps> = ({
   });
   const [isScannedOnly, setIsScannedOnly] = useState<boolean>(false);
   const [isVisible, setIsVisible] = useState<boolean>(!isThumbnail);
+
+  const pageAnnotations = useMemo(() => {
+    if (!annotations || isThumbnail) return [];
+    return annotations.filter((ann) => {
+      try {
+        const p = JSON.parse(ann.anchor_payload_json);
+        if (p.page_number !== undefined) {
+          return p.page_number === pageNum;
+        }
+      } catch {
+        // payload fallback
+      }
+      return false;
+    });
+  }, [annotations, pageNum, isThumbnail]);
+
+  const highlightRects = useMemo(() => {
+    if (!pageAnnotations.length || !textSpans.length) return [];
+    const rects: Array<{ left: number; top: number; width: number; height: number; color: string; id: string }> = [];
+
+    for (const ann of pageAnnotations) {
+      if (!ann.quote || !ann.quote.trim()) continue;
+      const quoteWords = ann.quote.trim().toLowerCase();
+      const color = ann.color_hex || "#fef08a";
+
+      for (const span of textSpans) {
+        const spanLower = span.str.toLowerCase();
+        if (spanLower.length > 1 && (quoteWords.includes(spanLower) || spanLower.includes(quoteWords))) {
+          rects.push({
+            left: span.left,
+            top: span.top,
+            width: span.width,
+            height: span.height,
+            color,
+            id: ann.id,
+          });
+        }
+      }
+    }
+    return rects;
+  }, [pageAnnotations, textSpans]);
 
   useEffect(() => {
     if (!isThumbnail || !containerRef.current) {
@@ -236,6 +280,29 @@ export const PdfPageCanvas: React.FC<PdfPageCanvasProps> = ({
           renderState === "rendered" ? "opacity-100" : "opacity-0"
         }`}
       />
+
+      {/* Visual Highlight Overlays */}
+      {renderState === "rendered" && highlightRects.length > 0 && (
+        <div
+          className="absolute inset-0 overflow-hidden pointer-events-none z-5"
+          style={{ width: `${pageDimensions.width}px`, height: `${pageDimensions.height}px` }}
+        >
+          {highlightRects.map((rect, idx) => (
+            <div
+              key={`hl-${rect.id}-${idx}`}
+              className="absolute rounded-xs"
+              style={{
+                left: `${rect.left}px`,
+                top: `${rect.top}px`,
+                width: `${rect.width}px`,
+                height: `${rect.height}px`,
+                backgroundColor: `${rect.color}55`,
+                borderBottom: `2px solid ${rect.color}`,
+              }}
+            />
+          ))}
+        </div>
+      )}
 
       {/* Selectable Text Layer Overlay for Selection & Highlighting */}
       {renderState === "rendered" && textSpans.length > 0 && (

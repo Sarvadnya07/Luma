@@ -186,7 +186,29 @@ impl CanonicalDocument {
             }
             Self::Cbz(d) => {
                 if let Ok(idx) = href_or_id.parse::<usize>() {
-                    d.get_page_image(idx)
+                    if idx < d.page_count() {
+                        d.get_page_image(idx)
+                    } else if idx > 0 && idx - 1 < d.page_count() {
+                        d.get_page_image(idx - 1)
+                    } else {
+                        Err(LumaError::NotFound {
+                            entity_type: "Page".to_string(),
+                            id: href_or_id.to_string(),
+                        })
+                    }
+                } else if let Some(stripped) = href_or_id
+                    .strip_prefix("page=")
+                    .or_else(|| href_or_id.strip_prefix("page-"))
+                    .and_then(|s| s.parse::<usize>().ok())
+                {
+                    if stripped > 0 && stripped - 1 < d.page_count() {
+                        d.get_page_image(stripped - 1)
+                    } else {
+                        Err(LumaError::NotFound {
+                            entity_type: "Page".to_string(),
+                            id: href_or_id.to_string(),
+                        })
+                    }
                 } else if let Some(pos) = d.pages().iter().position(|p| p.filename == href_or_id) {
                     d.get_page_image(pos)
                 } else {

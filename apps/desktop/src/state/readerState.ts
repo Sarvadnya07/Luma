@@ -237,7 +237,8 @@ export function createReaderStore(config: ReaderStoreConfig = {}) {
         });
 
         // Restore initial position
-        if (docData.file.format === "epub") {
+        const fmt = docData.file.format;
+        if (fmt === "epub" || fmt === "txt" || fmt === "md" || fmt === "html") {
           let initialIndex = 0;
           if (docData.initial_progress?.current_locator) {
             const match = docData.initial_progress.current_locator.match(/epubcfi\(\/6\/(\d+)/);
@@ -246,15 +247,43 @@ export function createReaderStore(config: ReaderStoreConfig = {}) {
               if (parsedSpine >= 0 && parsedSpine < (docData.total_pages_or_spines || 1)) {
                 initialIndex = parsedSpine;
               }
+            } else if (docData.initial_progress.current_page_number) {
+              const p = docData.initial_progress.current_page_number - 1;
+              if (p >= 0 && p < (docData.total_pages_or_spines || 1)) {
+                initialIndex = p;
+              }
             }
           }
           await get().loadChapter(initialIndex);
-        } else if (docData.file.format === "pdf") {
+        } else if (fmt === "pdf") {
           let initialPage = 1;
           if (docData.initial_progress?.current_page_number) {
             initialPage = docData.initial_progress.current_page_number;
           }
           await get().loadPdfPage(initialPage);
+        } else if (fmt === "cbz" || fmt === "cbr") {
+          let initialPage = 1;
+          if (docData.initial_progress?.current_page_number) {
+            initialPage = docData.initial_progress.current_page_number;
+          } else if (docData.initial_progress?.current_locator) {
+            const match = docData.initial_progress.current_locator.match(/(?:page=)?(\d+)/);
+            if (match && match[1]) {
+              initialPage = parseInt(match[1], 10);
+            }
+          }
+          const total = docData.total_pages_or_spines || 1;
+          const validPage = Math.max(1, Math.min(total, initialPage));
+          const progress: ReadingProgress = {
+            book_id: book.id,
+            progress_percentage: validPage / total,
+            current_locator: `page=${validPage}`,
+            current_chapter_title: `Page ${validPage}`,
+            current_page_number: validPage,
+            total_pages: total,
+            last_read_at: new Date().toISOString(),
+            sync: createSyncMeta(),
+          };
+          set({ readingProgress: progress });
         }
       } catch (err) {
         logger.error("Failed to open book:", err);
@@ -370,10 +399,11 @@ export function createReaderStore(config: ReaderStoreConfig = {}) {
     },
 
     jumpToLocator: async (locator: string) => {
-      const { documentData } = get();
-      if (!locator) return;
+      const { documentData, currentBook } = get();
+      if (!locator || !documentData) return;
 
-      if (documentData?.file.format === "epub") {
+      const fmt = documentData.file.format;
+      if (fmt === "epub" || fmt === "txt" || fmt === "md" || fmt === "html") {
         const cfiMatch = locator.match(/epubcfi\(\/6\/(\d+)/);
         if (cfiMatch && cfiMatch[1]) {
           const spine = Math.floor(parseInt(cfiMatch[1], 10) / 2) - 1;
@@ -390,12 +420,36 @@ export function createReaderStore(config: ReaderStoreConfig = {}) {
         const num = parseInt(locator, 10);
         if (!isNaN(num) && num >= 0 && num < (documentData.total_pages_or_spines || 1)) {
           await get().loadChapter(num);
+          return;
         }
-      } else if (documentData?.file.format === "pdf") {
+        if (!get().currentChapter) {
+          await get().loadChapter(0);
+        }
+        window.dispatchEvent(new CustomEvent("luma-reader-scroll-to", { detail: { locator } }));
+      } else if (fmt === "pdf") {
         const match = locator.match(/(?:page=)?(\d+)/);
         if (match && match[1]) {
           const page = parseInt(match[1], 10);
           await get().loadPdfPage(page);
+        }
+      } else if (fmt === "cbz" || fmt === "cbr") {
+        const match = locator.match(/(?:page=)?(\d+)/);
+        if (match && match[1] && currentBook && documentData) {
+          const page = parseInt(match[1], 10);
+          const total = documentData.total_pages_or_spines || 1;
+          const validPage = Math.max(1, Math.min(total, page));
+          const progress: ReadingProgress = {
+            book_id: currentBook.id,
+            progress_percentage: validPage / total,
+            current_locator: `page=${validPage}`,
+            current_chapter_title: `Page ${validPage}`,
+            current_page_number: validPage,
+            total_pages: total,
+            last_read_at: new Date().toISOString(),
+            sync: createSyncMeta(),
+          };
+          set({ readingProgress: progress });
+          debouncedSaveProgress(progress);
         }
       }
     },

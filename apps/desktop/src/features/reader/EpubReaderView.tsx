@@ -1,7 +1,107 @@
-import React, { useEffect, useRef, useState, useMemo } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { BookOpen } from "lucide-react";
+import { Annotation } from "@luma/shared-types";
 import { useReaderStore } from "../../state/readerState";
 import { TextSelectionToolbar } from "./TextSelectionToolbar";
+
+function highlightInTextNodes(
+  container: HTMLElement,
+  searchText: string,
+  className: string,
+  color: string,
+  annotationId: string | null
+) {
+  if (!searchText || searchText.length === 0) return;
+  const targetLower = searchText.toLowerCase();
+
+  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, {
+    acceptNode(node) {
+      if (node.parentElement?.closest("mark.luma-highlight, script, style")) {
+        return NodeFilter.FILTER_REJECT;
+      }
+      return NodeFilter.FILTER_ACCEPT;
+    },
+  });
+
+  const textNodes: Text[] = [];
+  let n: Node | null;
+  while ((n = walker.nextNode())) {
+    textNodes.push(n as Text);
+  }
+
+  for (const textNode of textNodes) {
+    const val = textNode.nodeValue;
+    if (!val) continue;
+
+    const valLower = val.toLowerCase();
+    const idx = valLower.indexOf(targetLower);
+    if (idx !== -1) {
+      try {
+        const matchNode = textNode.splitText(idx);
+        matchNode.splitText(targetLower.length);
+
+        const mark = document.createElement("mark");
+        mark.className = className;
+        mark.style.backgroundColor = `${color}55`;
+        mark.style.borderBottom = `2px solid ${color}`;
+        mark.style.borderRadius = "2px";
+        mark.style.padding = "0 2px";
+        mark.style.color = "inherit";
+        if (annotationId) {
+          mark.setAttribute("data-annotation-id", annotationId);
+        }
+        mark.textContent = matchNode.nodeValue;
+
+        matchNode.parentNode?.replaceChild(mark, matchNode);
+        break;
+      } catch {
+        // skip if DOM split error occurs
+      }
+    }
+  }
+}
+
+function applyDomHighlights(
+  container: HTMLElement,
+  annotations: Annotation[],
+  currentSpine: number,
+  searchQuery?: string
+) {
+  // 1. Remove previous marks cleanly without destroying text
+  const previousMarks = container.querySelectorAll("mark.luma-highlight, mark.luma-search-highlight");
+  previousMarks.forEach((mark) => {
+    const parent = mark.parentNode;
+    if (parent) {
+      parent.replaceChild(document.createTextNode(mark.textContent || ""), mark);
+      parent.normalize();
+    }
+  });
+
+  // 2. Filter relevant annotations for this chapter/spine
+  const relevantAnns = annotations.filter((ann) => {
+    if (!ann.quote || !ann.quote.trim()) return false;
+    try {
+      const p = JSON.parse(ann.anchor_payload_json);
+      if (p.spine_index !== undefined) {
+        return p.spine_index === currentSpine;
+      }
+    } catch {
+      // payload fallback
+    }
+    return true;
+  });
+
+  // 3. Highlight Search Matches if present
+  if (searchQuery && searchQuery.trim().length > 1) {
+    highlightInTextNodes(container, searchQuery.trim(), "luma-search-highlight", "#f59e0b", null);
+  }
+
+  // 4. Highlight User Annotations
+  for (const ann of relevantAnns) {
+    const color = ann.color_hex || "#fef08a";
+    highlightInTextNodes(container, ann.quote.trim(), "luma-highlight", color, ann.id);
+  }
+}
 
 export const EpubReaderView: React.FC = () => {
   const currentChapter = useReaderStore((s) => s.currentChapter);
@@ -9,10 +109,13 @@ export const EpubReaderView: React.FC = () => {
   const currentSpineIndex = useReaderStore((s) => s.currentSpineIndex);
   const documentData = useReaderStore((s) => s.documentData);
   const settings = useReaderStore((s) => s.settings);
+  const searchQuery = useReaderStore((s) => s.searchQuery);
   const createHighlight = useReaderStore((s) => s.createHighlight);
   const toggleBookmark = useReaderStore((s) => s.toggleBookmark);
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+
   const [selectionPos, setSelectionPos] = useState<{ top: number; left: number } | null>(null);
   const [selectedText, setSelectedText] = useState<string>("");
   const [prefixContext, setPrefixContext] = useState<string>("");
@@ -21,7 +124,39 @@ export const EpubReaderView: React.FC = () => {
 
   const totalSpines = documentData?.total_pages_or_spines || 1;
 
-  // Text selection listener
+  // Re-apply DOM highlights whenever content, annotations, spine index, or search query changes
+  useEffect(() => {
+    if (contentRef.current && currentChapter?.html_content) {
+      applyDomHighlights(contentRef.current, annotations, currentSpineIndex, searchQuery);
+    }
+  }, [currentChapter, annotations, currentSpineIndex, searchQuery]);
+
+  // Listen for scroll-to events (TOC jumps, search match jumps, bookmark jumps)
+  useEffect(() => {
+    const handleScrollTo = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (!detail?.locator || !containerRef.current) return;
+      const loc = detail.locator;
+
+      let targetEl: Element | null = null;
+      if (loc.startsWith("p") || loc.startsWith("heading-")) {
+        targetEl =
+          containerRef.current.querySelector(`#${loc}`) ||
+          containerRef.current.querySelector(`[data-node-id="${loc}"]`);
+      } else if (loc.startsWith("#")) {
+        targetEl = containerRef.current.querySelector(loc);
+      }
+
+      if (targetEl) {
+        targetEl.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    };
+
+    window.addEventListener("luma-reader-scroll-to", handleScrollTo);
+    return () => window.removeEventListener("luma-reader-scroll-to", handleScrollTo);
+  }, []);
+
+  // Text selection listener with DOM context extraction
   const handleMouseUp = () => {
     const selection = window.getSelection();
     if (!selection || selection.isCollapsed) {
@@ -40,15 +175,40 @@ export const EpubReaderView: React.FC = () => {
     const range = selection.getRangeAt(0);
     const rect = range.getBoundingClientRect();
 
-    if (currentChapter) {
-      const fullText = currentChapter.text_content;
-      const idx = fullText.indexOf(text);
-      if (idx !== -1) {
-        setPrefixContext(fullText.substring(Math.max(0, idx - 40), idx).trim());
-        setSuffixContext(fullText.substring(idx + text.length, Math.min(fullText.length, idx + text.length + 40)).trim());
+    // Extract accurate preceding and following context from DOM
+    let prefix = "";
+    let suffix = "";
+    try {
+      const parentBlock =
+        range.startContainer.parentElement?.closest("p, div, section, h1, h2, h3, h4, h5, h6") ||
+        contentRef.current;
+
+      if (parentBlock) {
+        const preRange = document.createRange();
+        preRange.setStart(parentBlock, 0);
+        preRange.setEnd(range.startContainer, range.startOffset);
+        prefix = preRange.toString().slice(-40).trim();
+
+        const postRange = document.createRange();
+        postRange.setStart(range.endContainer, range.endOffset);
+        postRange.setEnd(parentBlock, parentBlock.childNodes.length);
+        suffix = postRange.toString().slice(0, 40).trim();
+      }
+    } catch {
+      if (currentChapter?.text_content) {
+        const fullText = currentChapter.text_content;
+        const idx = fullText.indexOf(text);
+        if (idx !== -1) {
+          prefix = fullText.substring(Math.max(0, idx - 40), idx).trim();
+          suffix = fullText
+            .substring(idx + text.length, Math.min(fullText.length, idx + text.length + 40))
+            .trim();
+        }
       }
     }
 
+    setPrefixContext(prefix);
+    setSuffixContext(suffix);
     setSelectedText(text);
     setSelectionPos({
       top: rect.top,
@@ -63,6 +223,7 @@ export const EpubReaderView: React.FC = () => {
       e.preventDefault();
       const targetEl = containerRef.current?.querySelector(link.hash);
       if (targetEl) {
+        targetEl.scrollIntoView({ behavior: "smooth" });
         setFootnotePopover({
           text: targetEl.textContent || "Footnote content",
           x: e.clientX,
@@ -95,37 +256,6 @@ export const EpubReaderView: React.FC = () => {
   const getChapterProgressLabel = () => {
     return currentChapter?.title || `Section ${currentSpineIndex + 1} of ${totalSpines}`;
   };
-
-  const highlightedHtml = useMemo(() => {
-    if (!currentChapter?.html_content) return "";
-    let html = currentChapter.html_content;
-    if (!annotations || annotations.length === 0) return html;
-
-    const relevant = annotations.filter((ann) => {
-      if (!ann.quote || ann.quote.trim().length === 0) return false;
-      try {
-        const payload = JSON.parse(ann.anchor_payload_json);
-        if (payload.spine_index !== undefined) {
-          return payload.spine_index === currentSpineIndex;
-        }
-      } catch {
-        // payload fallback
-      }
-      return currentChapter.text_content?.includes(ann.quote);
-    });
-
-    for (const ann of relevant) {
-      if (!ann.quote || ann.quote.trim().length === 0) continue;
-      const color = ann.color_hex || "#fef08a";
-      const regex = new RegExp(`(${ann.quote.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "g");
-      html = html.replace(
-        regex,
-        `<mark class="luma-highlight" style="background-color: ${color}55; border-bottom: 2px solid ${color}; border-radius: 2px; padding: 0 2px; color: inherit;" data-annotation-id="${ann.id}">$1</mark>`
-      );
-    }
-
-    return html;
-  }, [currentChapter, annotations, currentSpineIndex]);
 
   const defaultTheme = { bg: "bg-[#FAF7F2]", text: "text-[#1C1917]", prose: "text-[#292524]" };
   const themeStyles: Record<string, { bg: string; text: string; prose: string }> = {
@@ -162,7 +292,7 @@ export const EpubReaderView: React.FC = () => {
         onClose={() => setSelectionPos(null)}
       />
 
-      {/* Footnote Popover */}
+      {/* Footnote Reference Popover */}
       {footnotePopover && (
         <div
           style={{ top: `${footnotePopover.y}px`, left: `${footnotePopover.x}px` }}
@@ -173,7 +303,7 @@ export const EpubReaderView: React.FC = () => {
         </div>
       )}
 
-      {/* Main Reading Container */}
+      {/* Main Reading Viewport */}
       <div
         ref={containerRef}
         className="w-full flex-1 overflow-y-auto px-8 py-12 flex justify-center scroll-smooth"
@@ -188,25 +318,26 @@ export const EpubReaderView: React.FC = () => {
         >
           {currentChapter ? (
             <div
+              ref={contentRef}
               className="prose-reader text-justify"
-              dangerouslySetInnerHTML={{ __html: highlightedHtml }}
+              dangerouslySetInnerHTML={{ __html: currentChapter.html_content }}
             />
           ) : (
             <div className="flex flex-col items-center justify-center py-20 text-[#78716C]">
               <BookOpen className="w-10 h-10 mb-3 animate-pulse text-[#8C8275]" />
-              <p className="text-xs">Loading chapter...</p>
+              <p className="text-xs">Loading reading content...</p>
             </div>
           )}
         </div>
       </div>
 
-      {/* Bottom Reading Progress Footer matching Screen 3 & Screen 5 */}
+      {/* Bottom Progress Bar Footer */}
       <footer className="w-full h-10 border-t border-[#E5DFD3] bg-[#FAF7F2] px-8 flex items-center justify-between z-20 select-none flex-shrink-0">
         <span className="text-[11px] font-medium text-[#78716C]">
           {getChapterProgressLabel()}
         </span>
 
-        {/* Center Thin Progress Bar */}
+        {/* Center Progress Rail */}
         <div className="flex-1 max-w-md mx-8">
           <div className="w-full h-[2px] bg-[#E5DFD3] rounded-full overflow-hidden">
             <div
@@ -216,11 +347,8 @@ export const EpubReaderView: React.FC = () => {
           </div>
         </div>
 
-        <span className="text-[11px] font-mono text-[#78716C]">
-          {progressPercent}%
-        </span>
+        <span className="text-[11px] font-mono text-[#78716C]">{progressPercent}%</span>
       </footer>
     </div>
   );
 };
-
