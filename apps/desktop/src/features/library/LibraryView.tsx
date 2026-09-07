@@ -376,7 +376,8 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
         let foundBook = books.find((b) => b.id === dupItem.book_id) || null;
         if (!foundBook && dupItem.book_id) {
           try {
-            foundBook = await LumaApi.getBook(dupItem.book_id);
+            const details = await LumaApi.getBookDetails(dupItem.book_id);
+            foundBook = details?.book || null;
           } catch {
             // fallback
           }

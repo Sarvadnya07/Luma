@@ -209,8 +209,8 @@ export const EpubReaderView: React.FC = () => {
           containerRef.current.querySelectorAll<HTMLElement>("mark.luma-search-hit[data-char-offset]")
         );
 
-        if (searchMarks.length > 0) {
-          let closest = searchMarks[0];
+        if (searchMarks.length > 0 && searchMarks[0]) {
+          let closest: HTMLElement = searchMarks[0];
           let minDiff = Math.abs(parseInt(closest.getAttribute("data-char-offset") || "0", 10) - targetOffset);
           for (const sm of searchMarks) {
             const diff = Math.abs(parseInt(sm.getAttribute("data-char-offset") || "0", 10) - targetOffset);
