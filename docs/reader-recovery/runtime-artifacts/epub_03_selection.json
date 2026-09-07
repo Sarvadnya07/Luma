@@ -1,0 +1,29 @@
+{
+  "selectedText": "n software engineering, local-first systems ",
+  "anchorNodeText": "In software engineering, local-first systems prioritize user",
+  "anchorOffset": 1,
+  "focusNodeText": "In software engineering, local-first systems prioritize user",
+  "focusOffset": 45,
+  "rangeRect": {
+    "x": 309.875,
+    "y": 188.5749969482422,
+    "width": 370.4375,
+    "height": 23.20001220703125,
+    "top": 188.5749969482422,
+    "right": 680.3125,
+    "bottom": 211.77500915527344,
+    "left": 309.875
+  },
+  "rects": [
+    {
+      "x": 309.875,
+      "y": 188.5749969482422,
+      "width": 370.4375,
+      "height": 23.20001220703125,
+      "top": 188.5749969482422,
+      "right": 680.3125,
+      "bottom": 211.77500915527344,
+      "left": 309.875
+    }
+  ]
+}

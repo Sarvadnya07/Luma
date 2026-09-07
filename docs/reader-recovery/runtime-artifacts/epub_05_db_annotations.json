@@ -1,0 +1,22 @@
+{
+  "bookId": "01a07db5-fc63-71b3-9ccc-e6a6259e2931",
+  "annotations": [
+    {
+      "id": "79020047-89d9-49c8-8579-9587c535efd0",
+      "book_id": "01a07db5-fc63-71b3-9ccc-e6a6259e2931",
+      "annotation_type": "highlight",
+      "color_hex": "#FDE68A",
+      "quote": "n software engineering, local-first systems",
+      "note": null,
+      "anchor_payload_json": "{\"exact\":\"n software engineering, local-first systems\",\"prefix\":\"I\",\"suffix\":\"prioritize user ownership and data auton\",\"normalized_exact\":\"n software engineering, local-first systems\",\"spine_index\":0}",
+      "sync": {
+        "version": 1,
+        "created_at": "2026-09-07T21:20:30.851Z",
+        "updated_at": "2026-09-07T21:20:30.851Z",
+        "device_id": "01a07db5-fc42-7863-b505-42a875e4bebe",
+        "is_deleted": false,
+        "deleted_at": null
+      }
+    }
+  ]
+}

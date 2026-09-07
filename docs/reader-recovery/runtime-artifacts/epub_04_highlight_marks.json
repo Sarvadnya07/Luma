@@ -1,0 +1,19 @@
+[
+  {
+    "tagName": "MARK",
+    "className": "luma-highlight",
+    "annotationId": "79020047-89d9-49c8-8579-9587c535efd0",
+    "color": "rgba(253, 230, 138, 0.333)",
+    "text": "n software engineering, local-first systems",
+    "box": {
+      "x": 310.0375061035156,
+      "y": 187.5749969482422,
+      "width": 366.1750183105469,
+      "height": 26.80000114440918,
+      "top": 187.5749969482422,
+      "right": 676.2125244140625,
+      "bottom": 214.37499809265137,
+      "left": 310.0375061035156
+    }
+  }
+]

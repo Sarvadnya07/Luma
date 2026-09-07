@@ -1,0 +1,39 @@
+{
+  "bookId": "01a07db5-fc81-77a2-b3d8-3d500fe2faae",
+  "annotations": [
+    {
+      "id": "b776e41d-502d-4ab6-818d-cbaeca9bb936",
+      "book_id": "01a07db5-fc81-77a2-b3d8-3d500fe2faae",
+      "annotation_type": "highlight",
+      "color_hex": "#fef08a",
+      "quote": "System Design Handbook",
+      "note": null,
+      "anchor_payload_json": "{\"exact\":\"System Design Handbook\",\"page_number\":1,\"normalized_exact\":\"system design handbook\"}",
+      "sync": {
+        "version": 1,
+        "created_at": "2026-09-07T21:14:55.801Z",
+        "updated_at": "2026-09-07T21:14:55.801Z",
+        "device_id": "01a07db5-fc42-7863-b505-42a875e4bebe",
+        "is_deleted": false,
+        "deleted_at": null
+      }
+    },
+    {
+      "id": "91307ab4-76b7-41d0-9b51-b1cb787fe056",
+      "book_id": "01a07db5-fc81-77a2-b3d8-3d500fe2faae",
+      "annotation_type": "highlight",
+      "color_hex": "#FDE68A",
+      "quote": "System Design Handbook",
+      "note": null,
+      "anchor_payload_json": "{\"exact\":\"System Design Handbook\",\"prefix\":null,\"suffix\":null,\"normalized_exact\":\"system design handbook\",\"page_number\":1}",
+      "sync": {
+        "version": 1,
+        "created_at": "2026-09-07T21:18:04.154Z",
+        "updated_at": "2026-09-07T21:18:04.154Z",
+        "device_id": "01a07db5-fc42-7863-b505-42a875e4bebe",
+        "is_deleted": false,
+        "deleted_at": null
+      }
+    }
+  ]
+}

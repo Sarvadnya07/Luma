@@ -1,5 +1,5 @@
 import React from "react";
-import { RotateCcw, AlignLeft, AlignJustify, MoveHorizontal } from "lucide-react";
+import { RotateCcw, AlignLeft, AlignJustify, MoveHorizontal, Info } from "lucide-react";
 import { useReaderStore } from "../../state/readerState";
 
 export const TypographySettingsDrawer: React.FC = () => {
@@ -7,8 +7,14 @@ export const TypographySettingsDrawer: React.FC = () => {
   const toggleTypography = useReaderStore((s) => s.toggleTypography);
   const settings = useReaderStore((s) => s.settings);
   const updateSettings = useReaderStore((s) => s.updateSettings);
+  const documentData = useReaderStore((s) => s.documentData);
 
   if (!isTypographyOpen) return null;
+
+  const isFixedLayout =
+    documentData?.file.format === "pdf" ||
+    documentData?.file.format === "cbz" ||
+    documentData?.file.format === "cbr";
 
   const themes = [
     { id: "light" as const, label: "Light", bg: "bg-[#FFFFFF]", border: "border-[#DDD5C7]" },
@@ -41,116 +47,130 @@ export const TypographySettingsDrawer: React.FC = () => {
         </button>
       </div>
 
-      {/* TYPEFACE */}
-      <div className="space-y-1.5">
-        <span className="text-[10px] font-bold uppercase tracking-wider text-[#78716C] block">
-          TYPEFACE
-        </span>
-        <div className="grid grid-cols-2 gap-2.5">
-          {/* Literata (Serif) */}
-          <button
-            onClick={() => updateSettings({ fontFamily: "serif" })}
-            className={`p-3 rounded-xl border text-center transition-all flex flex-col items-center gap-1 ${
-              settings.fontFamily === "serif"
-                ? "bg-[#FFFFFF] border-teal-600 ring-1 ring-teal-600 shadow-xs"
-                : "bg-[#FFFFFF] border-[#E5DFD3] hover:border-[#DDD5C7]"
-            }`}
-          >
-            <span className="font-serif text-xl font-bold text-[#1C1917]">Ag</span>
-            <span className={`text-[11px] ${settings.fontFamily === "serif" ? "font-bold text-teal-800" : "text-[#78716C]"}`}>
-              Literata
+      {isFixedLayout ? (
+        <div className="p-3.5 bg-amber-500/10 border border-amber-500/20 rounded-xl space-y-1.5 text-xs text-[#78716C]">
+          <div className="flex items-center gap-2 font-semibold text-[#1C1917]">
+            <Info className="w-4 h-4 text-amber-600 flex-shrink-0" />
+            <span>Fixed Document Layout</span>
+          </div>
+          <p className="text-[11px] leading-relaxed">
+            PDF documents have fixed vector typography. Typeface, font size, and text flow are governed by the document. Color themes and page zoom remain available.
+          </p>
+        </div>
+      ) : (
+        <>
+          {/* TYPEFACE */}
+          <div className="space-y-1.5">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[#78716C] block">
+              TYPEFACE
             </span>
-          </button>
+            <div className="grid grid-cols-2 gap-2.5">
+              {/* Literata (Serif) */}
+              <button
+                onClick={() => updateSettings({ fontFamily: "serif" })}
+                className={`p-3 rounded-xl border text-center transition-all flex flex-col items-center gap-1 ${
+                  settings.fontFamily === "serif"
+                    ? "bg-[#FFFFFF] border-teal-600 ring-1 ring-teal-600 shadow-xs"
+                    : "bg-[#FFFFFF] border-[#E5DFD3] hover:border-[#DDD5C7]"
+                }`}
+              >
+                <span className="font-serif text-xl font-bold text-[#1C1917]">Ag</span>
+                <span className={`text-[11px] ${settings.fontFamily === "serif" ? "font-bold text-teal-800" : "text-[#78716C]"}`}>
+                  Literata
+                </span>
+              </button>
 
-          {/* Inter (Sans) */}
-          <button
-            onClick={() => updateSettings({ fontFamily: "sans" })}
-            className={`p-3 rounded-xl border text-center transition-all flex flex-col items-center gap-1 ${
-              settings.fontFamily === "sans"
-                ? "bg-[#FFFFFF] border-teal-600 ring-1 ring-teal-600 shadow-xs"
-                : "bg-[#FFFFFF] border-[#E5DFD3] hover:border-[#DDD5C7]"
-            }`}
-          >
-            <span className="font-sans text-xl font-bold text-[#1C1917]">Ag</span>
-            <span className={`text-[11px] ${settings.fontFamily === "sans" ? "font-bold text-teal-800" : "text-[#78716C]"}`}>
-              Inter
+              {/* Inter (Sans) */}
+              <button
+                onClick={() => updateSettings({ fontFamily: "sans" })}
+                className={`p-3 rounded-xl border text-center transition-all flex flex-col items-center gap-1 ${
+                  settings.fontFamily === "sans"
+                    ? "bg-[#FFFFFF] border-teal-600 ring-1 ring-teal-600 shadow-xs"
+                    : "bg-[#FFFFFF] border-[#E5DFD3] hover:border-[#DDD5C7]"
+                }`}
+              >
+                <span className="font-sans text-xl font-bold text-[#1C1917]">Ag</span>
+                <span className={`text-[11px] ${settings.fontFamily === "sans" ? "font-bold text-teal-800" : "text-[#78716C]"}`}>
+                  Inter
+                </span>
+              </button>
+            </div>
+          </div>
+
+          {/* SIZE Slider */}
+          <div className="space-y-1.5">
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[#78716C]">SIZE</span>
+              <span className="font-mono text-[11px] text-[#78716C]">{settings.fontSize}px</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="text-xs font-serif text-[#78716C]">A</span>
+              <input
+                type="range"
+                min={13}
+                max={28}
+                step={1}
+                value={settings.fontSize}
+                onChange={(e) => updateSettings({ fontSize: parseInt(e.target.value, 10) })}
+                className="w-full h-1 bg-[#E5DFD3] rounded-lg appearance-none cursor-pointer accent-[#18181B]"
+              />
+              <span className="text-base font-serif font-bold text-[#1C1917]">A</span>
+            </div>
+          </div>
+
+          {/* SPACING */}
+          <div className="space-y-1.5">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[#78716C] block">
+              SPACING
             </span>
-          </button>
-        </div>
-      </div>
+            <div className="grid grid-cols-3 gap-1.5 bg-[#EFEAE1] p-1 rounded-xl">
+              {[
+                { val: 1.3, label: "Tight", icon: AlignLeft },
+                { val: 1.5, label: "Normal", icon: AlignJustify },
+                { val: 1.8, label: "Relaxed", icon: MoveHorizontal },
+              ].map((sp) => (
+                <button
+                  key={sp.val}
+                  onClick={() => updateSettings({ lineHeight: sp.val })}
+                  className={`py-1.5 px-2 rounded-lg text-xs font-medium flex items-center justify-center gap-1 transition-all ${
+                    settings.lineHeight === sp.val
+                      ? "bg-[#FFFFFF] text-[#1C1917] shadow-2xs font-semibold"
+                      : "text-[#78716C] hover:text-[#1C1917]"
+                  }`}
+                >
+                  <sp.icon className="w-3.5 h-3.5" />
+                </button>
+              ))}
+            </div>
+          </div>
 
-      {/* SIZE Slider */}
-      <div className="space-y-1.5">
-        <div className="flex justify-between items-center text-xs">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-[#78716C]">SIZE</span>
-          <span className="font-mono text-[11px] text-[#78716C]">{settings.fontSize}px</span>
-        </div>
-        <div className="flex items-center gap-3">
-          <span className="text-xs font-serif text-[#78716C]">A</span>
-          <input
-            type="range"
-            min={13}
-            max={28}
-            step={1}
-            value={settings.fontSize}
-            onChange={(e) => updateSettings({ fontSize: parseInt(e.target.value, 10) })}
-            className="w-full h-1 bg-[#E5DFD3] rounded-lg appearance-none cursor-pointer accent-[#18181B]"
-          />
-          <span className="text-base font-serif font-bold text-[#1C1917]">A</span>
-        </div>
-      </div>
-
-      {/* SPACING */}
-      <div className="space-y-1.5">
-        <span className="text-[10px] font-bold uppercase tracking-wider text-[#78716C] block">
-          SPACING
-        </span>
-        <div className="grid grid-cols-3 gap-1.5 bg-[#EFEAE1] p-1 rounded-xl">
-          {[
-            { val: 1.3, label: "Tight", icon: AlignLeft },
-            { val: 1.5, label: "Normal", icon: AlignJustify },
-            { val: 1.8, label: "Relaxed", icon: MoveHorizontal },
-          ].map((sp) => (
-            <button
-              key={sp.val}
-              onClick={() => updateSettings({ lineHeight: sp.val })}
-              className={`py-1.5 px-2 rounded-lg text-xs font-medium flex items-center justify-center gap-1 transition-all ${
-                settings.lineHeight === sp.val
-                  ? "bg-[#FFFFFF] text-[#1C1917] shadow-2xs font-semibold"
-                  : "text-[#78716C] hover:text-[#1C1917]"
-              }`}
-            >
-              <sp.icon className="w-3.5 h-3.5" />
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* WIDTH */}
-      <div className="space-y-1.5">
-        <span className="text-[10px] font-bold uppercase tracking-wider text-[#78716C] block">
-          WIDTH
-        </span>
-        <div className="grid grid-cols-3 gap-1.5 bg-[#EFEAE1] p-1 rounded-xl text-xs">
-          {[
-            { id: "narrow", val: 64, label: "Narrow" },
-            { id: "normal", val: 32, label: "Normal" },
-            { id: "wide", val: 16, label: "Wide" },
-          ].map((w) => (
-            <button
-              key={w.id}
-              onClick={() => updateSettings({ marginHorizontal: w.val })}
-              className={`py-1.5 rounded-lg font-medium transition-all ${
-                settings.marginHorizontal === w.val || (!settings.marginHorizontal && w.id === "normal")
-                  ? "bg-[#FFFFFF] text-[#1C1917] shadow-2xs font-semibold"
-                  : "text-[#78716C] hover:text-[#1C1917]"
-              }`}
-            >
-              {w.label}
-            </button>
-          ))}
-        </div>
-      </div>
+          {/* WIDTH */}
+          <div className="space-y-1.5">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[#78716C] block">
+              WIDTH
+            </span>
+            <div className="grid grid-cols-3 gap-1.5 bg-[#EFEAE1] p-1 rounded-xl text-xs">
+              {[
+                { id: "narrow", val: 64, label: "Narrow" },
+                { id: "normal", val: 32, label: "Normal" },
+                { id: "wide", val: 16, label: "Wide" },
+              ].map((w) => (
+                <button
+                  key={w.id}
+                  onClick={() => updateSettings({ marginHorizontal: w.val })}
+                  className={`py-1.5 rounded-lg font-medium transition-all ${
+                    settings.marginHorizontal === w.val || (!settings.marginHorizontal && w.id === "normal")
+                      ? "bg-[#FFFFFF] text-[#1C1917] shadow-2xs font-semibold"
+                      : "text-[#78716C] hover:text-[#1C1917]"
+                  }`}
+                >
+                  {w.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
 
       {/* THEME Swatches */}
       <div className="space-y-1.5">

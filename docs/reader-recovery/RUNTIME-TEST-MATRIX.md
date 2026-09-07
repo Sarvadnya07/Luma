@@ -1,0 +1,10 @@
+# LUMA READER RECOVERY — RUNTIME TEST MATRIX
+
+| Test ID | Level | Format | Fixture | Actions Executed | Verification Criteria | Status | Evidence / Artifact |
+|---|---|---|---|---|---|---|---|
+| **RTM-01** | Level 1 | TXT | `tests/fixtures/reader/sample.txt` | Open $\rightarrow$ Select $\rightarrow$ DocumentRange $\rightarrow$ Search $\rightarrow$ Highlight $\rightarrow$ Persist $\rightarrow$ Reopen | Character offsets match, highlight spans `<mark>`, search hits navigate, SQLite stores anchor | **PASS** | `txt-pipeline.test.ts` (6 passed in 209ms) |
+| **RTM-02** | Level 2 | EPUB | `tests/fixtures/sample_book.epub` | Open $\rightarrow$ Select multi-paragraph $\rightarrow$ Search $\rightarrow$ Highlight cross-node $\rightarrow$ Typography adjust $\rightarrow$ Reopen | Bidirectional whitespace index matches, `<mark>` wraps cross-tag elements without DOM corruption | **PASS** | `epub-pipeline.test.ts` (7 passed in 211ms) |
+| **RTM-03** | Level 3 | PDF | `tests/fixtures/sample_doc.pdf` | Open $\rightarrow$ Render Canvas+TextLayer $\rightarrow$ Select $\rightarrow$ Search $\rightarrow$ Highlight overlay $\rightarrow$ Zoom scale $\rightarrow$ Reopen | Viewport scale alignment, quad overlays match span bounding boxes, zoom preserves relative alignment | **PASS** | `pdf-pipeline.test.ts` (6 passed in 129ms) |
+| **RTM-04** | Level 3 | PDF (Real) | `Atomic habits ( PDFDrive ).pdf` | Render page 1-5 $\rightarrow$ Extract TextContent $\rightarrow$ Multi-span search | Kerning spans do not pollute space, search matches multi-word phrase | **PASS** | `pdf-pipeline.test.ts` kerning suite |
+| **RTM-05** | Level 3 | PDF (Scanned) | Scanned PDF fixture | Render image page $\rightarrow$ Check text availability | Scanned fallback badge renders, error state gracefully handled | **PASS** | `pdf-pipeline.test.ts` scanned suite |
+| **RTM-06** | Full Matrix | Monorepo | All crates & packages | `cargo test --workspace` + `pnpm test` + `pnpm typecheck` + `pnpm lint` + `pnpm build` | Zero compilation failures, zero type errors, zero lint warnings, 100% test pass rate | **PASS** | 40 unit/integration tests + 42 Rust tests |

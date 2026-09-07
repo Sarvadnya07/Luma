@@ -4,6 +4,7 @@ import { TextLayer } from "pdfjs-dist";
 import { Loader2, BookOpen, FileText } from "lucide-react";
 import { Annotation } from "@luma/shared-types";
 import { perfTelemetry } from "../../lib/perfTelemetry";
+import { findBestMatch, normalizeString } from "./highlightEngine";
 
 interface PdfPageCanvasProps {
   pdfDoc: PDFDocumentProxy | null;
@@ -86,42 +87,138 @@ export const PdfPageCanvas: React.FC<PdfPageCanvasProps> = ({
       return;
     }
 
-    // Build contiguous text string and span offsets
-    let fullText = "";
-    const spanMap: Array<{ span: HTMLSpanElement; start: number; end: number }> = [];
+    // Build contiguous text string and span offsets without space pollution
+    let rawText = "";
+    const spanMap: Array<{ span: HTMLSpanElement; rawStart: number; rawEnd: number }> = [];
 
     for (const span of spans) {
       const str = span.textContent || "";
-      const start = fullText.length;
-      fullText += str + " ";
-      spanMap.push({ span, start, end: start + str.length });
+      if (!str) continue;
+
+      if (rawText.length > 0 && spanMap.length > 0) {
+        const prev = spanMap[spanMap.length - 1]!;
+        const prevText = prev.span.textContent || "";
+        const endsWithSpace = /\s$/.test(prevText);
+        const startsWithSpace = /^\s/.test(str);
+
+        if (!endsWithSpace && !startsWithSpace) {
+          const lineDiff = Math.abs(span.offsetTop - prev.span.offsetTop);
+          const horizGap = span.offsetLeft - (prev.span.offsetLeft + prev.span.offsetWidth);
+          if (lineDiff > 4 || horizGap > 2) {
+            rawText += " ";
+          }
+        }
+      }
+
+      const rawStart = rawText.length;
+      rawText += str;
+      const rawEnd = rawStart + str.length;
+      spanMap.push({ span, rawStart, rawEnd });
     }
 
-    const fullLower = fullText.toLowerCase();
+    if (!rawText.length) {
+      setHighlightRects([]);
+      return;
+    }
+
+    // Normalized text with bidirectional character offsets
+    let normalizedText = "";
+    const normToRawStart: number[] = [];
+    const normToRawEnd: number[] = [];
+    let i = 0;
+    while (i < rawText.length) {
+      const ch = rawText[i]!;
+      if (/\s/.test(ch)) {
+        const spaceStart = i;
+        while (i < rawText.length && /\s/.test(rawText[i]!)) {
+          i++;
+        }
+        normalizedText += " ";
+        normToRawStart.push(spaceStart);
+        normToRawEnd.push(i);
+      } else {
+        normalizedText += ch;
+        normToRawStart.push(i);
+        normToRawEnd.push(i + 1);
+        i++;
+      }
+    }
+
+    const normLower = normalizedText.toLowerCase();
     const rects: HighlightRect[] = [];
+    const layerRect = layer.getBoundingClientRect();
+
+    // Helper: compute bounding box for [rawStart, rawEnd) across intersecting spans
+    const addRectsForRange = (
+      rawMatchStart: number,
+      rawMatchEnd: number,
+      color: string,
+      id: string,
+      isSearch: boolean
+    ) => {
+      for (const item of spanMap) {
+        if (item.rawEnd > rawMatchStart && item.rawStart < rawMatchEnd) {
+          const localStart = Math.max(0, rawMatchStart - item.rawStart);
+          const localEnd = Math.min(item.span.textContent?.length || 0, rawMatchEnd - item.rawStart);
+          if (localEnd <= localStart) continue;
+
+          let added = false;
+          try {
+            const range = document.createRange();
+            const textNode = item.span.firstChild || item.span;
+            range.setStart(textNode, localStart);
+            range.setEnd(textNode, localEnd);
+            const r = range.getBoundingClientRect();
+            if (r.width > 0 && r.height > 0 && layerRect.width > 0) {
+              rects.push({
+                left: Math.round(r.left - layerRect.left),
+                top: Math.round(r.top - layerRect.top),
+                width: Math.round(r.width),
+                height: Math.round(r.height),
+                color,
+                id,
+                isSearch,
+              });
+              added = true;
+            }
+          } catch {
+            // fallback
+          }
+
+          if (!added) {
+            const spanLen = item.span.textContent?.length || 1;
+            const charWidth = (item.span.offsetWidth || 100) / spanLen;
+            rects.push({
+              left: Math.round(item.span.offsetLeft + localStart * charWidth),
+              top: item.span.offsetTop,
+              width: Math.round((localEnd - localStart) * charWidth),
+              height: item.span.offsetHeight || 16,
+              color,
+              id,
+              isSearch,
+            });
+          }
+        }
+      }
+    };
 
     // 1. In-document search highlights (amber)
     if (searchQuery && searchQuery.trim().length > 1) {
-      const qLower = searchQuery.trim().toLowerCase();
-      let searchOffset = 0;
-      let hitIdx: number;
+      const qNorm = normalizeString(searchQuery).toLowerCase();
+      let searchPos = 0;
+      let hitCount = 0;
 
-      while ((hitIdx = fullLower.indexOf(qLower, searchOffset)) !== -1) {
-        const hitEnd = hitIdx + qLower.length;
-        searchOffset = hitEnd;
+      while ((searchPos = normLower.indexOf(qNorm, searchPos)) !== -1) {
+        const normStart = searchPos;
+        const normEnd = searchPos + qNorm.length;
+        searchPos = normEnd;
 
-        for (const item of spanMap) {
-          if (item.end > hitIdx && item.start < hitEnd) {
-            rects.push({
-              left: item.span.offsetLeft,
-              top: item.span.offsetTop,
-              width: item.span.offsetWidth,
-              height: item.span.offsetHeight,
-              color: "#f59e0b",
-              id: `search-${hitIdx}`,
-              isSearch: true,
-            });
-          }
+        const rawStart = normToRawStart[normStart];
+        const rawEnd = normToRawEnd[normEnd - 1];
+
+        if (rawStart !== undefined && rawEnd !== undefined && rawEnd > rawStart) {
+          addRectsForRange(rawStart, rawEnd, "#f59e0b", `search-${hitCount}`, true);
+          hitCount++;
         }
       }
     }
@@ -129,26 +226,26 @@ export const PdfPageCanvas: React.FC<PdfPageCanvasProps> = ({
     // 2. User persistent annotations
     for (const ann of pageAnnotations) {
       if (!ann.quote || !ann.quote.trim()) continue;
-      const quoteLower = ann.quote.trim().toLowerCase();
-      let annOffset = 0;
-      let matchIdx: number;
+      const normQuote = normalizeString(ann.quote);
+      if (!normQuote) continue;
 
-      while ((matchIdx = fullLower.indexOf(quoteLower, annOffset)) !== -1) {
-        const matchEnd = matchIdx + quoteLower.length;
-        annOffset = matchEnd;
+      let prefix: string | null = null;
+      let suffix: string | null = null;
+      try {
+        const p = JSON.parse(ann.anchor_payload_json);
+        prefix = p.prefix || null;
+        suffix = p.suffix || null;
+      } catch {
+        // fallback
+      }
 
-        for (const item of spanMap) {
-          if (item.end > matchIdx && item.start < matchEnd) {
-            rects.push({
-              left: item.span.offsetLeft,
-              top: item.span.offsetTop,
-              width: item.span.offsetWidth,
-              height: item.span.offsetHeight,
-              color: ann.color_hex || "#fef08a",
-              id: ann.id,
-              isSearch: false,
-            });
-          }
+      const match = findBestMatch(normalizedText, normQuote, prefix, suffix);
+      if (match) {
+        const rawStart = normToRawStart[match.start];
+        const rawEnd = normToRawEnd[match.end - 1];
+
+        if (rawStart !== undefined && rawEnd !== undefined && rawEnd > rawStart) {
+          addRectsForRange(rawStart, rawEnd, ann.color_hex || "#fef08a", ann.id, false);
         }
       }
     }

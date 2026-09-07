@@ -1,0 +1,60 @@
+{
+  "hlElements": [
+    {
+      "className": "absolute rounded-xs pointer-events-none",
+      "style": "left: 78px; top: 65px; width: 185px; height: 18px; background-color: rgba(254, 240, 138, 0.333); border-bottom: 2px solid rgb(254, 240, 138);",
+      "box": {
+        "x": 354.8000183105469,
+        "y": 193.8000030517578,
+        "width": 185,
+        "height": 18,
+        "top": 193.8000030517578,
+        "right": 539.8000183105469,
+        "bottom": 211.8000030517578,
+        "left": 354.8000183105469
+      }
+    },
+    {
+      "className": "absolute rounded-xs pointer-events-none",
+      "style": "left: 78px; top: 65px; width: 185px; height: 18px; background-color: rgba(254, 240, 138, 0.333); border-bottom: 2px solid rgb(254, 240, 138);",
+      "box": {
+        "x": 858.7999877929688,
+        "y": 193.8000030517578,
+        "width": 185,
+        "height": 18,
+        "top": 193.8000030517578,
+        "right": 1043.7999877929688,
+        "bottom": 211.8000030517578,
+        "left": 858.7999877929688
+      }
+    }
+  ],
+  "textSpans": [
+    {
+      "text": "System Design Handbook",
+      "box": {
+        "x": 354.9624938964844,
+        "y": 193.08750915527344,
+        "width": 185.037353515625,
+        "height": 16,
+        "top": 193.08750915527344,
+        "right": 539.9998474121094,
+        "bottom": 209.08750915527344,
+        "left": 354.9624938964844
+      }
+    },
+    {
+      "text": "System Design Handbook",
+      "box": {
+        "x": 858.9625244140625,
+        "y": 193.08750915527344,
+        "width": 185.0373077392578,
+        "height": 16,
+        "top": 193.08750915527344,
+        "right": 1043.9998321533203,
+        "bottom": 209.08750915527344,
+        "left": 858.9625244140625
+      }
+    }
+  ]
+}

@@ -110,7 +110,7 @@ export interface ReaderStoreConfig {
 // ----------------------------------------------------------------------------
 
 const DEFAULT_LABELS: Required<ReaderStoreLabels> = {
-  deviceId: "dev_01",
+  deviceId: "00000000-0000-0000-0000-000000000001",
   defaultChapterTitle: "Untitled Chapter",
   highlightCreated: "Highlight created & anchored.",
   bookmarkAdded: "Bookmark added.",
@@ -154,14 +154,18 @@ export function createReaderStore(config: ReaderStoreConfig = {}) {
     ...syncDefaults,
   } as SyncMetadata;
 
-  // Helper to create sync metadata with current timestamps
-  function createSyncMeta(): SyncMetadata {
+  // Helper to create sync metadata with current timestamps and valid UUID device_id
+  function createSyncMeta(overrideDeviceId?: string): SyncMetadata {
     const now = new Date().toISOString();
+    const fallbackId = "00000000-0000-0000-0000-000000000001";
+    const rawDevId = overrideDeviceId || mergedSyncDefaults.device_id || mergedLabels.deviceId || fallbackId;
+    const isValidUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawDevId);
+    const deviceId = isValidUuid ? rawDevId : fallbackId;
     return {
       version: mergedSyncDefaults.version ?? 1,
       created_at: now,
       updated_at: now,
-      device_id: mergedSyncDefaults.device_id ?? mergedLabels.deviceId,
+      device_id: deviceId,
       is_deleted: false,
     };
   }
@@ -284,7 +288,7 @@ export function createReaderStore(config: ReaderStoreConfig = {}) {
             current_page_number: validPage,
             total_pages: total,
             last_read_at: new Date().toISOString(),
-            sync: createSyncMeta(),
+            sync: createSyncMeta(book.sync?.device_id),
           };
           set({ readingProgress: progress });
         }
@@ -344,7 +348,7 @@ export function createReaderStore(config: ReaderStoreConfig = {}) {
           current_page_number: spineIndex + 1,
           total_pages: total,
           last_read_at: new Date().toISOString(),
-          sync: createSyncMeta(),
+          sync: createSyncMeta(currentBook.sync?.device_id),
         };
 
         set({
@@ -385,7 +389,7 @@ export function createReaderStore(config: ReaderStoreConfig = {}) {
           current_page_number: validPage,
           total_pages: total,
           last_read_at: new Date().toISOString(),
-          sync: createSyncMeta(),
+          sync: createSyncMeta(currentBook.sync?.device_id),
         };
 
         set({
@@ -477,7 +481,7 @@ export function createReaderStore(config: ReaderStoreConfig = {}) {
             current_page_number: validPage,
             total_pages: total,
             last_read_at: new Date().toISOString(),
-            sync: createSyncMeta(),
+            sync: createSyncMeta(currentBook.sync?.device_id),
           };
           set({ readingProgress: progress });
           debouncedSaveProgress(progress);
@@ -520,7 +524,7 @@ export function createReaderStore(config: ReaderStoreConfig = {}) {
         quote,
         note: note || null,
         anchor_payload_json: payload,
-        sync: createSyncMeta(),
+        sync: createSyncMeta(currentBook?.sync?.device_id),
       };
 
       await api.saveAnnotation(newAnn);

@@ -1,158 +1,8 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { BookOpen } from "lucide-react";
-import { Annotation } from "@luma/shared-types";
 import { useReaderStore } from "../../state/readerState";
 import { TextSelectionToolbar } from "./TextSelectionToolbar";
-
-interface TextNodeSpan {
-  node: Text;
-  start: number;
-  end: number;
-}
-
-/**
- * Cross-Node Range Highlighter:
- * Accurately highlights text across multiple nested DOM elements, tags, and paragraphs
- * without corrupting the DOM structure or destroying publisher elements.
- */
-function applyDomHighlights(
-  container: HTMLElement,
-  annotations: Annotation[],
-  currentSpine: number,
-  searchQuery?: string
-) {
-  // 1. Remove previous highlights cleanly and join split text nodes
-  const previousMarks = container.querySelectorAll("mark.luma-highlight, mark.luma-search-hit");
-  previousMarks.forEach((mark) => {
-    const parent = mark.parentNode;
-    if (parent) {
-      parent.replaceChild(document.createTextNode(mark.textContent || ""), mark);
-      parent.normalize();
-    }
-  });
-
-  // 2. Build linear text index across all text nodes in reading order
-  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, {
-    acceptNode(node) {
-      if (node.parentElement?.closest("script, style, noscript")) {
-        return NodeFilter.FILTER_REJECT;
-      }
-      return NodeFilter.FILTER_ACCEPT;
-    },
-  });
-
-  let fullText = "";
-  const nodeSpans: TextNodeSpan[] = [];
-  let n: Node | null;
-
-  while ((n = walker.nextNode())) {
-    const textNode = n as Text;
-    const len = textNode.nodeValue?.length || 0;
-    if (len > 0) {
-      const start = fullText.length;
-      fullText += textNode.nodeValue;
-      nodeSpans.push({ node: textNode, start, end: start + len });
-    }
-  }
-
-  if (nodeSpans.length === 0 || fullText.length === 0) return;
-
-  const fullTextLower = fullText.toLowerCase();
-
-  // Helper function to wrap character range [matchStart, matchEnd] across all intersecting text nodes
-  const wrapTextRange = (
-    matchStart: number,
-    matchEnd: number,
-    className: string,
-    color: string,
-    annotationId?: string | null,
-    charOffset?: number
-  ) => {
-    // Collect all intersecting nodes and their sub-ranges
-    const intersections: Array<{ node: Text; startOffset: number; endOffset: number }> = [];
-
-    for (const span of nodeSpans) {
-      if (span.end > matchStart && span.start < matchEnd) {
-        const localStart = Math.max(0, matchStart - span.start);
-        const localEnd = Math.min(span.node.nodeValue?.length || 0, matchEnd - span.start);
-        if (localEnd > localStart) {
-          intersections.push({ node: span.node, startOffset: localStart, endOffset: localEnd });
-        }
-      }
-    }
-
-    // Wrap each intersecting text node segment in reverse order to preserve offsets
-    for (let i = intersections.length - 1; i >= 0; i--) {
-      const item = intersections[i];
-      if (!item) continue;
-      const { node, startOffset, endOffset } = item;
-      try {
-        const range = document.createRange();
-        range.setStart(node, startOffset);
-        range.setEnd(node, endOffset);
-
-        const mark = document.createElement("mark");
-        mark.className = className;
-        mark.style.backgroundColor = `${color}55`;
-        mark.style.borderBottom = `2px solid ${color}`;
-        mark.style.color = "inherit";
-        if (annotationId) {
-          mark.setAttribute("data-annotation-id", annotationId);
-        }
-        if (charOffset !== undefined) {
-          mark.setAttribute("data-char-offset", String(charOffset));
-        }
-
-        mark.appendChild(range.extractContents());
-        range.insertNode(mark);
-      } catch {
-        // skip if range extraction fails
-      }
-    }
-  };
-
-  // 3. Highlight Search Matches (amber)
-  if (searchQuery && searchQuery.trim().length > 1) {
-    const qLower = searchQuery.trim().toLowerCase();
-    let searchStart = 0;
-    let hitIdx: number;
-    let matchCount = 0;
-
-    while ((hitIdx = fullTextLower.indexOf(qLower, searchStart)) !== -1) {
-      const hitEnd = hitIdx + qLower.length;
-      searchStart = hitEnd;
-      wrapTextRange(hitIdx, hitEnd, "luma-search-hit", "#f59e0b", `search-${matchCount}`, hitIdx);
-      matchCount++;
-    }
-  }
-
-  // 4. Highlight Persistent User Annotations
-  const relevantAnns = annotations.filter((ann) => {
-    if (!ann.quote || !ann.quote.trim()) return false;
-    try {
-      const p = JSON.parse(ann.anchor_payload_json);
-      if (p.spine_index !== undefined) {
-        return p.spine_index === currentSpine;
-      }
-    } catch {
-      // payload fallback
-    }
-    return true;
-  });
-
-  for (const ann of relevantAnns) {
-    const quoteLower = ann.quote.trim().toLowerCase();
-    const color = ann.color_hex || "#fef08a";
-    let searchStart = 0;
-    let matchIdx: number;
-
-    while ((matchIdx = fullTextLower.indexOf(quoteLower, searchStart)) !== -1) {
-      const matchEnd = matchIdx + quoteLower.length;
-      searchStart = matchEnd;
-      wrapTextRange(matchIdx, matchEnd, "luma-highlight", color, ann.id);
-    }
-  }
-}
+import { applyHighlightsAndSearch } from "./highlightEngine";
 
 export const EpubReaderView: React.FC = () => {
   const currentChapter = useReaderStore((s) => s.currentChapter);
@@ -241,7 +91,7 @@ export const EpubReaderView: React.FC = () => {
   // Re-apply DOM highlights whenever content, annotations, spine index, or search query changes
   useEffect(() => {
     if (contentRef.current && currentChapter?.html_content) {
-      applyDomHighlights(contentRef.current, annotations, currentSpineIndex, searchQuery);
+      applyHighlightsAndSearch(contentRef.current, annotations, currentSpineIndex, searchQuery);
       if (pendingScrollLocator) {
         const loc = pendingScrollLocator;
         requestAnimationFrame(() => {

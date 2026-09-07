@@ -1,0 +1,30 @@
+[
+  {
+    "className": "absolute rounded-xs pointer-events-none",
+    "style": "left: 78px; top: 65px; width: 185px; height: 18px; background-color: rgba(254, 240, 138, 0.333); border-bottom: 2px solid rgb(254, 240, 138);",
+    "box": {
+      "x": 354.8000183105469,
+      "y": 193.8000030517578,
+      "width": 185,
+      "height": 18,
+      "top": 193.8000030517578,
+      "right": 539.8000183105469,
+      "bottom": 211.8000030517578,
+      "left": 354.8000183105469
+    }
+  },
+  {
+    "className": "absolute rounded-xs pointer-events-none",
+    "style": "left: 78px; top: 65px; width: 185px; height: 18px; background-color: rgba(254, 240, 138, 0.333); border-bottom: 2px solid rgb(254, 240, 138);",
+    "box": {
+      "x": 858.7999877929688,
+      "y": 193.8000030517578,
+      "width": 185,
+      "height": 18,
+      "top": 193.8000030517578,
+      "right": 1043.7999877929688,
+      "bottom": 211.8000030517578,
+      "left": 858.7999877929688
+    }
+  }
+]

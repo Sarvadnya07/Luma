@@ -149,7 +149,7 @@ export const CbzReaderView: React.FC = () => {
             version: 1,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
-            device_id: "dev_01",
+            device_id: currentBook.sync?.device_id || "00000000-0000-0000-0000-000000000001",
             is_deleted: false,
           },
         };

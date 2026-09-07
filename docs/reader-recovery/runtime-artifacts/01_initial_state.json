@@ -1,0 +1,104 @@
+{
+  "url": "http://localhost:1420/",
+  "title": "Luma | Digital Sanctuary",
+  "consoleLogs": [],
+  "buttonsCount": 24,
+  "buttons": [
+    {
+      "text": "",
+      "title": "Switch to dark mode"
+    },
+    {
+      "text": "Library",
+      "title": null
+    },
+    {
+      "text": "All Books",
+      "title": null
+    },
+    {
+      "text": "Currently Reading",
+      "title": null
+    },
+    {
+      "text": "Collections",
+      "title": null
+    },
+    {
+      "text": "Tags",
+      "title": null
+    },
+    {
+      "text": "The Atrium",
+      "title": null
+    },
+    {
+      "text": "Notes Workspace",
+      "title": null
+    },
+    {
+      "text": "Flashcards",
+      "title": null
+    },
+    {
+      "text": "Research Projects",
+      "title": null
+    },
+    {
+      "text": "Reading Intelligence",
+      "title": null
+    },
+    {
+      "text": "Authors",
+      "title": null
+    },
+    {
+      "text": "Series",
+      "title": null
+    },
+    {
+      "text": "Annotations",
+      "title": null
+    },
+    {
+      "text": "Devices",
+      "title": null
+    },
+    {
+      "text": "Plugins",
+      "title": null
+    },
+    {
+      "text": "Archive",
+      "title": null
+    },
+    {
+      "text": "Trash",
+      "title": null
+    },
+    {
+      "text": "",
+      "title": "System & Preferences"
+    },
+    {
+      "text": "Import Book",
+      "title": null
+    },
+    {
+      "text": "",
+      "title": "Grid View"
+    },
+    {
+      "text": "",
+      "title": "List View"
+    },
+    {
+      "text": "Title",
+      "title": "Sort: Title"
+    },
+    {
+      "text": "Add Book",
+      "title": null
+    }
+  ]
+}

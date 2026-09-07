@@ -1,0 +1,25 @@
+{
+  "selectedText": "System Design Handbook",
+  "anchorNodeText": "System Design Handbook",
+  "anchorOffset": 0,
+  "focusNodeText": "System Design Handbook",
+  "focusOffset": 22,
+  "boundingClientRect": {
+    "x": 354.9624938964844,
+    "y": 192.28750610351562,
+    "width": 185.03738403320312,
+    "height": 17.599990844726562
+  },
+  "clientRects": [
+    {
+      "x": 354.9624938964844,
+      "y": 192.28750610351562,
+      "width": 185.03738403320312,
+      "height": 17.599990844726562,
+      "top": 192.28750610351562,
+      "bottom": 209.8874969482422,
+      "left": 354.9624938964844,
+      "right": 539.9998779296875
+    }
+  ]
+}
