@@ -1,74 +1,28 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import { BookOpen } from "lucide-react";
 import { Annotation } from "@luma/shared-types";
 import { useReaderStore } from "../../state/readerState";
 import { TextSelectionToolbar } from "./TextSelectionToolbar";
 
-function highlightInTextNodes(
-  container: HTMLElement,
-  searchText: string,
-  className: string,
-  color: string,
-  annotationId: string | null
-) {
-  if (!searchText || searchText.length === 0) return;
-  const targetLower = searchText.toLowerCase();
-
-  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, {
-    acceptNode(node) {
-      if (node.parentElement?.closest("mark.luma-highlight, script, style")) {
-        return NodeFilter.FILTER_REJECT;
-      }
-      return NodeFilter.FILTER_ACCEPT;
-    },
-  });
-
-  const textNodes: Text[] = [];
-  let n: Node | null;
-  while ((n = walker.nextNode())) {
-    textNodes.push(n as Text);
-  }
-
-  for (const textNode of textNodes) {
-    const val = textNode.nodeValue;
-    if (!val) continue;
-
-    const valLower = val.toLowerCase();
-    const idx = valLower.indexOf(targetLower);
-    if (idx !== -1) {
-      try {
-        const matchNode = textNode.splitText(idx);
-        matchNode.splitText(targetLower.length);
-
-        const mark = document.createElement("mark");
-        mark.className = className;
-        mark.style.backgroundColor = `${color}55`;
-        mark.style.borderBottom = `2px solid ${color}`;
-        mark.style.borderRadius = "2px";
-        mark.style.padding = "0 2px";
-        mark.style.color = "inherit";
-        if (annotationId) {
-          mark.setAttribute("data-annotation-id", annotationId);
-        }
-        mark.textContent = matchNode.nodeValue;
-
-        matchNode.parentNode?.replaceChild(mark, matchNode);
-        break;
-      } catch {
-        // skip if DOM split error occurs
-      }
-    }
-  }
+interface TextNodeSpan {
+  node: Text;
+  start: number;
+  end: number;
 }
 
+/**
+ * Cross-Node Range Highlighter:
+ * Accurately highlights text across multiple nested DOM elements, tags, and paragraphs
+ * without corrupting the DOM structure or destroying publisher elements.
+ */
 function applyDomHighlights(
   container: HTMLElement,
   annotations: Annotation[],
   currentSpine: number,
   searchQuery?: string
 ) {
-  // 1. Remove previous marks cleanly without destroying text
-  const previousMarks = container.querySelectorAll("mark.luma-highlight, mark.luma-search-highlight");
+  // 1. Remove previous highlights cleanly and join split text nodes
+  const previousMarks = container.querySelectorAll("mark.luma-highlight, mark.luma-search-hit");
   previousMarks.forEach((mark) => {
     const parent = mark.parentNode;
     if (parent) {
@@ -77,7 +31,98 @@ function applyDomHighlights(
     }
   });
 
-  // 2. Filter relevant annotations for this chapter/spine
+  // 2. Build linear text index across all text nodes in reading order
+  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, {
+    acceptNode(node) {
+      if (node.parentElement?.closest("script, style, noscript")) {
+        return NodeFilter.FILTER_REJECT;
+      }
+      return NodeFilter.FILTER_ACCEPT;
+    },
+  });
+
+  let fullText = "";
+  const nodeSpans: TextNodeSpan[] = [];
+  let n: Node | null;
+
+  while ((n = walker.nextNode())) {
+    const textNode = n as Text;
+    const len = textNode.nodeValue?.length || 0;
+    if (len > 0) {
+      const start = fullText.length;
+      fullText += textNode.nodeValue;
+      nodeSpans.push({ node: textNode, start, end: start + len });
+    }
+  }
+
+  if (nodeSpans.length === 0 || fullText.length === 0) return;
+
+  const fullTextLower = fullText.toLowerCase();
+
+  // Helper function to wrap character range [matchStart, matchEnd] across all intersecting text nodes
+  const wrapTextRange = (
+    matchStart: number,
+    matchEnd: number,
+    className: string,
+    color: string,
+    annotationId: string | null
+  ) => {
+    // Collect all intersecting nodes and their sub-ranges
+    const intersections: Array<{ node: Text; startOffset: number; endOffset: number }> = [];
+
+    for (const span of nodeSpans) {
+      if (span.end > matchStart && span.start < matchEnd) {
+        const localStart = Math.max(0, matchStart - span.start);
+        const localEnd = Math.min(span.node.nodeValue?.length || 0, matchEnd - span.start);
+        if (localEnd > localStart) {
+          intersections.push({ node: span.node, startOffset: localStart, endOffset: localEnd });
+        }
+      }
+    }
+
+    // Wrap each intersecting text node segment in reverse order to preserve offsets
+    for (let i = intersections.length - 1; i >= 0; i--) {
+      const item = intersections[i];
+      if (!item) continue;
+      const { node, startOffset, endOffset } = item;
+      try {
+        const range = document.createRange();
+        range.setStart(node, startOffset);
+        range.setEnd(node, endOffset);
+
+        const mark = document.createElement("mark");
+        mark.className = className;
+        mark.style.backgroundColor = `${color}55`;
+        mark.style.borderBottom = `2px solid ${color}`;
+        mark.style.color = "inherit";
+        if (annotationId) {
+          mark.setAttribute("data-annotation-id", annotationId);
+        }
+
+        mark.appendChild(range.extractContents());
+        range.insertNode(mark);
+      } catch {
+        // skip if range extraction fails
+      }
+    }
+  };
+
+  // 3. Highlight Search Matches (amber)
+  if (searchQuery && searchQuery.trim().length > 1) {
+    const qLower = searchQuery.trim().toLowerCase();
+    let searchStart = 0;
+    let hitIdx: number;
+    let matchCount = 0;
+
+    while ((hitIdx = fullTextLower.indexOf(qLower, searchStart)) !== -1) {
+      const hitEnd = hitIdx + qLower.length;
+      searchStart = hitEnd;
+      wrapTextRange(hitIdx, hitEnd, "luma-search-hit", "#f59e0b", `search-${matchCount}`);
+      matchCount++;
+    }
+  }
+
+  // 4. Highlight Persistent User Annotations
   const relevantAnns = annotations.filter((ann) => {
     if (!ann.quote || !ann.quote.trim()) return false;
     try {
@@ -91,15 +136,17 @@ function applyDomHighlights(
     return true;
   });
 
-  // 3. Highlight Search Matches if present
-  if (searchQuery && searchQuery.trim().length > 1) {
-    highlightInTextNodes(container, searchQuery.trim(), "luma-search-highlight", "#f59e0b", null);
-  }
-
-  // 4. Highlight User Annotations
   for (const ann of relevantAnns) {
+    const quoteLower = ann.quote.trim().toLowerCase();
     const color = ann.color_hex || "#fef08a";
-    highlightInTextNodes(container, ann.quote.trim(), "luma-highlight", color, ann.id);
+    let searchStart = 0;
+    let matchIdx: number;
+
+    while ((matchIdx = fullTextLower.indexOf(quoteLower, searchStart)) !== -1) {
+      const matchEnd = matchIdx + quoteLower.length;
+      searchStart = matchEnd;
+      wrapTextRange(matchIdx, matchEnd, "luma-highlight", color, ann.id);
+    }
   }
 }
 
@@ -139,8 +186,9 @@ export const EpubReaderView: React.FC = () => {
       const loc = detail.locator;
 
       let targetEl: Element | null = null;
-      if (loc.startsWith("p") || loc.startsWith("heading-")) {
+      if (loc.startsWith("p") || loc.startsWith("heading-") || loc.startsWith("search-")) {
         targetEl =
+          containerRef.current.querySelector(`[data-annotation-id="${loc}"]`) ||
           containerRef.current.querySelector(`#${loc}`) ||
           containerRef.current.querySelector(`[data-node-id="${loc}"]`);
       } else if (loc.startsWith("#")) {
@@ -156,8 +204,8 @@ export const EpubReaderView: React.FC = () => {
     return () => window.removeEventListener("luma-reader-scroll-to", handleScrollTo);
   }, []);
 
-  // Text selection listener with DOM context extraction
-  const handleMouseUp = () => {
+  // Text selection listener with multi-node DOM context extraction
+  const handleMouseUp = useCallback(() => {
     const selection = window.getSelection();
     if (!selection || selection.isCollapsed) {
       setSelectionPos(null);
@@ -175,7 +223,6 @@ export const EpubReaderView: React.FC = () => {
     const range = selection.getRangeAt(0);
     const rect = range.getBoundingClientRect();
 
-    // Extract accurate preceding and following context from DOM
     let prefix = "";
     let suffix = "";
     try {
@@ -214,7 +261,7 @@ export const EpubReaderView: React.FC = () => {
       top: rect.top,
       left: rect.left + rect.width / 2,
     });
-  };
+  }, [currentChapter]);
 
   const handleContentClick = (e: React.MouseEvent<HTMLDivElement>) => {
     const target = e.target as HTMLElement;
@@ -273,6 +320,8 @@ export const EpubReaderView: React.FC = () => {
       ? "max-w-4xl"
       : "max-w-2xl";
 
+  const selectedFont = fontFamilies[settings.fontFamily] || fontFamilies.serif;
+
   return (
     <div
       className={`relative w-full h-full flex flex-col items-center overflow-hidden select-text ${currentTheme.bg} ${currentTheme.text}`}
@@ -313,7 +362,11 @@ export const EpubReaderView: React.FC = () => {
           style={{
             fontSize: `${settings.fontSize || 16}px`,
             lineHeight: settings.lineHeight || 1.8,
-            fontFamily: fontFamilies[settings.fontFamily] || fontFamilies.serif,
+            fontFamily: selectedFont,
+            // @ts-expect-error CSS variable
+            "--reader-font-family": selectedFont,
+            "--reader-font-size": `${settings.fontSize || 16}px`,
+            "--reader-line-height": `${settings.lineHeight || 1.8}`,
           }}
         >
           {currentChapter ? (

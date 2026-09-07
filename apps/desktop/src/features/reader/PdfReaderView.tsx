@@ -29,6 +29,7 @@ export const PdfReaderView: React.FC = () => {
   const loadPdfPage = useReaderStore((s) => s.loadPdfPage);
   const createHighlight = useReaderStore((s) => s.createHighlight);
   const toggleBookmark = useReaderStore((s) => s.toggleBookmark);
+  const searchQuery = useReaderStore((s) => s.searchQuery);
 
   const [pdfDoc, setPdfDoc] = useState<PDFDocumentProxy | null>(null);
   const [zoom, setZoom] = useState<number>(100);
@@ -342,6 +343,7 @@ export const PdfReaderView: React.FC = () => {
                 hasTextLayer={leftPdfPageData?.has_text_layer}
                 targetWidth={isDualSpread ? 480 : 640}
                 annotations={annotations}
+                searchQuery={searchQuery}
               />
               <div className="text-center font-mono text-[10px] text-[#78716C] pt-2">
                 Page {isDualSpread ? leftPageNum : currentPdfPage}
@@ -359,6 +361,7 @@ export const PdfReaderView: React.FC = () => {
                   hasTextLayer={rightPdfPageData?.has_text_layer}
                   targetWidth={480}
                   annotations={annotations}
+                  searchQuery={searchQuery}
                 />
                 <div className="text-center font-mono text-[10px] text-[#78716C] pt-2">
                   Page {rightPageNum}

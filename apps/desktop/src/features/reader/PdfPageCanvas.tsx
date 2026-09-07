@@ -1,9 +1,9 @@
-import React, { useEffect, useRef, useState, useMemo } from "react";
+import React, { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import type { PDFDocumentProxy } from "pdfjs-dist";
+import { TextLayer } from "pdfjs-dist";
 import { Loader2, BookOpen, FileText } from "lucide-react";
 import { Annotation } from "@luma/shared-types";
 import { perfTelemetry } from "../../lib/perfTelemetry";
-
 
 interface PdfPageCanvasProps {
   pdfDoc: PDFDocumentProxy | null;
@@ -16,15 +16,17 @@ interface PdfPageCanvasProps {
   targetWidth?: number;
   onPageLoaded?: (hasText: boolean) => void;
   annotations?: Annotation[];
+  searchQuery?: string;
 }
 
-interface TextSpan {
-  str: string;
+interface HighlightRect {
   left: number;
   top: number;
   width: number;
   height: number;
-  fontSize: number;
+  color: string;
+  id: string;
+  isSearch?: boolean;
 }
 
 export const PdfPageCanvas: React.FC<PdfPageCanvasProps> = ({
@@ -38,18 +40,23 @@ export const PdfPageCanvas: React.FC<PdfPageCanvasProps> = ({
   targetWidth,
   onPageLoaded,
   annotations,
+  searchQuery,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const textLayerRef = useRef<HTMLDivElement | null>(null);
+
   const [renderState, setRenderState] = useState<"loading" | "rendered" | "error">("loading");
-  const [textSpans, setTextSpans] = useState<TextSpan[]>([]);
-  const [pageDimensions, setPageDimensions] = useState<{ width: number; height: number }>({
+  const [pageDimensions, setPageDimensions] = useState<{ width: number; height: number; scale: number }>({
     width: isThumbnail ? 160 : (targetWidth || 480),
     height: isThumbnail ? 220 : 640,
+    scale: 1.0,
   });
   const [isScannedOnly, setIsScannedOnly] = useState<boolean>(false);
   const [isVisible, setIsVisible] = useState<boolean>(!isThumbnail);
+  const [highlightRects, setHighlightRects] = useState<HighlightRect[]>([]);
 
+  // Filter annotations belonging specifically to this page
   const pageAnnotations = useMemo(() => {
     if (!annotations || isThumbnail) return [];
     return annotations.filter((ann) => {
@@ -65,32 +72,95 @@ export const PdfPageCanvas: React.FC<PdfPageCanvasProps> = ({
     });
   }, [annotations, pageNum, isThumbnail]);
 
-  const highlightRects = useMemo(() => {
-    if (!pageAnnotations.length || !textSpans.length) return [];
-    const rects: Array<{ left: number; top: number; width: number; height: number; color: string; id: string }> = [];
+  // Compute exact highlight and search bounding boxes directly from rendered TextLayer spans
+  const computeOverlays = useCallback(() => {
+    const layer = textLayerRef.current;
+    if (!layer || renderState !== "rendered") {
+      setHighlightRects([]);
+      return;
+    }
 
-    for (const ann of pageAnnotations) {
-      if (!ann.quote || !ann.quote.trim()) continue;
-      const quoteWords = ann.quote.trim().toLowerCase();
-      const color = ann.color_hex || "#fef08a";
+    const spans = Array.from(layer.querySelectorAll("span"));
+    if (!spans.length) {
+      setHighlightRects([]);
+      return;
+    }
 
-      for (const span of textSpans) {
-        const spanLower = span.str.toLowerCase();
-        if (spanLower.length > 1 && (quoteWords.includes(spanLower) || spanLower.includes(quoteWords))) {
-          rects.push({
-            left: span.left,
-            top: span.top,
-            width: span.width,
-            height: span.height,
-            color,
-            id: ann.id,
-          });
+    // Build contiguous text string and span offsets
+    let fullText = "";
+    const spanMap: Array<{ span: HTMLSpanElement; start: number; end: number }> = [];
+
+    for (const span of spans) {
+      const str = span.textContent || "";
+      const start = fullText.length;
+      fullText += str + " ";
+      spanMap.push({ span, start, end: start + str.length });
+    }
+
+    const fullLower = fullText.toLowerCase();
+    const rects: HighlightRect[] = [];
+
+    // 1. In-document search highlights (amber)
+    if (searchQuery && searchQuery.trim().length > 1) {
+      const qLower = searchQuery.trim().toLowerCase();
+      let searchOffset = 0;
+      let hitIdx: number;
+
+      while ((hitIdx = fullLower.indexOf(qLower, searchOffset)) !== -1) {
+        const hitEnd = hitIdx + qLower.length;
+        searchOffset = hitEnd;
+
+        for (const item of spanMap) {
+          if (item.end > hitIdx && item.start < hitEnd) {
+            rects.push({
+              left: item.span.offsetLeft,
+              top: item.span.offsetTop,
+              width: item.span.offsetWidth,
+              height: item.span.offsetHeight,
+              color: "#f59e0b",
+              id: `search-${hitIdx}`,
+              isSearch: true,
+            });
+          }
         }
       }
     }
-    return rects;
-  }, [pageAnnotations, textSpans]);
 
+    // 2. User persistent annotations
+    for (const ann of pageAnnotations) {
+      if (!ann.quote || !ann.quote.trim()) continue;
+      const quoteLower = ann.quote.trim().toLowerCase();
+      let annOffset = 0;
+      let matchIdx: number;
+
+      while ((matchIdx = fullLower.indexOf(quoteLower, annOffset)) !== -1) {
+        const matchEnd = matchIdx + quoteLower.length;
+        annOffset = matchEnd;
+
+        for (const item of spanMap) {
+          if (item.end > matchIdx && item.start < matchEnd) {
+            rects.push({
+              left: item.span.offsetLeft,
+              top: item.span.offsetTop,
+              width: item.span.offsetWidth,
+              height: item.span.offsetHeight,
+              color: ann.color_hex || "#fef08a",
+              id: ann.id,
+              isSearch: false,
+            });
+          }
+        }
+      }
+    }
+
+    setHighlightRects(rects);
+  }, [pageAnnotations, searchQuery, renderState]);
+
+  useEffect(() => {
+    computeOverlays();
+  }, [computeOverlays]);
+
+  // Thumbnail Intersection Observer
   useEffect(() => {
     if (!isThumbnail || !containerRef.current) {
       setIsVisible(true);
@@ -114,9 +184,11 @@ export const PdfPageCanvas: React.FC<PdfPageCanvasProps> = ({
     return () => observer.disconnect();
   }, [isThumbnail]);
 
+  // Main PDF Render Task (Canvas + Official TextLayer)
   useEffect(() => {
     let isCancelled = false;
     let renderTask: { cancel: () => void; promise: Promise<unknown> } | null = null;
+    let textLayerTask: TextLayer | null = null;
 
     async function renderPage() {
       if (!isVisible || !pdfDoc || pageNum < 1 || pageNum > pdfDoc.numPages) {
@@ -128,9 +200,9 @@ export const PdfPageCanvas: React.FC<PdfPageCanvasProps> = ({
         const page = await pdfDoc.getPage(pageNum);
         if (isCancelled) return;
 
-        // Check text content availability
+        // Retrieve text content to check for scanned document
         const textContent = await page.getTextContent();
-        const hasText = textContent.items.length > 0;
+        const hasText = textContent.items.length > 0 || hasTextLayer === true;
         setIsScannedOnly(!hasText);
         onPageLoaded?.(hasText);
 
@@ -151,44 +223,12 @@ export const PdfPageCanvas: React.FC<PdfPageCanvasProps> = ({
         const logicalWidth = Math.floor(viewport.width);
         const logicalHeight = Math.floor(viewport.height);
 
-        setPageDimensions({ width: logicalWidth, height: logicalHeight });
-
-        // Build text layer overlay spans for text selection
-        if (!isThumbnail && hasText) {
-          const spans: TextSpan[] = [];
-          for (const item of textContent.items) {
-            if ("str" in item && typeof item.str === "string" && item.str.length > 0) {
-              const [vx, vy] = viewport.convertToViewportPoint(
-                item.transform[4] as number,
-                item.transform[5] as number
-              );
-              const fontHeight =
-                Math.hypot(item.transform[0] as number, item.transform[1] as number) *
-                finalScale;
-              const itemWidth = (item.width || 0) * finalScale;
-              spans.push({
-                str: item.str,
-                left: Math.round(vx),
-                top: Math.round(vy - fontHeight),
-                width: Math.max(1, Math.round(itemWidth)),
-                height: Math.max(1, Math.round(fontHeight)),
-                fontSize: Math.max(1, fontHeight),
-              });
-            }
-          }
-          if (!isCancelled) {
-            setTextSpans(spans);
-          }
-        } else {
-          if (!isCancelled) {
-            setTextSpans([]);
-          }
-        }
+        setPageDimensions({ width: logicalWidth, height: logicalHeight, scale: finalScale });
 
         const canvas = canvasRef.current;
         if (!canvas) return;
 
-        // High-DPI buffer scaling: internal buffer is scaled by DPR while CSS size is logical pixels
+        // High-DPI buffer scaling
         canvas.width = Math.floor(logicalWidth * dpr);
         canvas.height = Math.floor(logicalHeight * dpr);
         canvas.style.width = `${logicalWidth}px`;
@@ -197,12 +237,10 @@ export const PdfPageCanvas: React.FC<PdfPageCanvasProps> = ({
         const ctx = canvas.getContext("2d", { alpha: false });
         if (!ctx) return;
 
-        // Reset transform to identity and clear background
         ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.fillStyle = "#FFFFFF";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // Transform for devicePixelRatio scaling
         const transform = dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : undefined;
 
         renderTask = page.render({
@@ -210,16 +248,34 @@ export const PdfPageCanvas: React.FC<PdfPageCanvasProps> = ({
           canvasContext: ctx,
           transform: transform,
           viewport: viewport,
-        } as any);
+        } as unknown as Parameters<typeof page.render>[0]);
 
         await renderTask.promise;
+        if (isCancelled) return;
+
+        // Render Official PDF.js TextLayer if not thumbnail and text is present
+        if (!isThumbnail && hasText && textLayerRef.current) {
+          const textLayerDiv = textLayerRef.current;
+          textLayerDiv.innerHTML = "";
+          textLayerDiv.style.width = `${logicalWidth}px`;
+          textLayerDiv.style.height = `${logicalHeight}px`;
+          textLayerDiv.style.setProperty("--scale-factor", `${viewport.scale}`);
+
+          textLayerTask = new TextLayer({
+            textContentSource: textContent,
+            container: textLayerDiv,
+            viewport: viewport,
+          });
+
+          await textLayerTask.render();
+        }
+
         if (!isCancelled) {
           setRenderState("rendered");
           if (!isThumbnail) {
             perfTelemetry.mark("LUMA_PERF_PDF_CANVAS_READY", { pageNum });
           }
         }
-
       } catch (err: unknown) {
         if (err && typeof err === "object" && "name" in err && err.name === "RenderingCancelledException") {
           return;
@@ -242,8 +298,18 @@ export const PdfPageCanvas: React.FC<PdfPageCanvasProps> = ({
           // ignore cancel error
         }
       }
+      if (textLayerTask) {
+        try {
+          textLayerTask.cancel();
+        } catch {
+          // ignore cancel error
+        }
+      }
+      if (textLayerRef.current) {
+        textLayerRef.current.innerHTML = "";
+      }
     };
-  }, [pdfDoc, pageNum, zoom, isThumbnail, isVisible, onPageLoaded]);
+  }, [pdfDoc, pageNum, zoom, isThumbnail, isVisible, onPageLoaded, targetWidth, hasTextLayer]);
 
   // Thumbnail Render Mode
   if (isThumbnail) {
@@ -281,7 +347,7 @@ export const PdfPageCanvas: React.FC<PdfPageCanvasProps> = ({
         }`}
       />
 
-      {/* Visual Highlight Overlays */}
+      {/* Visual Highlight & Search Overlays */}
       {renderState === "rendered" && highlightRects.length > 0 && (
         <div
           className="absolute inset-0 overflow-hidden pointer-events-none z-5"
@@ -290,48 +356,35 @@ export const PdfPageCanvas: React.FC<PdfPageCanvasProps> = ({
           {highlightRects.map((rect, idx) => (
             <div
               key={`hl-${rect.id}-${idx}`}
-              className="absolute rounded-xs"
+              className="absolute rounded-xs pointer-events-none"
               style={{
                 left: `${rect.left}px`,
                 top: `${rect.top}px`,
                 width: `${rect.width}px`,
                 height: `${rect.height}px`,
-                backgroundColor: `${rect.color}55`,
-                borderBottom: `2px solid ${rect.color}`,
+                backgroundColor: rect.isSearch ? "rgba(245, 158, 11, 0.45)" : `${rect.color}55`,
+                borderBottom: rect.isSearch ? "2px solid #b45309" : `2px solid ${rect.color}`,
               }}
             />
           ))}
         </div>
       )}
 
-      {/* Selectable Text Layer Overlay for Selection & Highlighting */}
-      {renderState === "rendered" && textSpans.length > 0 && (
+      {/* Official PDF.js TextLayer Container */}
+      {!isThumbnail && (
         <div
-          className="absolute inset-0 overflow-hidden select-text pointer-events-auto leading-none z-10"
-          style={{ width: `${pageDimensions.width}px`, height: `${pageDimensions.height}px` }}
-        >
-          {textSpans.map((span, idx) => (
-            <span
-              key={idx}
-              style={{
-                position: "absolute",
-                left: `${span.left}px`,
-                top: `${span.top}px`,
-                width: `${span.width}px`,
-                height: `${span.height}px`,
-                fontSize: `${span.fontSize}px`,
-                lineHeight: `${span.height}px`,
-                fontFamily: "sans-serif",
-                color: "transparent",
-                userSelect: "text",
-                whiteSpace: "pre",
-                cursor: "text",
-              }}
-            >
-              {span.str}
-            </span>
-          ))}
-        </div>
+          ref={textLayerRef}
+          className="textLayer select-text"
+          style={{
+            position: "absolute",
+            left: 0,
+            top: 0,
+            width: `${pageDimensions.width}px`,
+            height: `${pageDimensions.height}px`,
+            overflow: "clip",
+            zIndex: 10,
+          }}
+        />
       )}
 
       {/* Loading Skeleton */}
@@ -345,7 +398,7 @@ export const PdfPageCanvas: React.FC<PdfPageCanvasProps> = ({
         </div>
       )}
 
-      {/* Fallback Error or No PDF.js Loaded State */}
+      {/* Fallback Error or Missing PDF */}
       {renderState === "error" && (
         <div className="flex-1 flex flex-col items-center justify-center text-center p-8 text-[#78716C]">
           <BookOpen className="w-8 h-8 mb-2 opacity-40 text-[#8C8275]" />
@@ -362,11 +415,11 @@ export const PdfPageCanvas: React.FC<PdfPageCanvasProps> = ({
         </div>
       )}
 
-      {/* Subtle Bottom Status Indicator for Scanned/Image Pages */}
-      {renderState === "rendered" && isScannedOnly && hasTextLayer === false && (
+      {/* Scanned/Image Document Status Badge */}
+      {renderState === "rendered" && isScannedOnly && (
         <div className="absolute bottom-2 right-2 px-1.5 py-0.5 rounded bg-[#FAF7F2]/90 border border-[#E5DFD3] text-[9px] font-mono text-[#78716C] flex items-center gap-1 opacity-70 hover:opacity-100 select-none shadow-xs pointer-events-auto">
           <FileText className="w-2.5 h-2.5 text-[#8C8275]" />
-          <span>Image / Scanned Page</span>
+          <span>Scanned Page (No Text Layer)</span>
         </div>
       )}
     </div>

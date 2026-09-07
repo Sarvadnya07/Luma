@@ -1,3 +1,5 @@
+@import "pdfjs-dist/web/pdf_viewer.css";
+
 /* stylelint-disable at-rule-no-unknown */
 @tailwind base;
 @tailwind components;
@@ -10,6 +12,11 @@
 :root {
   /* Color scheme (affects native UI) */
   color-scheme: light;
+
+  /* Reader Typography Defaults */
+  --reader-font-family: Lora, Georgia, serif;
+  --reader-font-size: 16px;
+  --reader-line-height: 1.8;
 
   /* --- Backgrounds --- */
   --bg-primary: #FAF7F2;
@@ -38,24 +45,32 @@
   /* --- Borders (high clarity & contrast) --- */
   --border-light: #DDD5C7;
   --border-medium: #C8BFB0;
-  --border-heavy: #A89E8E;
-  --border-amber: #D8C7A5;
+  --border-heavy: #B5AB9B;
+  --border-accent: #9A8E7D;
+  --border-dark: #78716C;
 
-  /* --- Accents --- */
-  --accent-primary: #18181B;
-  --accent-rose: #E11D48;
-  --accent-emerald: #059669;
-  --accent-teal: #0D9488;
+  /* --- UI / Chrome Tokens --- */
+  --ui-surface: #FFFFFF;
+  --ui-bg-input: #FFFFFF;
+  --ui-text-field: #1C1917;
+  --ui-border-field: #C8BFB0;
+  --ui-border-field-hover: #9A8E7D;
+  --ui-border-field-focus: #57534E;
+
+  /* --- Reader Canvas / Prose --- */
+  --reader-page-bg: #FAF7F2;
+  --reader-text: #1C1917;
+  --reader-blockquote-border: #9A8E7D;
+  --reader-blockquote-text: #57534E;
+  --reader-hr: #C8BFB0;
+  --reader-table-border: #C8BFB0;
+  --reader-table-bg-alt: #F3EFE6;
 
   /* --- Shadows (crisp depth & component isolation) --- */
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.05);
   --shadow-md: 0 4px 10px -1px rgba(0, 0, 0, 0.12), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
   --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.07), 0 1px 3px rgba(0, 0, 0, 0.05);
   --shadow-card-hover: 0 6px 18px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.08);
-
-  /* --- Typography (reader) --- */
-  --reader-blockquote-border: #A89E8E;
-  --reader-blockquote-text: #57534E;
 }
 
 /* ============================================================================
@@ -64,54 +79,70 @@
 .dark {
   color-scheme: dark;
 
-  --bg-primary: #141312;
-  --bg-secondary: #1A1816;
-  --bg-surface: #201E1B;
-  --bg-surface-muted: #141312;
-  --bg-elevated: #1A1816;
-  --bg-hover: #2A2622;
-  --bg-active: #2A2622;
-  --bg-highlight: #3A3530;
-  --bg-amber-highlight: #B45309;
-  --bg-drawer: #141312;
-  --bg-overlay: rgba(0, 0, 0, 0.6);
-  --bg-scrollbar-thumb: #4B443D;
-  --bg-scrollbar-thumb-hover: #6E6258;
+  /* --- Backgrounds --- */
+  --bg-primary: #18181B;
+  --bg-secondary: #1F1F23;
+  --bg-surface: #27272A;
+  --bg-surface-muted: #1F1F23;
+  --bg-elevated: #2E2E33;
+  --bg-hover: #35353B;
+  --bg-active: #3F3F46;
+  --bg-highlight: #3F3F46;
+  --bg-amber-highlight: #78350F;
+  --bg-drawer: #1F1F23;
+  --bg-overlay: rgba(0, 0, 0, 0.7);
+  --bg-scrollbar-track: transparent;
+  --bg-scrollbar-thumb: #3F3F46;
+  --bg-scrollbar-thumb-hover: #52525B;
 
+  /* --- Text --- */
   --text-primary: #F5F1EA;
-  --text-secondary: #B8AEA2;
-  --text-muted: #B8AEA2;
-  --text-subtle: #8F8478;
-  --text-inverse: #1C1917;
-  --text-amber: #FCD34D;
+  --text-secondary: #D6CEC2;
+  --text-muted: #A8A29E;
+  --text-subtle: #78716C;
+  --text-inverse: #18181B;
+  --text-amber: #FBBF24;
 
-  --border-light: #4A433A;
-  --border-medium: #585046;
-  --border-heavy: #6E6559;
-  --border-amber: #585046;
+  /* --- Borders --- */
+  --border-light: #3F3F46;
+  --border-medium: #52525B;
+  --border-heavy: #71717A;
+  --border-accent: #A1A1AA;
+  --border-dark: #D4D4D8;
 
-  --accent-primary: #F5F1EA;
-  --accent-rose: #F43F5E;
-  --accent-emerald: #34D399;
-  --accent-teal: #2DD4BF;
+  /* --- UI / Chrome Tokens --- */
+  --ui-surface: #27272A;
+  --ui-bg-input: #1F1F23;
+  --ui-text-field: #F5F1EA;
+  --ui-border-field: #52525B;
+  --ui-border-field-hover: #71717A;
+  --ui-border-field-focus: #A1A1AA;
 
+  /* --- Reader Canvas / Prose --- */
+  --reader-page-bg: #18181B;
+  --reader-text: #F5F1EA;
+  --reader-blockquote-border: #71717A;
+  --reader-blockquote-text: #D6CEC2;
+  --reader-hr: #3F3F46;
+  --reader-table-border: #3F3F46;
+  --reader-table-bg-alt: #1F1F23;
+
+  /* --- Shadows --- */
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.35), 0 1px 2px rgba(0, 0, 0, 0.25);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5), 0 2px 5px rgba(0, 0, 0, 0.3);
   --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.3);
   --shadow-card-hover: 0 6px 18px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.4);
-
-  --reader-blockquote-border: #6E6559;
-  --reader-blockquote-text: #B8AEA2;
 }
 
 /* ============================================================================
-   3. Base Styles
+   3. Base Element Resets
    ============================================================================ */
 body {
   margin: 0;
   padding: 0;
   background-color: var(--bg-primary);
   color: var(--text-primary);
+  user-select: none;
   transition: background-color 0.2s, color 0.2s;
 }
 
@@ -127,7 +158,7 @@ select {
 }
 
 /* ============================================================================
-   4. Scrollbar Styling (using CSS variables)
+   4. Custom Scrollbars
    ============================================================================ */
 ::-webkit-scrollbar {
   width: 6px;
@@ -145,41 +176,94 @@ select {
 }
 
 /* ============================================================================
-   5. Reader Prose Styles
+   5. Reader Prose & Typography System
    ============================================================================ */
 .prose-reader {
+  font-family: var(--reader-font-family, Lora, Georgia, serif) !important;
+  font-size: var(--reader-font-size, 16px) !important;
+  line-height: var(--reader-line-height, 1.8) !important;
   font-feature-settings: "kern" 1, "liga" 1;
   text-rendering: optimizeLegibility;
 }
-.prose-reader p {
+
+/* Enforce font inheritance across all tags except code/pre/math/icons */
+.prose-reader *:not(code):not(pre):not(kbd):not(samp):not(.katex):not(.katex *):not(svg):not(path) {
+  font-family: inherit !important;
+}
+
+.prose-reader p,
+.prose-reader div:not([class*="code"]):not([class*="math"]) {
   margin-bottom: 1.5em;
   text-align: justify;
   text-justify: inter-word;
+  font-size: inherit !important;
+  line-height: inherit !important;
 }
+
 .prose-reader blockquote {
   margin: 2em 0;
   padding-left: 1.25rem;
   border-left: 2px solid var(--reader-blockquote-border);
   font-style: italic;
   color: var(--reader-blockquote-text);
+  font-size: inherit !important;
+  line-height: inherit !important;
 }
+
 .prose-reader h1 {
-  font-family: "Playfair Display", Georgia, serif;
+  font-size: 1.875em !important;
   font-weight: 700;
   text-align: center;
   margin-bottom: 2rem;
   color: var(--text-primary);
 }
+
 .prose-reader h2 {
-  font-family: "Playfair Display", Georgia, serif;
+  font-size: 1.5em !important;
   font-weight: 600;
   margin-top: 2rem;
   margin-bottom: 1rem;
   color: var(--text-primary);
 }
 
+.prose-reader h3 {
+  font-size: 1.25em !important;
+  font-weight: 600;
+  margin-top: 1.5rem;
+  margin-bottom: 0.75rem;
+  color: var(--text-primary);
+}
+
 /* ============================================================================
-   6. Highlight Styling
+   6. Highlight & Search Hit Styling
+   ============================================================================ */
+mark.luma-highlight {
+  border-radius: 2px;
+  padding: 1px 2px;
+  color: inherit !important;
+  cursor: pointer;
+  transition: filter 0.15s ease-in-out;
+}
+mark.luma-highlight:hover {
+  filter: brightness(0.92);
+}
+
+mark.luma-search-hit {
+  background-color: #f59e0b !important;
+  color: #18181b !important;
+  border-radius: 2px;
+  padding: 1px 2px;
+  font-weight: 600;
+}
+
+mark.luma-search-hit-active {
+  background-color: #d97706 !important;
+  color: #ffffff !important;
+  outline: 2px solid #b45309;
+}
+
+/* ============================================================================
+   6. Highlight Styling (Legacy)
    ============================================================================ */
 .reader-highlight {
   background-color: var(--bg-highlight);
