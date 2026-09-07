@@ -307,8 +307,18 @@ impl BookRepository {
 
             if let Some(ref search) = filter.search_query {
                 if !search.trim().is_empty() {
-                    query.push_str(" AND (b.title LIKE ? OR b.subtitle LIKE ? OR b.description LIKE ?)");
+                    query.push_str(
+                        " AND (b.title LIKE ? \
+                         OR b.subtitle LIKE ? \
+                         OR b.description LIKE ? \
+                         OR b.id IN (SELECT ba.book_id FROM book_authors ba JOIN authors a ON ba.author_id = a.id WHERE a.name LIKE ?) \
+                         OR b.id IN (SELECT bt.book_id FROM book_tags bt JOIN tags t ON bt.tag_id = t.id WHERE t.name LIKE ?) \
+                         OR b.series_id IN (SELECT s.id FROM series s WHERE s.title LIKE ?))",
+                    );
                     let pattern = format!("%{}%", search.trim());
+                    params_vec.push(Box::new(pattern.clone()));
+                    params_vec.push(Box::new(pattern.clone()));
+                    params_vec.push(Box::new(pattern.clone()));
                     params_vec.push(Box::new(pattern.clone()));
                     params_vec.push(Box::new(pattern.clone()));
                     params_vec.push(Box::new(pattern));

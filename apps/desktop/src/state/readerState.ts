@@ -44,6 +44,7 @@ export interface ReaderStoreState {
   statusMessage: string | null;
   activeSessionId: string | null;
   sessionStartTime: number | null;
+  pendingScrollLocator: string | null;
 
   // Actions (same as before, but now use injected dependencies)
   setCurrentBook: (book: Book | null) => void;
@@ -52,6 +53,7 @@ export interface ReaderStoreState {
   loadChapter: (spineIndex: number) => Promise<void>;
   loadPdfPage: (pageNumber: number) => Promise<void>;
   jumpToLocator: (locator: string) => Promise<void>;
+  clearPendingScrollLocator: () => void;
   updateSettings: (settings: Partial<ReaderSettings>) => void;
   setSidebarTab: (tab: ReaderSidebarTab) => void;
   createHighlight: (
@@ -199,6 +201,7 @@ export function createReaderStore(config: ReaderStoreConfig = {}) {
     statusMessage: null,
     activeSessionId: null,
     sessionStartTime: null,
+    pendingScrollLocator: null,
 
     // ------------------------------------------------------------------------
     // Actions
@@ -398,30 +401,58 @@ export function createReaderStore(config: ReaderStoreConfig = {}) {
       }
     },
 
+    clearPendingScrollLocator: () => {
+      set({ pendingScrollLocator: null });
+    },
+
     jumpToLocator: async (locator: string) => {
       const { documentData, currentBook } = get();
       if (!locator || !documentData) return;
 
       const fmt = documentData.file.format;
       if (fmt === "epub" || fmt === "txt" || fmt === "md" || fmt === "html") {
+        set({ pendingScrollLocator: locator });
+
+        // 1. CFI match: epubcfi(/6/(\d+)...)
         const cfiMatch = locator.match(/epubcfi\(\/6\/(\d+)/);
         if (cfiMatch && cfiMatch[1]) {
           const spine = Math.floor(parseInt(cfiMatch[1], 10) / 2) - 1;
           if (spine >= 0 && spine < (documentData.total_pages_or_spines || 1)) {
-            await get().loadChapter(spine);
+            if (get().currentSpineIndex !== spine || !get().currentChapter) {
+              await get().loadChapter(spine);
+            }
+            window.dispatchEvent(new CustomEvent("luma-reader-scroll-to", { detail: { locator } }));
             return;
           }
         }
+        // 2. TOC item match
         const found = documentData.toc?.findIndex((t) => t.locator === locator || t.locator.includes(locator));
         if (found !== undefined && found !== -1) {
-          await get().loadChapter(found);
+          if (get().currentSpineIndex !== found || !get().currentChapter) {
+            await get().loadChapter(found);
+          }
+          window.dispatchEvent(new CustomEvent("luma-reader-scroll-to", { detail: { locator } }));
           return;
         }
+        // 3. Offset match (txt/md/html): e.g. "offset:120", "md:offset=120", "html:offset=120"
+        const offsetMatch = locator.match(/(?:(?:md:|html:)?offset[=:])(\d+)/);
+        if (offsetMatch && offsetMatch[1]) {
+          if (get().currentSpineIndex !== 0 || !get().currentChapter) {
+            await get().loadChapter(0);
+          }
+          window.dispatchEvent(new CustomEvent("luma-reader-scroll-to", { detail: { locator } }));
+          return;
+        }
+        // 4. Raw spine number
         const num = parseInt(locator, 10);
         if (!isNaN(num) && num >= 0 && num < (documentData.total_pages_or_spines || 1)) {
-          await get().loadChapter(num);
+          if (get().currentSpineIndex !== num || !get().currentChapter) {
+            await get().loadChapter(num);
+          }
+          window.dispatchEvent(new CustomEvent("luma-reader-scroll-to", { detail: { locator } }));
           return;
         }
+        // 5. Default/Fallback
         if (!get().currentChapter) {
           await get().loadChapter(0);
         }

@@ -65,7 +65,8 @@ function applyDomHighlights(
     matchEnd: number,
     className: string,
     color: string,
-    annotationId: string | null
+    annotationId?: string | null,
+    charOffset?: number
   ) => {
     // Collect all intersecting nodes and their sub-ranges
     const intersections: Array<{ node: Text; startOffset: number; endOffset: number }> = [];
@@ -98,6 +99,9 @@ function applyDomHighlights(
         if (annotationId) {
           mark.setAttribute("data-annotation-id", annotationId);
         }
+        if (charOffset !== undefined) {
+          mark.setAttribute("data-char-offset", String(charOffset));
+        }
 
         mark.appendChild(range.extractContents());
         range.insertNode(mark);
@@ -117,7 +121,7 @@ function applyDomHighlights(
     while ((hitIdx = fullTextLower.indexOf(qLower, searchStart)) !== -1) {
       const hitEnd = hitIdx + qLower.length;
       searchStart = hitEnd;
-      wrapTextRange(hitIdx, hitEnd, "luma-search-hit", "#f59e0b", `search-${matchCount}`);
+      wrapTextRange(hitIdx, hitEnd, "luma-search-hit", "#f59e0b", `search-${matchCount}`, hitIdx);
       matchCount++;
     }
   }
@@ -159,6 +163,8 @@ export const EpubReaderView: React.FC = () => {
   const searchQuery = useReaderStore((s) => s.searchQuery);
   const createHighlight = useReaderStore((s) => s.createHighlight);
   const toggleBookmark = useReaderStore((s) => s.toggleBookmark);
+  const pendingScrollLocator = useReaderStore((s) => s.pendingScrollLocator);
+  const clearPendingScrollLocator = useReaderStore((s) => s.clearPendingScrollLocator);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -171,38 +177,92 @@ export const EpubReaderView: React.FC = () => {
 
   const totalSpines = documentData?.total_pages_or_spines || 1;
 
+  const scrollToLocator = useCallback((loc: string) => {
+    if (!containerRef.current || !loc) return;
+
+    let targetEl: Element | null = null;
+
+    // 1. Direct attribute selectors (annotation id, heading id, data-node-id)
+    targetEl =
+      containerRef.current.querySelector(`[data-annotation-id="${loc}"]`) ||
+      containerRef.current.querySelector(`#${loc}`) ||
+      containerRef.current.querySelector(`[data-node-id="${loc}"]`);
+
+    // 2. Hash selector
+    if (!targetEl && loc.startsWith("#")) {
+      try {
+        targetEl = containerRef.current.querySelector(loc);
+      } catch {
+        // invalid selector fallback
+      }
+    }
+
+    // 3. Search locator / character offset resolution (EPUB CFI, TXT/MD/HTML offset)
+    if (!targetEl) {
+      const cfiOffsetMatch = loc.match(/epubcfi\(\/6\/\d+!\/4\/(\d+):0\)/);
+      const textOffsetMatch = loc.match(/(?:(?:md:|html:)?offset[=:])(\d+)/);
+      const offsetStr = cfiOffsetMatch?.[1] ?? textOffsetMatch?.[1];
+
+      if (offsetStr !== undefined) {
+        const targetOffset = parseInt(offsetStr, 10);
+        const searchMarks = Array.from(
+          containerRef.current.querySelectorAll<HTMLElement>("mark.luma-search-hit[data-char-offset]")
+        );
+
+        if (searchMarks.length > 0) {
+          let closest = searchMarks[0];
+          let minDiff = Math.abs(parseInt(closest.getAttribute("data-char-offset") || "0", 10) - targetOffset);
+          for (const sm of searchMarks) {
+            const diff = Math.abs(parseInt(sm.getAttribute("data-char-offset") || "0", 10) - targetOffset);
+            if (diff < minDiff) {
+              minDiff = diff;
+              closest = sm;
+            }
+          }
+          targetEl = closest;
+        }
+      }
+    }
+
+    // 4. Fallback for search-N or generic search matches
+    if (!targetEl && (loc.startsWith("search-") || loc.includes("search"))) {
+      targetEl = containerRef.current.querySelector("mark.luma-search-hit");
+    }
+
+    if (targetEl) {
+      targetEl.scrollIntoView({ behavior: "smooth", block: "center" });
+      targetEl.classList.add("ring-2", "ring-amber-500", "animate-pulse");
+      setTimeout(() => {
+        targetEl?.classList.remove("ring-2", "ring-amber-500", "animate-pulse");
+      }, 2000);
+    }
+  }, []);
+
   // Re-apply DOM highlights whenever content, annotations, spine index, or search query changes
   useEffect(() => {
     if (contentRef.current && currentChapter?.html_content) {
       applyDomHighlights(contentRef.current, annotations, currentSpineIndex, searchQuery);
+      if (pendingScrollLocator) {
+        const loc = pendingScrollLocator;
+        requestAnimationFrame(() => {
+          scrollToLocator(loc);
+          clearPendingScrollLocator();
+        });
+      }
     }
-  }, [currentChapter, annotations, currentSpineIndex, searchQuery]);
+  }, [currentChapter, annotations, currentSpineIndex, searchQuery, pendingScrollLocator, scrollToLocator, clearPendingScrollLocator]);
 
   // Listen for scroll-to events (TOC jumps, search match jumps, bookmark jumps)
   useEffect(() => {
     const handleScrollTo = (e: Event) => {
       const detail = (e as CustomEvent).detail;
-      if (!detail?.locator || !containerRef.current) return;
-      const loc = detail.locator;
-
-      let targetEl: Element | null = null;
-      if (loc.startsWith("p") || loc.startsWith("heading-") || loc.startsWith("search-")) {
-        targetEl =
-          containerRef.current.querySelector(`[data-annotation-id="${loc}"]`) ||
-          containerRef.current.querySelector(`#${loc}`) ||
-          containerRef.current.querySelector(`[data-node-id="${loc}"]`);
-      } else if (loc.startsWith("#")) {
-        targetEl = containerRef.current.querySelector(loc);
-      }
-
-      if (targetEl) {
-        targetEl.scrollIntoView({ behavior: "smooth", block: "center" });
-      }
+      if (!detail?.locator) return;
+      scrollToLocator(detail.locator);
     };
 
     window.addEventListener("luma-reader-scroll-to", handleScrollTo);
     return () => window.removeEventListener("luma-reader-scroll-to", handleScrollTo);
-  }, []);
+  }, [scrollToLocator]);
 
   // Text selection listener with multi-node DOM context extraction
   const handleMouseUp = useCallback(() => {

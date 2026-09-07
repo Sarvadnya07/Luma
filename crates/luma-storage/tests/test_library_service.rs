@@ -135,6 +135,62 @@ async fn test_library_repository_filtering_sorting_and_trash() {
         .unwrap();
     assert_eq!(active_books.len(), 1);
 
+    // Verify Search by Title
+    let title_search = book_repo
+        .list(
+            &LibraryFilterOptions {
+                search_query: Some("Distributed".to_string()),
+                ..Default::default()
+            },
+            &LibrarySortOptions::default(),
+            0,
+            10,
+        )
+        .unwrap();
+    assert_eq!(title_search.len(), 1);
+
+    // Verify Search by Author
+    let author_search = book_repo
+        .list(
+            &LibraryFilterOptions {
+                search_query: Some("Test Author".to_string()),
+                ..Default::default()
+            },
+            &LibrarySortOptions::default(),
+            0,
+            10,
+        )
+        .unwrap();
+    assert_eq!(author_search.len(), 1);
+
+    // Verify Search by Tag
+    let tag_search = book_repo
+        .list(
+            &LibraryFilterOptions {
+                search_query: Some("Computer Science".to_string()),
+                ..Default::default()
+            },
+            &LibrarySortOptions::default(),
+            0,
+            10,
+        )
+        .unwrap();
+    assert_eq!(tag_search.len(), 1);
+
+    // Verify Non-matching Search
+    let miss_search = book_repo
+        .list(
+            &LibraryFilterOptions {
+                search_query: Some("NonExistentKeywordXYZ".to_string()),
+                ..Default::default()
+            },
+            &LibrarySortOptions::default(),
+            0,
+            10,
+        )
+        .unwrap();
+    assert_eq!(miss_search.len(), 0);
+
     // Change Reading Status
     book_repo
         .set_reading_status(&book.id, ReadingStatus::Reading)

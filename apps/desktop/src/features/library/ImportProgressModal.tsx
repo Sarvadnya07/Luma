@@ -20,7 +20,11 @@ export const ImportProgressModal: React.FC<ImportProgressModalProps> = ({
       ? Math.round(((job.completed_count + job.failed_count + job.skipped_count) / job.total_files) * 100)
       : 0;
 
-  const isFinished = job.status === "completed" || job.status === "failed" || job.status === "cancelled";
+  const isFinished =
+    job.status === "completed" ||
+    job.status === "failed" ||
+    job.status === "cancelled" ||
+    (job.status as string) === "success";
 
   return (
     <div
@@ -35,7 +39,7 @@ export const ImportProgressModal: React.FC<ImportProgressModalProps> = ({
           <div className="flex items-center gap-2.5">
             {!isFinished ? (
               <Loader2 className="w-4 h-4 text-[#18181B] animate-spin" />
-            ) : job.status === "completed" ? (
+            ) : job.status === "completed" || (job.status as string) === "success" ? (
               <CheckCircle2 className="w-4 h-4 text-emerald-600" />
             ) : (
               <AlertCircle className="w-4 h-4 text-rose-600" />
@@ -86,7 +90,7 @@ export const ImportProgressModal: React.FC<ImportProgressModalProps> = ({
                 </div>
                 <span
                   className={`text-[10px] font-mono uppercase px-1.5 py-0.5 rounded ${
-                    item.status === "completed"
+                    item.status === "completed" || item.status === "success"
                       ? "text-emerald-700 bg-emerald-50"
                       : item.status === "failed"
                       ? "text-rose-700 bg-rose-50"

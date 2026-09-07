@@ -202,6 +202,11 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isDuplicateModalOpen, setIsDuplicateModalOpen] = useState(false);
   const [duplicateExistingBook, setDuplicateExistingBook] = useState<Book | null>(null);
+  const [duplicateImportingFile, setDuplicateImportingFile] = useState<{
+    filename: string;
+    format: string;
+    size: string;
+  } | null>(null);
   const [isCollectionModalOpen, setIsCollectionModalOpen] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
@@ -368,8 +373,20 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
         (i) => i.duplicate_level && i.duplicate_level !== "unrelated"
       );
       if (dupItem && config.enableDuplicateModal) {
-        const foundBook = books.find((b) => b.id === dupItem.book_id) || books[0] || null;
-        setDuplicateExistingBook(foundBook);
+        let foundBook = books.find((b) => b.id === dupItem.book_id) || null;
+        if (!foundBook && dupItem.book_id) {
+          try {
+            foundBook = await LumaApi.getBook(dupItem.book_id);
+          } catch {
+            // fallback
+          }
+        }
+        setDuplicateExistingBook(foundBook || books[0] || null);
+        setDuplicateImportingFile({
+          filename: dupItem.original_filename,
+          format: dupItem.original_filename.split(".").pop()?.toUpperCase() || "EPUB",
+          size: "Staged",
+        });
         setIsDuplicateModalOpen(true);
       } else {
         setIsImportModalOpen(true);
@@ -468,8 +485,8 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
         const paths = await LumaApi.pickImportFiles();
         if (paths && paths.length > 0) {
           await handleImportFiles(paths);
-          return;
         }
+        return;
       } catch (err) {
         console.error("Native file picker error:", err);
       }
@@ -478,7 +495,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
     const input = document.createElement("input");
     input.type = "file";
     input.multiple = true;
-    input.accept = ".epub,.pdf,.cbz,.cbr,.txt,.md";
+    input.accept = ".epub,.pdf,.cbz,.cbr,.txt,.md,.html,.htm";
     input.onchange = async (e: Event) => {
       const target = e.target as HTMLInputElement;
       const files = Array.from(target.files || []);
@@ -952,12 +969,21 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
         <DuplicateReviewModal
           isOpen={isDuplicateModalOpen}
           existingBook={duplicateExistingBook}
-          onClose={() => setIsDuplicateModalOpen(false)}
+          importingFile={duplicateImportingFile}
+          onClose={() => {
+            setIsDuplicateModalOpen(false);
+            setDuplicateImportingFile(null);
+          }}
           onUseExisting={() => {
             setIsDuplicateModalOpen(false);
+            setDuplicateImportingFile(null);
+            if (duplicateExistingBook) {
+              handleOpenDetails(duplicateExistingBook.id);
+            }
           }}
           onAddAsNewFormat={() => {
             setIsDuplicateModalOpen(false);
+            setDuplicateImportingFile(null);
             loadData();
           }}
         />
