@@ -510,10 +510,12 @@ impl ReaderService {
     pub async fn get_node_text(&self, book_id: &BookId, node_id: &str) -> Result<String> {
         let doc = self.get_or_open_canonical(book_id).await?;
         let structure = doc.structure()?;
-        let node = structure.find_node(node_id).ok_or_else(|| LumaError::NotFound {
-            entity_type: "StructureNode".to_string(),
-            id: node_id.to_string(),
-        })?;
+        let node = structure
+            .find_node(node_id)
+            .ok_or_else(|| LumaError::NotFound {
+                entity_type: "StructureNode".to_string(),
+                id: node_id.to_string(),
+            })?;
 
         if let Some(ref txt) = node.text {
             return Ok(txt.clone());
@@ -527,11 +529,7 @@ impl ReaderService {
     }
 
     /// Retrieve the exact source text spanning a contiguous document range.
-    pub async fn get_range_text(
-        &self,
-        book_id: &BookId,
-        range: &DocumentRange,
-    ) -> Result<String> {
+    pub async fn get_range_text(&self, book_id: &BookId, range: &DocumentRange) -> Result<String> {
         let doc = self.get_or_open_canonical(book_id).await?;
         doc.get_range_text(range)
     }

@@ -348,9 +348,14 @@ impl EpubDocument {
                         .with_node(&id)
                         .with_locator(&item.href);
                     chapter_nodes.push(
-                        StructureNode::new(&id, NodeKind::Paragraph { index: chapter_nodes.len() })
-                            .with_text(&clean_text)
-                            .with_range(DocumentRange::new(start_pos, end_pos)),
+                        StructureNode::new(
+                            &id,
+                            NodeKind::Paragraph {
+                                index: chapter_nodes.len(),
+                            },
+                        )
+                        .with_text(&clean_text)
+                        .with_range(DocumentRange::new(start_pos, end_pos)),
                     );
                 }
                 current_offset += char_len + 1;
@@ -358,17 +363,12 @@ impl EpubDocument {
 
             if chapter_nodes.is_empty() {
                 let id = format!("p-{}-0", spine_idx);
-                let p_node = StructureNode::new(
-                    &id,
-                    NodeKind::Paragraph {
-                        index: 0,
-                    },
-                )
-                .with_text(&chapter.text_content)
-                .with_range(DocumentRange::new(
-                    DocumentPosition::new(spine_idx, 0),
-                    DocumentPosition::new(spine_idx, chapter.text_content.chars().count()),
-                ));
+                let p_node = StructureNode::new(&id, NodeKind::Paragraph { index: 0 })
+                    .with_text(&chapter.text_content)
+                    .with_range(DocumentRange::new(
+                        DocumentPosition::new(spine_idx, 0),
+                        DocumentPosition::new(spine_idx, chapter.text_content.chars().count()),
+                    ));
                 chapter_nodes.push(p_node);
             }
 
@@ -408,8 +408,7 @@ impl EpubDocument {
         static TAG_RE: std::sync::LazyLock<Regex> =
             std::sync::LazyLock::new(|| Regex::new(TAG_REGEX).expect("Valid regex"));
 
-        let mut current_idx = 0;
-        for cap in P_RE.captures_iter(&chapter.html_content) {
+        for (current_idx, cap) in P_RE.captures_iter(&chapter.html_content).enumerate() {
             if current_idx == paragraph_index {
                 let inner = cap.get(1).map(|m| m.as_str()).unwrap_or_default();
                 let stripped = TAG_RE.replace_all(inner, " ");
@@ -419,7 +418,6 @@ impl EpubDocument {
                     .join(" ");
                 return Ok(clean);
             }
-            current_idx += 1;
         }
 
         Err(LumaError::NotFound {
@@ -459,8 +457,9 @@ impl EpubDocument {
     pub fn read_resource(&self, href: &str) -> Result<Vec<u8>> {
         let file = File::open(&self.file_path)
             .map_err(|e| LumaError::DocumentError(format!("Failed to open epub: {}", e)))?;
-        let mut archive = zip::ZipArchive::new(file)
-            .map_err(|e| LumaError::CorruptedDocument(format!("Failed to open zip archive: {}", e)))?;
+        let mut archive = zip::ZipArchive::new(file).map_err(|e| {
+            LumaError::CorruptedDocument(format!("Failed to open zip archive: {}", e))
+        })?;
 
         let res_path = if self.opf_dir.as_os_str().is_empty() {
             href.to_string()
@@ -470,10 +469,12 @@ impl EpubDocument {
 
         let has_res = archive.by_name(&res_path).is_ok();
         let mut entry = if has_res {
-            archive.by_name(&res_path).map_err(|_| LumaError::NotFound {
-                entity_type: "Resource".to_string(),
-                id: href.to_string(),
-            })?
+            archive
+                .by_name(&res_path)
+                .map_err(|_| LumaError::NotFound {
+                    entity_type: "Resource".to_string(),
+                    id: href.to_string(),
+                })?
         } else {
             archive.by_name(href).map_err(|_| LumaError::NotFound {
                 entity_type: "Resource".to_string(),
@@ -482,9 +483,9 @@ impl EpubDocument {
         };
 
         let mut data = Vec::new();
-        entry
-            .read_to_end(&mut data)
-            .map_err(|e| LumaError::DocumentError(format!("Failed to read resource {}: {}", href, e)))?;
+        entry.read_to_end(&mut data).map_err(|e| {
+            LumaError::DocumentError(format!("Failed to read resource {}: {}", href, e))
+        })?;
         Ok(data)
     }
 

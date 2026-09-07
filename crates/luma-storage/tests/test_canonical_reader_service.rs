@@ -65,7 +65,10 @@ async fn test_canonical_reader_service_queries() {
         .expect("get headings");
     assert_eq!(headings.len(), 2);
     assert_eq!(headings[0].text.as_deref(), Some("Empirical Epistemology"));
-    assert_eq!(headings[1].text.as_deref(), Some("Rationalism vs Empiricism"));
+    assert_eq!(
+        headings[1].text.as_deref(),
+        Some("Rationalism vs Empiricism")
+    );
 
     // 4. Query Paragraph by Index
     let p0 = reader
@@ -78,20 +81,23 @@ async fn test_canonical_reader_service_queries() {
         .get_paragraph(&book.id, 0, 1)
         .await
         .expect("get paragraph 1");
-    assert_eq!(p1, "Empiricism emphasizes evidence from sensory perception.");
+    assert_eq!(
+        p1,
+        "Empiricism emphasizes evidence from sensory perception."
+    );
 
     // 5. Query Node Text by ID
     let node_text = reader
         .get_node_text(&book.id, "p0")
         .await
         .expect("get node text for p0");
-    assert_eq!(node_text, "Epistemology investigates the nature of knowledge.");
+    assert_eq!(
+        node_text,
+        "Epistemology investigates the nature of knowledge."
+    );
 
     // 6. Query Range Text
-    let range = DocumentRange::new(
-        DocumentPosition::new(0, 0),
-        DocumentPosition::new(0, 24),
-    );
+    let range = DocumentRange::new(DocumentPosition::new(0, 0), DocumentPosition::new(0, 24));
     let range_text = reader
         .get_range_text(&book.id, &range)
         .await
@@ -99,16 +105,18 @@ async fn test_canonical_reader_service_queries() {
     assert_eq!(range_text, "# Empirical Epistemology");
 
     // 7. Generate Citation Context
-    let cit_range = DocumentRange::new(
-        DocumentPosition::new(0, 26),
-        DocumentPosition::new(0, 76),
-    );
+    let cit_range = DocumentRange::new(DocumentPosition::new(0, 26), DocumentPosition::new(0, 76));
     let citation = reader
         .get_document_citation(&book.id, &cit_range)
         .await
         .expect("get citation");
-    assert_eq!(citation.quote, "Epistemology investigates the nature of knowledge.");
-    assert!(citation.formatted_citation.contains("Empirical Epistemology"));
+    assert_eq!(
+        citation.quote,
+        "Epistemology investigates the nature of knowledge."
+    );
+    assert!(citation
+        .formatted_citation
+        .contains("Empirical Epistemology"));
 
     // 8. Canonical Search
     let matches = reader

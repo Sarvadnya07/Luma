@@ -16,6 +16,7 @@ use crate::pdf_doc::PdfDocument;
 use crate::text_doc::TextDocument;
 
 /// Unified, format-neutral representation of any document supported by Luma.
+#[allow(clippy::large_enum_variant)]
 pub enum CanonicalDocument {
     Epub(EpubDocument),
     Pdf(PdfDocument),
@@ -246,9 +247,7 @@ impl CanonicalDocument {
         let doc_title = metadata
             .map(|m| m.title.clone())
             .unwrap_or_else(|| self.title().to_string());
-        let authors = metadata
-            .map(|m| m.authors.clone())
-            .unwrap_or_default();
+        let authors = metadata.map(|m| m.authors.clone()).unwrap_or_default();
         let publisher = metadata.and_then(|m| m.publisher.clone());
         let publication_date = metadata.and_then(|m| m.publication_date.clone());
 
@@ -269,11 +268,12 @@ impl CanonicalDocument {
         };
 
         let page_number = range.start.page_number;
-        let locator = range
-            .start
-            .locator
-            .clone()
-            .unwrap_or_else(|| format!("section:{},offset:{}", range.start.section_index, range.start.char_offset));
+        let locator = range.start.locator.clone().unwrap_or_else(|| {
+            format!(
+                "section:{},offset:{}",
+                range.start.section_index, range.start.char_offset
+            )
+        });
 
         // Format scholarly citation string
         let authors_str = if authors.is_empty() {
@@ -282,9 +282,7 @@ impl CanonicalDocument {
             authors.join(", ")
         };
 
-        let date_str = publication_date
-            .as_deref()
-            .unwrap_or("n.d.");
+        let date_str = publication_date.as_deref().unwrap_or("n.d.");
 
         let loc_str = if let Some(pg) = page_number {
             format!("p. {pg}")
@@ -294,9 +292,8 @@ impl CanonicalDocument {
             locator.clone()
         };
 
-        let formatted_citation = format!(
-            "{authors_str} ({date_str}). {doc_title}, {loc_str}. \"{quote}\""
-        );
+        let formatted_citation =
+            format!("{authors_str} ({date_str}). {doc_title}, {loc_str}. \"{quote}\"");
 
         Ok(CitationContext {
             document_title: doc_title,

@@ -252,11 +252,12 @@ impl PdfDocument {
                     .with_geometry(bbox)
                     .with_node(&p_id)
                     .with_locator(format!("page={}", page_num));
-                let end_pos = DocumentPosition::new(page_num as usize - 1, current_offset + char_len)
-                    .with_page(page_num)
-                    .with_geometry(bbox)
-                    .with_node(&p_id)
-                    .with_locator(format!("page={}", page_num));
+                let end_pos =
+                    DocumentPosition::new(page_num as usize - 1, current_offset + char_len)
+                        .with_page(page_num)
+                        .with_geometry(bbox)
+                        .with_node(&p_id)
+                        .with_locator(format!("page={}", page_num));
 
                 paragraph_nodes.push(
                     StructureNode::new(&p_id, NodeKind::Paragraph { index: p_idx })
@@ -657,10 +658,8 @@ impl PdfDocument {
                         .min(page_data.text_content.len());
                     let safe_start = page_data.text_content.floor_char_boundary(start_snippet);
                     let safe_end = page_data.text_content.ceil_char_boundary(end_snippet);
-                    let snippet = format!(
-                        "...{}...",
-                        &page_data.text_content[safe_start..safe_end]
-                    );
+                    let snippet =
+                        format!("...{}...", &page_data.text_content[safe_start..safe_end]);
 
                     matches.push(DocumentSearchMatch {
                         spine_index: (page - 1) as usize,

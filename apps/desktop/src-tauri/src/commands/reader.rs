@@ -233,7 +233,10 @@ pub async fn get_document_paragraph(
     paragraph_index: usize,
 ) -> Result<String, BackendError> {
     let bid = parse_book_id(&book_id)?;
-    debug!(?bid, section_or_page, paragraph_index, "Retrieving paragraph");
+    debug!(
+        ?bid,
+        section_or_page, paragraph_index, "Retrieving paragraph"
+    );
 
     let text = ctx
         .reader_service

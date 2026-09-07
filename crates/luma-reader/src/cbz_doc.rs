@@ -198,12 +198,13 @@ impl CbzDocument {
 
     /// Extract raw image bytes for a specific page index.
     pub fn get_page_image(&self, page_index: usize) -> Result<(Vec<u8>, String)> {
-        let page_info = self.pages.get(page_index).ok_or_else(|| {
-            LumaError::NotFound {
+        let page_info = self
+            .pages
+            .get(page_index)
+            .ok_or_else(|| LumaError::NotFound {
                 entity_type: "CbzPage".to_string(),
                 id: page_index.to_string(),
-            }
-        })?;
+            })?;
 
         let file = File::open(&self.file_path)
             .map_err(|e| LumaError::DocumentError(format!("Failed to open CBZ archive: {e}")))?;
@@ -286,4 +287,3 @@ fn natural_cmp(a: &str, b: &str) -> std::cmp::Ordering {
     }
     a.len().cmp(&b.len())
 }
-

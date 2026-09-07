@@ -36,10 +36,7 @@ fn test_canonical_text_document() {
     assert_eq!(p1, "This is paragraph zero of the book.");
 
     // Range query
-    let range = DocumentRange::new(
-        DocumentPosition::new(0, 0),
-        DocumentPosition::new(0, 19),
-    );
+    let range = DocumentRange::new(DocumentPosition::new(0, 0), DocumentPosition::new(0, 19));
     let slice = doc.get_range_text(&range).expect("range text");
     assert_eq!(slice, "First Chapter Title");
 
@@ -65,18 +62,19 @@ fn test_canonical_text_document() {
         total_pages_or_spines: Some(1),
     };
 
-    let cit_range = DocumentRange::new(
-        DocumentPosition::new(0, 21),
-        DocumentPosition::new(0, 56),
-    );
+    let cit_range = DocumentRange::new(DocumentPosition::new(0, 21), DocumentPosition::new(0, 56));
     let citation = doc
         .get_citation_context(&cit_range, Some(&metadata))
         .expect("citation context");
     assert_eq!(citation.quote, "This is paragraph zero of the book.");
-    assert!(citation.formatted_citation.contains("Jane Doe (2026). The Book of Reflection"));
+    assert!(citation
+        .formatted_citation
+        .contains("Jane Doe (2026). The Book of Reflection"));
 
     // Canonical search
-    let matches = doc.search_canonical("insightful").expect("search canonical");
+    let matches = doc
+        .search_canonical("insightful")
+        .expect("search canonical");
     assert_eq!(matches.len(), 1);
     assert_eq!(matches[0].section_index, 0);
     assert!(matches[0].snippet.contains("insightful"));
@@ -98,7 +96,10 @@ fn test_canonical_markdown_document() {
     let structure = doc.structure().expect("structure");
     let headings = doc.get_headings().expect("headings");
     assert_eq!(headings.len(), 2);
-    assert_eq!(headings[0].text.as_deref(), Some("Guide to Distributed Systems"));
+    assert_eq!(
+        headings[0].text.as_deref(),
+        Some("Guide to Distributed Systems")
+    );
     assert_eq!(headings[1].text.as_deref(), Some("Paxos and Raft"));
 
     // Verify paragraph extraction
@@ -109,11 +110,19 @@ fn test_canonical_markdown_document() {
     assert_eq!(p1, "Raft simplifies consensus through leader election.");
 
     // Verify code block node exists in structure
-    let has_code_block = structure.root.children.iter().any(|node| matches!(node.kind, NodeKind::CodeBlock { .. }));
+    let has_code_block = structure
+        .root
+        .children
+        .iter()
+        .any(|node| matches!(node.kind, NodeKind::CodeBlock { .. }));
     assert!(has_code_block, "Structure should contain CodeBlock node");
 
     // Verify blockquote node exists in structure
-    let has_quote = structure.root.children.iter().any(|node| matches!(node.kind, NodeKind::Blockquote));
+    let has_quote = structure
+        .root
+        .children
+        .iter()
+        .any(|node| matches!(node.kind, NodeKind::Blockquote));
     assert!(has_quote, "Structure should contain Blockquote node");
 }
 
@@ -126,7 +135,8 @@ fn test_canonical_html_document() {
     let mut file = File::create(&file_path).expect("create file");
     file.write_all(html_content.as_bytes()).expect("write");
 
-    let doc = CanonicalDocument::open(&file_path, DocumentFormat::Html).expect("open canonical html");
+    let doc =
+        CanonicalDocument::open(&file_path, DocumentFormat::Html).expect("open canonical html");
     assert_eq!(doc.title(), "Quantum Computing");
 
     let headings = doc.get_headings().expect("headings");
@@ -149,8 +159,8 @@ fn test_canonical_cbz_document_natural_sort_and_resources() {
     let file = File::create(&file_path).expect("create file");
     let mut zip = zip::ZipWriter::new(file);
 
-    let options = zip::write::SimpleFileOptions::default()
-        .compression_method(zip::CompressionMethod::Stored);
+    let options =
+        zip::write::SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
 
     // ComicInfo.xml
     zip.start_file("ComicInfo.xml", options).expect("zip file");

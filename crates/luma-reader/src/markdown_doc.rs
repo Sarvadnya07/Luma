@@ -80,10 +80,10 @@ impl MarkdownDocument {
         let mut paragraph_buf = String::new();
 
         let flush_paragraph = |buf: &mut String,
-                                   out: &mut String,
-                                   nodes: &mut Vec<StructureNode>,
-                                   p_texts: &mut Vec<String>,
-                                   offset: &mut usize| {
+                               out: &mut String,
+                               nodes: &mut Vec<StructureNode>,
+                               p_texts: &mut Vec<String>,
+                               offset: &mut usize| {
             if !buf.is_empty() {
                 let p_idx = p_texts.len();
                 let p_id = format!("p{}", p_idx);
@@ -132,14 +132,9 @@ impl MarkdownDocument {
                         .with_node(&c_id)
                         .with_locator(&c_id);
                     structure_nodes.push(
-                        StructureNode::new(
-                            &c_id,
-                            NodeKind::CodeBlock {
-                                language: None,
-                            },
-                        )
-                        .with_text(&code_block_buf)
-                        .with_range(DocumentRange::new(start_pos, end_pos)),
+                        StructureNode::new(&c_id, NodeKind::CodeBlock { language: None })
+                            .with_text(&code_block_buf)
+                            .with_range(DocumentRange::new(start_pos, end_pos)),
                     );
                     current_offset += char_len + 1;
                     code_block_buf.clear();
