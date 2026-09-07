@@ -34,6 +34,12 @@ import {
   ResearchDraft,
   ReadingSession,
   ReadingAnalytics,
+  DocumentStructure,
+  StructureNode,
+  DocumentRange,
+  ResourceDescriptor,
+  CitationContext,
+  CanonicalSearchMatch,
 } from "@luma/shared-types";
 
 import {
@@ -487,6 +493,114 @@ export class LumaApiClient {
         }
         return [];
       }
+    );
+  }
+
+  // --------------------------------------------------------------------------
+  // Canonical Document Access API (ARCH-01)
+  // --------------------------------------------------------------------------
+
+  async getDocumentStructure(bookId: string): Promise<DocumentStructure> {
+    return this._call(
+      "get_document_structure",
+      { bookId },
+      () => ({
+        root: {
+          id: "root",
+          kind: { type: "document" },
+          text: "Document Root",
+          children: [
+            {
+              id: "p0",
+              kind: { type: "paragraph", data: { index: 0 } },
+              text: "Sample paragraph content for local reading and canonical access.",
+              children: [],
+              range: {
+                start: { section_index: 0, char_offset: 0 },
+                end: { section_index: 0, char_offset: 68 },
+              },
+            },
+          ],
+        },
+        total_sections: 1,
+        total_paragraphs: 1,
+        total_words: 10,
+      })
+    );
+  }
+
+  async getDocumentNodeText(bookId: string, nodeId: string): Promise<string> {
+    return this._call(
+      "get_document_node_text",
+      { bookId, nodeId },
+      () => "Sample paragraph content for local reading and canonical access."
+    );
+  }
+
+  async getDocumentRangeText(bookId: string, range: DocumentRange): Promise<string> {
+    return this._call(
+      "get_document_range_text",
+      { bookId, range },
+      () => "Sample paragraph content for local reading and canonical access."
+    );
+  }
+
+  async getDocumentParagraph(bookId: string, sectionOrPage: number, paragraphIndex: number): Promise<string> {
+    return this._call(
+      "get_document_paragraph",
+      { bookId, sectionOrPage, paragraphIndex },
+      () => "Sample paragraph content for local reading and canonical access."
+    );
+  }
+
+  async getDocumentHeadings(bookId: string): Promise<StructureNode[]> {
+    return this._call(
+      "get_document_headings",
+      { bookId },
+      () => []
+    );
+  }
+
+  async getDocumentResources(bookId: string): Promise<ResourceDescriptor[]> {
+    return this._call(
+      "get_document_resources",
+      { bookId },
+      () => []
+    );
+  }
+
+  async readDocumentResource(bookId: string, hrefOrId: string): Promise<Uint8Array> {
+    const res = await this._call<number[] | Uint8Array | ArrayBuffer>(
+      "read_document_resource",
+      { bookId, hrefOrId },
+      () => new Uint8Array()
+    );
+    if (!res) return new Uint8Array();
+    if (res instanceof Uint8Array) return res;
+    if (res instanceof ArrayBuffer) return new Uint8Array(res);
+    if (Array.isArray(res)) return new Uint8Array(res);
+    return new Uint8Array();
+  }
+
+  async getDocumentCitation(bookId: string, range: DocumentRange): Promise<CitationContext> {
+    return this._call(
+      "get_document_citation",
+      { bookId, range },
+      () => ({
+        document_title: "Document",
+        authors: ["Unknown Author"],
+        locator: "section:0,offset:0",
+        quote: "Sample quotation from canonical model.",
+        formatted_citation: 'Unknown Author (n.d.). Document, "section:0,offset:0". "Sample quotation from canonical model."',
+      })
+    );
+  }
+
+  async searchDocumentCanonical(bookId: string, query: string): Promise<CanonicalSearchMatch[]> {
+    return this._call(
+      "search_document_canonical",
+      { bookId, query },
+      () => []
     );
   }
 
