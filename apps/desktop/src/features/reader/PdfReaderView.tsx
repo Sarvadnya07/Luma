@@ -30,6 +30,7 @@ export const PdfReaderView: React.FC = () => {
   const createHighlight = useReaderStore((s) => s.createHighlight);
   const toggleBookmark = useReaderStore((s) => s.toggleBookmark);
   const searchQuery = useReaderStore((s) => s.searchQuery);
+  const setSearchResults = useReaderStore((s) => s.setSearchResults);
 
   const [pdfDoc, setPdfDoc] = useState<PDFDocumentProxy | null>(null);
   const [zoom, setZoom] = useState<number>(100);
@@ -94,6 +95,71 @@ export const PdfReaderView: React.FC = () => {
     }
   }, [currentBook, currentPdfPage, leftPdfPageData, loadPdfPage]);
 
+  // Client-side in-document search across all PDF pages using PDF.js
+  useEffect(() => {
+    let isCancelled = false;
+
+    if (!pdfDoc || !searchQuery || !searchQuery.trim()) {
+      return;
+    }
+
+    const cleanQuery = searchQuery.trim().toLowerCase();
+    const runPdfSearch = async () => {
+      const results: any[] = [];
+      const total = pdfDoc.numPages;
+
+      for (let pageNum = 1; pageNum <= total; pageNum++) {
+        if (isCancelled) return;
+        try {
+          const page = await pdfDoc.getPage(pageNum);
+          const textContent = await page.getTextContent();
+          const strings: string[] = [];
+          for (const item of textContent.items as any[]) {
+            if (typeof item.str === "string") {
+              strings.push(item.str);
+            }
+          }
+          const fullText = strings.join(" ");
+          const lowerText = fullText.toLowerCase();
+
+          let matchIndex = lowerText.indexOf(cleanQuery);
+          let pageMatches = 0;
+          while (matchIndex !== -1 && !isCancelled && pageMatches < 10) {
+            const start = Math.max(0, matchIndex - 40);
+            const end = Math.min(fullText.length, matchIndex + cleanQuery.length + 40);
+            const snippet =
+              (start > 0 ? "..." : "") +
+              fullText.substring(start, end).trim() +
+              (end < fullText.length ? "..." : "");
+
+            results.push({
+              spine_index: pageNum - 1,
+              chapter_title: `Page ${pageNum}`,
+              locator: `page=${pageNum}`,
+              snippet,
+              match_char_offset: matchIndex,
+            });
+
+            pageMatches++;
+            matchIndex = lowerText.indexOf(cleanQuery, matchIndex + cleanQuery.length);
+          }
+        } catch (err) {
+          console.warn(`[PdfSearch] Failed to extract text for page ${pageNum}:`, err);
+        }
+      }
+
+      if (!isCancelled && results.length > 0) {
+        setSearchResults(results);
+      }
+    };
+
+    const timer = setTimeout(runPdfSearch, 150);
+    return () => {
+      isCancelled = true;
+      clearTimeout(timer);
+    };
+  }, [pdfDoc, searchQuery, setSearchResults]);
+
   // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -147,7 +213,7 @@ export const PdfReaderView: React.FC = () => {
 
   return (
     <div
-      className="relative w-full h-full flex bg-[#FAF7F2] select-text overflow-hidden text-[#1C1917]"
+      className="relative w-full h-full flex bg-[#FAF7F2] dark:bg-[#141312] select-text overflow-hidden text-[#1C1917] dark:text-[#F5F1EA]"
       onMouseUp={handleMouseUp}
     >
       <TextSelectionToolbar
@@ -163,25 +229,25 @@ export const PdfReaderView: React.FC = () => {
       />
 
       {/* Left Thumbnail & TOC Sidebar */}
-      <aside className="w-64 border-r border-[#E5DFD3] bg-[#FAF7F2] flex flex-col z-20 flex-shrink-0 select-none">
+      <aside className="w-64 border-r border-[#E5DFD3] dark:border-[#27272A] bg-[#FAF7F2] dark:bg-[#18181B] flex flex-col z-20 flex-shrink-0 select-none text-[#1C1917] dark:text-[#F5F1EA]">
         {/* Sidebar Header */}
-        <div className="p-4 border-b border-[#E5DFD3]">
-          <h3 className="font-serif text-sm font-bold text-[#1C1917] truncate">
+        <div className="p-4 border-b border-[#E5DFD3] dark:border-[#27272A]">
+          <h3 className="font-serif text-sm font-bold text-[#1C1917] dark:text-[#F5F1EA] truncate">
             {currentBook?.title || "Document"}
           </h3>
-          <p className="text-[11px] text-[#78716C] truncate mt-0.5 font-serif">
+          <p className="text-[11px] text-[#78716C] dark:text-[#A1A1AA] truncate mt-0.5 font-serif">
             Page {currentPdfPage} of {totalPages}
           </p>
         </div>
 
         {/* 3 Tabs */}
-        <div className="grid grid-cols-3 border-b border-[#E5DFD3] bg-[#EFEAE1]/60 text-xs font-medium">
+        <div className="grid grid-cols-3 border-b border-[#E5DFD3] dark:border-[#27272A] bg-[#EFEAE1]/60 dark:bg-[#27272A]/60 text-xs font-medium">
           <button
             onClick={() => setSidebarTab("contents")}
             className={`py-2 px-1 flex flex-col items-center gap-1 transition-colors border-b-2 ${
               sidebarTab === "contents"
-                ? "border-[#18181B] text-[#18181B] font-bold bg-[#FAF7F2]"
-                : "border-transparent text-[#78716C] hover:text-[#18181B]"
+                ? "border-[#18181B] dark:border-[#F5F1EA] text-[#18181B] dark:text-[#F5F1EA] font-bold bg-[#FAF7F2] dark:bg-[#18181B]"
+                : "border-transparent text-[#78716C] dark:text-[#A1A1AA] hover:text-[#18181B] dark:hover:text-[#F5F1EA]"
             }`}
           >
             <ListTree className="w-3.5 h-3.5" />
@@ -191,8 +257,8 @@ export const PdfReaderView: React.FC = () => {
             onClick={() => setSidebarTab("thumbnails")}
             className={`py-2 px-1 flex flex-col items-center gap-1 transition-colors border-b-2 ${
               sidebarTab === "thumbnails"
-                ? "border-[#18181B] text-[#18181B] font-bold bg-[#FAF7F2]"
-                : "border-transparent text-[#78716C] hover:text-[#18181B]"
+                ? "border-[#18181B] dark:border-[#F5F1EA] text-[#18181B] dark:text-[#F5F1EA] font-bold bg-[#FAF7F2] dark:bg-[#18181B]"
+                : "border-transparent text-[#78716C] dark:text-[#A1A1AA] hover:text-[#18181B] dark:hover:text-[#F5F1EA]"
             }`}
           >
             <ImageIcon className="w-3.5 h-3.5" />
@@ -202,8 +268,8 @@ export const PdfReaderView: React.FC = () => {
             onClick={() => setSidebarTab("bookmarks")}
             className={`py-2 px-1 flex flex-col items-center gap-1 transition-colors border-b-2 ${
               sidebarTab === "bookmarks"
-                ? "border-[#18181B] text-[#18181B] font-bold bg-[#FAF7F2]"
-                : "border-transparent text-[#78716C] hover:text-[#18181B]"
+                ? "border-[#18181B] dark:border-[#F5F1EA] text-[#18181B] dark:text-[#F5F1EA] font-bold bg-[#FAF7F2] dark:bg-[#18181B]"
+                : "border-transparent text-[#78716C] dark:text-[#A1A1AA] hover:text-[#18181B] dark:hover:text-[#F5F1EA]"
             }`}
           >
             <BookmarkIcon className="w-3.5 h-3.5" />
@@ -222,13 +288,13 @@ export const PdfReaderView: React.FC = () => {
                     const match = item.locator.match(/page=(\d+)/);
                     if (match && match[1]) loadPdfPage(parseInt(match[1], 10));
                   }}
-                  className="p-2 rounded-lg hover:bg-[#EFEAE1] cursor-pointer text-xs font-serif text-[#292524] truncate"
+                  className="p-2 rounded-lg hover:bg-[#EFEAE1] dark:hover:bg-[#27272A] cursor-pointer text-xs font-serif text-[#292524] dark:text-[#E4E4E7] truncate"
                 >
                   {item.title}
                 </div>
               ))
             ) : (
-              <div className="text-xs text-[#78716C] text-center py-6">No table of contents</div>
+              <div className="text-xs text-[#78716C] dark:text-[#A1A1AA] text-center py-6">No table of contents</div>
             )
           ) : sidebarTab === "bookmarks" ? (
             bookmarks.length > 0 ? (
@@ -238,13 +304,13 @@ export const PdfReaderView: React.FC = () => {
                   onClick={() => {
                     if (bmk.page_number) loadPdfPage(bmk.page_number);
                   }}
-                  className="p-2 rounded-lg hover:bg-[#EFEAE1] cursor-pointer text-xs font-serif text-[#292524] truncate"
+                  className="p-2 rounded-lg hover:bg-[#EFEAE1] dark:hover:bg-[#27272A] cursor-pointer text-xs font-serif text-[#292524] dark:text-[#E4E4E7] truncate"
                 >
                   {bmk.title || `Page ${bmk.page_number || 1}`}
                 </div>
               ))
             ) : (
-              <div className="text-xs text-[#78716C] text-center py-6">No bookmarks yet</div>
+              <div className="text-xs text-[#78716C] dark:text-[#A1A1AA] text-center py-6">No bookmarks yet</div>
             )
           ) : (
             Array.from({ length: Math.min(totalPages, 100) }, (_, i) => i + 1).map((pageNum) => (
@@ -253,13 +319,13 @@ export const PdfReaderView: React.FC = () => {
                 onClick={() => loadPdfPage(pageNum)}
                 className="space-y-1 cursor-pointer group"
               >
-                <div className="flex items-center justify-between text-[10px] text-[#78716C] px-1 font-mono">
+                <div className="flex items-center justify-between text-[10px] text-[#78716C] dark:text-[#A1A1AA] px-1 font-mono">
                   <span>Page {pageNum}</span>
                 </div>
                 <div
                   className={`w-full rounded-lg overflow-hidden transition-all shadow-xs ${
                     pageNum === currentPdfPage || pageNum === leftPageNum || (isDualSpread && pageNum === rightPageNum)
-                      ? "ring-2 ring-teal-700 shadow-md"
+                      ? "ring-2 ring-teal-700 dark:ring-teal-400 shadow-md"
                       : "opacity-85 group-hover:opacity-100"
                   }`}
                 >
@@ -278,50 +344,52 @@ export const PdfReaderView: React.FC = () => {
       {/* Main Reading Viewport */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Floating Top Controls Header */}
-        <div className="h-12 border-b border-[#E5DFD3] bg-[#FAF7F2] px-6 flex items-center justify-between z-10 select-none">
+        <div className="h-12 border-b border-[#E5DFD3] dark:border-[#27272A] bg-[#FAF7F2] dark:bg-[#18181B] px-6 flex items-center justify-between z-10 select-none text-[#1C1917] dark:text-[#F5F1EA]">
           <div className="flex items-center gap-3">
             <button
               disabled={leftPageNum <= 1}
               onClick={() => loadPdfPage(Math.max(1, isDualSpread ? leftPageNum - 2 : currentPdfPage - 1))}
-              className="p-1 hover:text-[#18181B] text-[#78716C] rounded hover:bg-[#EFEAE1] disabled:opacity-30"
+              className="p-1 hover:text-[#18181B] dark:hover:text-[#F5F1EA] text-[#78716C] dark:text-[#A1A1AA] rounded hover:bg-[#EFEAE1] dark:hover:bg-[#27272A] disabled:opacity-30"
               title="Previous Page (ArrowLeft)"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
-            <span className="text-xs font-mono font-semibold text-[#1C1917]">
+            <span className="text-xs font-mono font-semibold text-[#1C1917] dark:text-[#F5F1EA]">
               {isDualSpread ? `${leftPageNum}-${rightPageNum} / ${totalPages}` : `${currentPdfPage} / ${totalPages}`}
             </span>
             <button
               disabled={isDualSpread ? rightPageNum >= totalPages : currentPdfPage >= totalPages}
               onClick={() => loadPdfPage(Math.min(totalPages, isDualSpread ? leftPageNum + 2 : currentPdfPage + 1))}
-              className="p-1 hover:text-[#18181B] text-[#78716C] rounded hover:bg-[#EFEAE1] disabled:opacity-30"
+              className="p-1 hover:text-[#18181B] dark:hover:text-[#F5F1EA] text-[#78716C] dark:text-[#A1A1AA] rounded hover:bg-[#EFEAE1] dark:hover:bg-[#27272A] disabled:opacity-30"
               title="Next Page (ArrowRight)"
             >
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>
 
-          <div className="flex items-center gap-2 text-xs text-[#78716C]">
+          <div className="flex items-center gap-2 text-xs text-[#78716C] dark:text-[#A1A1AA]">
             <button
               onClick={() => setZoom((z) => Math.max(60, z - 10))}
-              className="p-1 hover:text-[#18181B] rounded hover:bg-[#EFEAE1]"
+              className="p-1 hover:text-[#18181B] dark:hover:text-[#F5F1EA] rounded hover:bg-[#EFEAE1] dark:hover:bg-[#27272A]"
               title="Zoom Out"
             >
               <ZoomOut className="w-3.5 h-3.5" />
             </button>
-            <span className="font-mono text-[11px] px-1 text-[#1C1917]">{zoom}%</span>
+            <span className="font-mono text-[11px] px-1 text-[#1C1917] dark:text-[#F5F1EA]">{zoom}%</span>
             <button
               onClick={() => setZoom((z) => Math.min(180, z + 10))}
-              className="p-1 hover:text-[#18181B] rounded hover:bg-[#EFEAE1]"
+              className="p-1 hover:text-[#18181B] dark:hover:text-[#F5F1EA] rounded hover:bg-[#EFEAE1] dark:hover:bg-[#27272A]"
               title="Zoom In"
             >
               <ZoomIn className="w-3.5 h-3.5" />
             </button>
-            <div className="w-[1px] h-3.5 bg-[#E5DFD3] mx-1" />
+            <div className="w-[1px] h-3.5 bg-[#E5DFD3] dark:bg-[#3F3F46] mx-1" />
             <button
               onClick={() => setIsDualSpread(!isDualSpread)}
               className={`p-1.5 rounded-md transition-colors ${
-                isDualSpread ? "bg-[#E4DED3] text-[#18181B]" : "hover:bg-[#EFEAE1]"
+                isDualSpread
+                  ? "bg-[#E4DED3] dark:bg-[#27272A] text-[#18181B] dark:text-[#F5F1EA]"
+                  : "text-[#78716C] dark:text-[#A1A1AA] hover:bg-[#EFEAE1] dark:hover:bg-[#27272A] hover:text-[#18181B] dark:hover:text-[#F5F1EA]"
               }`}
               title="Toggle Dual Spread Mode"
             >
@@ -331,7 +399,7 @@ export const PdfReaderView: React.FC = () => {
         </div>
 
         {/* Dual / Single Page Spread Viewport */}
-        <div ref={scrollContainerRef} className="flex-1 overflow-auto p-8 flex justify-center items-start">
+        <div ref={scrollContainerRef} className="flex-1 overflow-auto p-8 flex justify-center items-start bg-[#FAF7F2] dark:bg-[#141312]">
           <div className="flex gap-6 items-start transition-transform duration-150">
             {/* Left / Primary Page Canvas */}
             <div className="flex flex-col items-center">
@@ -345,7 +413,7 @@ export const PdfReaderView: React.FC = () => {
                 annotations={annotations}
                 searchQuery={searchQuery}
               />
-              <div className="text-center font-mono text-[10px] text-[#78716C] pt-2">
+              <div className="text-center font-mono text-[10px] text-[#78716C] dark:text-[#A1A1AA] pt-2">
                 Page {isDualSpread ? leftPageNum : currentPdfPage}
               </div>
             </div>
@@ -363,7 +431,7 @@ export const PdfReaderView: React.FC = () => {
                   annotations={annotations}
                   searchQuery={searchQuery}
                 />
-                <div className="text-center font-mono text-[10px] text-[#78716C] pt-2">
+                <div className="text-center font-mono text-[10px] text-[#78716C] dark:text-[#A1A1AA] pt-2">
                   Page {rightPageNum}
                 </div>
               </div>

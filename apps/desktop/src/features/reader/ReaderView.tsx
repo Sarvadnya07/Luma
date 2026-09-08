@@ -8,6 +8,8 @@ import {
   Maximize,
   Minimize,
   CheckCircle2,
+  Sun,
+  Moon,
 } from "lucide-react";
 import { Book } from "@luma/shared-types";
 import { useReaderStore } from "../../state/readerState";
@@ -21,9 +23,15 @@ import { perfTelemetry } from "../../lib/perfTelemetry";
 
 export interface ReaderViewProps {
   book: Book;
+  isDarkMode?: boolean;
+  onToggleDarkMode?: () => void;
 }
 
-export const ReaderView: React.FC<ReaderViewProps> = ({ book }) => {
+export const ReaderView: React.FC<ReaderViewProps> = ({
+  book,
+  isDarkMode: propsDarkMode,
+  onToggleDarkMode,
+}) => {
   useEffect(() => {
     perfTelemetry.mark("LUMA_PERF_READER_VISIBLE", { bookId: book.id });
   }, [book.id]);
@@ -43,6 +51,9 @@ export const ReaderView: React.FC<ReaderViewProps> = ({ book }) => {
   const currentPdfPage = useReaderStore((s) => s.currentPdfPage);
   const loadPdfPage = useReaderStore((s) => s.loadPdfPage);
   const settings = useReaderStore((s) => s.settings);
+  const updateSettings = useReaderStore((s) => s.updateSettings);
+
+  const isDarkMode = propsDarkMode !== undefined ? propsDarkMode : settings.theme === "dark";
 
   const [isFullscreen, setIsFullscreen] = React.useState(false);
 
@@ -114,17 +125,17 @@ export const ReaderView: React.FC<ReaderViewProps> = ({ book }) => {
   const isCbz = documentData?.file.format === "cbz" || documentData?.file.format === "cbr";
 
   return (
-    <div className="relative w-full h-full flex flex-col bg-[#FAF7F2] text-[#1C1917] overflow-hidden">
+    <div className="relative w-full h-full flex flex-col bg-[#FAF7F2] dark:bg-[#141312] text-[#1C1917] dark:text-[#F5F1EA] overflow-hidden">
       {/* Status Toast Notification */}
       {statusMessage && (
-        <div className="fixed top-16 left-1/2 transform -translate-x-1/2 z-50 bg-[#18181B] text-white text-xs px-4 py-2 rounded-full shadow-2xl flex items-center gap-2 animate-in fade-in slide-in-from-top-2 duration-150 font-medium">
+        <div className="fixed top-16 left-1/2 transform -translate-x-1/2 z-50 bg-[#18181B] dark:bg-[#27272A] text-white text-xs px-4 py-2 rounded-full shadow-2xl flex items-center gap-2 animate-in fade-in slide-in-from-top-2 duration-150 font-medium border border-transparent dark:border-white/10">
           <CheckCircle2 className="w-4 h-4 text-emerald-400" />
           {statusMessage}
         </div>
       )}
 
       {/* Top Reader Navigation Bar matching Screen 3 & Screen 5 */}
-      <header className="h-12 border-b border-[#18181B]/15 dark:border-white/15 bg-[#FAF7F2] dark:bg-[#1E1B18] px-6 flex items-center justify-between z-30 flex-shrink-0 shadow-2xs">
+      <header className="h-12 border-b border-[#18181B]/15 dark:border-white/15 bg-[#FAF7F2] dark:bg-[#18181B] px-6 flex items-center justify-between z-30 flex-shrink-0 shadow-2xs">
         {/* Left: Back to Library or Back to Reader */}
         <div className="flex items-center gap-3 min-w-0">
           <button
@@ -135,7 +146,7 @@ export const ReaderView: React.FC<ReaderViewProps> = ({ book }) => {
                 closeReader();
               }
             }}
-            className="flex items-center gap-1.5 py-1 text-xs font-medium text-[#78716C] hover:text-[#18181B] transition-colors"
+            className="flex items-center gap-1.5 py-1 text-xs font-medium text-[#78716C] dark:text-[#A1A1AA] hover:text-[#18181B] dark:hover:text-[#F5F1EA] transition-colors"
             title="Return to Library (Esc)"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
@@ -145,17 +156,37 @@ export const ReaderView: React.FC<ReaderViewProps> = ({ book }) => {
 
         {/* Center: Book Title in editorial serif */}
         <div className="absolute left-1/2 -translate-x-1/2 pointer-events-none text-center">
-          <h1 className="font-serif text-sm font-bold text-[#1C1917] tracking-tight truncate max-w-sm sm:max-w-md">
+          <h1 className="font-serif text-sm font-bold text-[#1C1917] dark:text-[#F5F1EA] tracking-tight truncate max-w-sm sm:max-w-md">
             {book.title}
           </h1>
         </div>
 
-        {/* Right: Reader Action Controls (Search, Typography, Annotations, Bookmark) */}
+        {/* Right: Reader Action Controls (Theme, Typography, ToC, Annotations, Search, Bookmark) */}
         <div className="flex items-center gap-1">
+          {/* Dark Mode Toggle Button */}
+          <button
+            onClick={() => {
+              if (onToggleDarkMode) {
+                onToggleDarkMode();
+              } else {
+                updateSettings({ theme: isDarkMode ? "light" : "dark" });
+              }
+            }}
+            className={`p-1.5 rounded-md transition-colors ${
+              isDarkMode
+                ? "text-amber-400 hover:bg-[#27272A]"
+                : "text-[#78716C] hover:text-[#18181B] hover:bg-[#EFEAE1]"
+            }`}
+            title={isDarkMode ? "Switch to Light Theme" : "Switch to Dark Theme"}
+            aria-label={isDarkMode ? "Switch to Light Theme" : "Switch to Dark Theme"}
+          >
+            {isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+          </button>
+
           {/* Typography Settings (TT icon) */}
           <button
             onClick={toggleTypography}
-            className="p-1.5 rounded-md text-[#78716C] hover:text-[#18181B] hover:bg-[#EFEAE1] transition-colors font-serif font-bold text-xs"
+            className="p-1.5 rounded-md text-[#78716C] dark:text-[#A1A1AA] hover:text-[#18181B] dark:hover:text-[#F5F1EA] hover:bg-[#EFEAE1] dark:hover:bg-[#27272A] transition-colors font-serif font-bold text-xs"
             title="Reading Settings & Themes"
           >
             <span className="text-xs tracking-tighter">TT</span>
@@ -166,8 +197,8 @@ export const ReaderView: React.FC<ReaderViewProps> = ({ book }) => {
             onClick={() => setSidebarTab(sidebarTab === "toc" ? null : "toc")}
             className={`p-1.5 rounded-md transition-colors ${
               sidebarTab === "toc"
-                ? "bg-[#E4DED3] text-[#18181B]"
-                : "text-[#78716C] hover:text-[#18181B] hover:bg-[#EFEAE1]"
+                ? "bg-[#E4DED3] dark:bg-[#27272A] text-[#18181B] dark:text-[#F5F1EA]"
+                : "text-[#78716C] dark:text-[#A1A1AA] hover:text-[#18181B] dark:hover:text-[#F5F1EA] hover:bg-[#EFEAE1] dark:hover:bg-[#27272A]"
             }`}
             title="Table of Contents (T)"
           >
@@ -179,8 +210,8 @@ export const ReaderView: React.FC<ReaderViewProps> = ({ book }) => {
             onClick={() => setSidebarTab(sidebarTab === "annotations" ? null : "annotations")}
             className={`p-1.5 rounded-md transition-colors ${
               sidebarTab === "annotations"
-                ? "bg-[#E4DED3] text-[#18181B]"
-                : "text-[#78716C] hover:text-[#18181B] hover:bg-[#EFEAE1]"
+                ? "bg-[#E4DED3] dark:bg-[#27272A] text-[#18181B] dark:text-[#F5F1EA]"
+                : "text-[#78716C] dark:text-[#A1A1AA] hover:text-[#18181B] dark:hover:text-[#F5F1EA] hover:bg-[#EFEAE1] dark:hover:bg-[#27272A]"
             }`}
             title="Annotations & Notes (A)"
           >
@@ -192,8 +223,8 @@ export const ReaderView: React.FC<ReaderViewProps> = ({ book }) => {
             onClick={() => setSidebarTab(sidebarTab === "search" ? null : "search")}
             className={`p-1.5 rounded-md transition-colors ${
               sidebarTab === "search"
-                ? "bg-[#E4DED3] text-[#18181B]"
-                : "text-[#78716C] hover:text-[#18181B] hover:bg-[#EFEAE1]"
+                ? "bg-[#E4DED3] dark:bg-[#27272A] text-[#18181B] dark:text-[#F5F1EA]"
+                : "text-[#78716C] dark:text-[#A1A1AA] hover:text-[#18181B] dark:hover:text-[#F5F1EA] hover:bg-[#EFEAE1] dark:hover:bg-[#27272A]"
             }`}
             title="Search in Document (F)"
           >
@@ -205,8 +236,8 @@ export const ReaderView: React.FC<ReaderViewProps> = ({ book }) => {
             onClick={toggleBookmark}
             className={`p-1.5 rounded-md transition-colors ${
               isCurrentBookmarked
-                ? "text-amber-500 hover:bg-amber-100/50"
-                : "text-[#78716C] hover:text-[#18181B] hover:bg-[#EFEAE1]"
+                ? "text-amber-500 hover:bg-amber-100/50 dark:hover:bg-amber-900/30"
+                : "text-[#78716C] dark:text-[#A1A1AA] hover:text-[#18181B] dark:hover:text-[#F5F1EA] hover:bg-[#EFEAE1] dark:hover:bg-[#27272A]"
             }`}
             title={isCurrentBookmarked ? "Remove bookmark" : "Bookmark this location (B)"}
           >
@@ -216,7 +247,7 @@ export const ReaderView: React.FC<ReaderViewProps> = ({ book }) => {
           {/* Fullscreen Toggle */}
           <button
             onClick={toggleFullscreen}
-            className="p-1.5 rounded-md text-[#78716C] hover:text-[#18181B] hover:bg-[#EFEAE1] transition-colors hidden sm:block"
+            className="p-1.5 rounded-md text-[#78716C] dark:text-[#A1A1AA] hover:text-[#18181B] dark:hover:text-[#F5F1EA] hover:bg-[#EFEAE1] dark:hover:bg-[#27272A] transition-colors hidden sm:block"
             title="Toggle Fullscreen"
           >
             {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}

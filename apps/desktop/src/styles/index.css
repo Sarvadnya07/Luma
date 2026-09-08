@@ -353,3 +353,49 @@ mark.luma-search-hit-active {
 .dark .shadow-xs {
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3) !important;
 }
+
+/* ============================================================================
+   Official PDF.js TextLayer & Highlight Perfection
+   Guarantees transparent text to eliminate ghosting/duplicate text over canvas,
+   while preserving full native text selection and highlight coordinate authority.
+   ============================================================================ */
+.textLayer {
+  position: absolute !important;
+  text-align: initial !important;
+  inset: 0 !important;
+  overflow: clip !important;
+  opacity: 1 !important;
+  line-height: 1 !important;
+  letter-spacing: normal !important;
+  word-spacing: normal !important;
+  transform-origin: 0 0 !important;
+  z-index: 2 !important;
+}
+
+.textLayer :is(span, br),
+.textLayer span,
+.textLayer br {
+  color: transparent !important;
+  position: absolute !important;
+  white-space: pre !important;
+  cursor: text !important;
+  transform-origin: 0% 0% !important;
+  -webkit-user-select: text !important;
+  -moz-user-select: text !important;
+  user-select: text !important;
+}
+
+.textLayer ::selection {
+  background: rgba(0, 102, 204, 0.25) !important;
+  color: transparent !important;
+}
+
+/* Dark Mode Canvas Filter for PDFs */
+.dark .pdf-canvas-container canvas {
+  filter: invert(0.9) hue-rotate(180deg) brightness(0.95) contrast(0.9);
+}
+
+.dark .pdf-canvas-container {
+  background-color: #18181b !important;
+  border-color: rgba(255, 255, 255, 0.15) !important;
+}

@@ -1,0 +1,22 @@
+{
+  "bookId": "01a07dbf-0d2b-7c23-be70-0e9dd6f14d74",
+  "annotations": [
+    {
+      "id": "a2ebc1c4-02e7-41d5-95d3-1cbcb04e36a1",
+      "book_id": "01a07dbf-0d2b-7c23-be70-0e9dd6f14d74",
+      "annotation_type": "highlight",
+      "color_hex": "#FDE68A",
+      "quote": "Reading is an active dialogue bet",
+      "note": null,
+      "anchor_payload_json": "{\"exact\":\"Reading is an active dialogue bet\",\"prefix\":null,\"suffix\":\"ween the author's distilled contemplatio\",\"normalized_exact\":\"reading is an active dialogue bet\",\"spine_index\":0}",
+      "sync": {
+        "version": 1,
+        "created_at": "2026-09-07T21:21:49.008Z",
+        "updated_at": "2026-09-07T21:21:49.008Z",
+        "device_id": "01a07dbf-0d21-77e2-aa70-b0303c7d69f5",
+        "is_deleted": false,
+        "deleted_at": null
+      }
+    }
+  ]
+}

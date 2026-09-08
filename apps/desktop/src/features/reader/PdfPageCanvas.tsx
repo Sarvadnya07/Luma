@@ -430,7 +430,7 @@ export const PdfPageCanvas: React.FC<PdfPageCanvasProps> = ({
     <div
       ref={containerRef}
       data-page-num={pageNum}
-      className={`relative flex flex-col items-center bg-white border border-[#18181B]/15 dark:border-white/20 rounded-sm shadow-[0_4px_20px_rgba(0,0,0,0.12),0_1px_4px_rgba(0,0,0,0.08)] transition-all ${className}`}
+      className={`pdf-canvas-container relative flex flex-col items-center bg-white dark:bg-[#18181B] border border-[#18181B]/15 dark:border-white/20 rounded-sm shadow-[0_4px_20px_rgba(0,0,0,0.12),0_1px_4px_rgba(0,0,0,0.08)] transition-all ${className}`}
       style={{
         width: `${pageDimensions.width}px`,
         height: `${pageDimensions.height}px`,
@@ -487,25 +487,25 @@ export const PdfPageCanvas: React.FC<PdfPageCanvasProps> = ({
       {/* Loading Skeleton */}
       {renderState === "loading" && (
         <div
-          className="absolute inset-0 flex flex-col items-center justify-center bg-[#FAF7F2] text-[#8C8275] p-6 text-center space-y-2 rounded-sm"
+          className="absolute inset-0 flex flex-col items-center justify-center bg-[#FAF7F2] dark:bg-[#18181B] text-[#8C8275] dark:text-[#A1A1AA] p-6 text-center space-y-2 rounded-sm"
           style={{ width: `${pageDimensions.width}px`, height: `${pageDimensions.height}px` }}
         >
-          <Loader2 className="w-6 h-6 animate-spin text-[#8C8275] opacity-60" />
-          <p className="text-xs font-serif text-[#78716C]">Rendering Page {pageNum}...</p>
+          <Loader2 className="w-6 h-6 animate-spin text-[#8C8275] dark:text-[#A1A1AA] opacity-60" />
+          <p className="text-xs font-serif text-[#78716C] dark:text-[#A1A1AA]">Rendering Page {pageNum}...</p>
         </div>
       )}
 
       {/* Fallback Error or Missing PDF */}
       {renderState === "error" && (
-        <div className="flex-1 flex flex-col items-center justify-center text-center p-8 text-[#78716C]">
-          <BookOpen className="w-8 h-8 mb-2 opacity-40 text-[#8C8275]" />
-          <p className="text-xs text-[#78716C] mt-1 font-mono">Page {pageNum}</p>
+        <div className="flex-1 flex flex-col items-center justify-center text-center p-8 text-[#78716C] dark:text-[#A1A1AA]">
+          <BookOpen className="w-8 h-8 mb-2 opacity-40 text-[#8C8275] dark:text-[#A1A1AA]" />
+          <p className="text-xs text-[#78716C] dark:text-[#A1A1AA] mt-1 font-mono">Page {pageNum}</p>
           {fallbackText && fallbackText.trim().length > 0 ? (
-            <div className="mt-4 p-4 text-justify select-text font-serif leading-relaxed text-[#292524] text-[13px] max-h-[500px] overflow-y-auto">
+            <div className="mt-4 p-4 text-justify select-text font-serif leading-relaxed text-[#292524] dark:text-[#E4E4E7] text-[13px] max-h-[500px] overflow-y-auto">
               {fallbackText}
             </div>
           ) : (
-            <p className="text-[11px] text-[#A8A29E] mt-3 max-w-xs italic font-serif">
+            <p className="text-[11px] text-[#A8A29E] dark:text-[#71717A] mt-3 max-w-xs italic font-serif">
               Visual rendering encountered an issue. Page content unavailable.
             </p>
           )}
@@ -514,8 +514,8 @@ export const PdfPageCanvas: React.FC<PdfPageCanvasProps> = ({
 
       {/* Scanned/Image Document Status Badge */}
       {renderState === "rendered" && isScannedOnly && (
-        <div className="absolute bottom-2 right-2 px-1.5 py-0.5 rounded bg-[#FAF7F2]/90 border border-[#E5DFD3] text-[9px] font-mono text-[#78716C] flex items-center gap-1 opacity-70 hover:opacity-100 select-none shadow-xs pointer-events-auto">
-          <FileText className="w-2.5 h-2.5 text-[#8C8275]" />
+        <div className="absolute bottom-2 right-2 px-1.5 py-0.5 rounded bg-[#FAF7F2]/90 dark:bg-[#27272A]/90 border border-[#E5DFD3] dark:border-[#3F3F46] text-[9px] font-mono text-[#78716C] dark:text-[#A1A1AA] flex items-center gap-1 opacity-70 hover:opacity-100 select-none shadow-xs pointer-events-auto">
+          <FileText className="w-2.5 h-2.5 text-[#8C8275] dark:text-[#A1A1AA]" />
           <span>Scanned Page (No Text Layer)</span>
         </div>
       )}

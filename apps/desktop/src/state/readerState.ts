@@ -69,6 +69,7 @@ export interface ReaderStoreState {
   toggleBookmark: () => Promise<void>;
   deleteBookmark: (id: string) => Promise<void>;
   searchInDoc: (query: string) => Promise<void>;
+  setSearchResults: (results: DocumentSearchMatch[]) => void;
   clearSearch: () => void;
   setStatusMessage: (msg: string | null) => void;
   toggleTypography: () => void;
@@ -195,7 +196,10 @@ export function createReaderStore(config: ReaderStoreConfig = {}) {
     readingProgress: null,
     annotations: [],
     bookmarks: [],
-    settings: DEFAULT_READER_SETTINGS,
+    settings: {
+      ...DEFAULT_READER_SETTINGS,
+      theme: (typeof localStorage !== "undefined" && localStorage.getItem("luma_theme") === "dark" ? "dark" : "light") as any,
+    },
     sidebarTab: null,
     isTypographyOpen: false,
     searchQuery: "",
@@ -490,7 +494,20 @@ export function createReaderStore(config: ReaderStoreConfig = {}) {
     },
 
     updateSettings: (newSettings) => {
-      set((state) => ({ settings: { ...state.settings, ...newSettings } }));
+      set((state) => {
+        const nextSettings = { ...state.settings, ...newSettings };
+        if (newSettings.theme) {
+          const isDark = newSettings.theme === "dark";
+          if (typeof document !== "undefined") {
+            document.documentElement.classList.toggle("dark", isDark);
+            document.documentElement.style.colorScheme = isDark ? "dark" : "light";
+          }
+          if (typeof localStorage !== "undefined") {
+            localStorage.setItem("luma_theme", isDark ? "dark" : "light");
+          }
+        }
+        return { settings: nextSettings };
+      });
     },
 
     setSidebarTab: (tab) => {
@@ -599,6 +616,10 @@ export function createReaderStore(config: ReaderStoreConfig = {}) {
 
     clearSearch: () => {
       set({ searchQuery: "", searchResults: [] });
+    },
+
+    setSearchResults: (results) => {
+      set({ searchResults: results });
     },
 
     setStatusMessage: (msg) => {
