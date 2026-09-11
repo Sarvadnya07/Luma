@@ -17,8 +17,21 @@ pub use events::{DomainEvent, EventBus};
 pub use files::{FileService, StagedFile};
 pub use jobs::{ActiveJobState, CancellationToken, JobManager, JobProgress, JobStatus, JobType};
 pub use migrations::run_migrations;
-pub use repos::*;
-pub use services::*;
+pub use repos::{
+    AnnotationRepository, AuthorRepository, BackupRecord, BackupRecordRepository,
+    BookFileRepository, BookRepository, BookmarkRepository, CollectionRepository, CoverRepository,
+    FlashcardRepository, JobProgressUpdate, JobRecord, JobRepository, LibraryFilterOptions,
+    LibrarySortBy, LibrarySortOptions, NoteRepository, PersistentJobStatus,
+    ReadingProgressRepository, ReadingSessionRepository, ResearchRepository, SeriesRepository,
+    SettingsRepository, StudyReviewRepository, TagRepository,
+};
+pub use services::{
+    AnnotationService, BackupManifest, BackupPreview, BackupService, BookDetailViewData,
+    BookService, BookmarkService, BulkOperationResult, CollectionService, DiagnosticsReport,
+    DiagnosticsService, HealthStatus, ImportService, LibraryService, MaintenanceResult,
+    MaintenanceService, OpenDocumentResult, ReaderService, ReadingProgressService, SearchService,
+    SettingsService, SubsystemHealth, UpdateBookMetadataRequest,
+};
 
 #[cfg(test)]
 mod tests {

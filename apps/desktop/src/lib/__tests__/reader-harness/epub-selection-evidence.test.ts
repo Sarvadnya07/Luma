@@ -12,6 +12,7 @@
  */
 
 import { JSDOM } from 'jsdom';
+import { describe, expect, it } from 'vitest';
 import { Annotation } from '@luma/shared-types';
 import { applyHighlightsAndSearch, normalizeString } from '../../../features/reader/highlightEngine';
 
@@ -47,7 +48,7 @@ interface SelectionEvidence {
   } | null;
 }
 
-function createSelectionRange(window: DOMWindow, textNode: Text, startOffset: number, endOffset: number) {
+function createSelectionRange(window: JSDOM['window'], textNode: Text, startOffset: number, endOffset: number) {
   const range = window.document.createRange();
   range.setStart(textNode, startOffset);
   range.setEnd(textNode, endOffset);
@@ -99,11 +100,14 @@ export function runEpubSelectionEvidenceTest(): SelectionEvidence {
   
   const window = dom.window;
   const document = window.document;
-  const container = document.getElementById('reader-container') as HTMLElement;
-  
-  // Get the text node we'll select from
-  const paragraph = document.querySelector('p#p1') as HTMLParagraphElement;
-  const textNode = paragraph?.firstChild as Text;
+  const container = document.getElementById('reader-container');
+  const paragraph = document.querySelector('p#p1');
+  const textNode = paragraph?.firstChild;
+
+  if (!(container instanceof window.HTMLElement) || !(paragraph instanceof window.HTMLParagraphElement) || !(textNode instanceof window.Text)) {
+    console.error('TEST FAILED: Could not find the reader paragraph text node');
+    return evidence;
+  }
   
   if (!textNode) {
     console.error('TEST FAILED: Could not find text node');
@@ -138,20 +142,18 @@ export function runEpubSelectionEvidenceTest(): SelectionEvidence {
   // Create the selection programmatically (this is what the browser would do on drag)
   const range = createSelectionRange(window, textNode, startOffset, endOffset);
   const selection = window.getSelection();
+  if (!selection) {
+    console.error('TEST FAILED: Could not create a DOM selection');
+    return evidence;
+  }
   selection.removeAllRanges();
   selection.addRange(range);
   
   // Capture selection state
   const currentSelection = window.getSelection();
   if (currentSelection && !currentSelection.isCollapsed) {
-    const selRange = currentSelection.getRangeAt(0);
-    
     // JSDOM doesn't fully implement getBoundingClientRect on ranges
     // We use the text node's position as an approximation
-    const anchorNode = currentSelection.anchorNode as Text;
-    const focusNode = currentSelection.focusNode as Text;
-    const parentEl = anchorNode.parentElement || focusNode.parentElement;
-    
     // Create a mock bounding rect based on the paragraph position
     // In a real browser, this would come from range.getBoundingClientRect()
     const mockRect = {
@@ -250,6 +252,9 @@ export function runEpubSelectionEvidenceTest(): SelectionEvidence {
     if (evidence.selectionChange && evidence.highlightVisual.markBox) {
       const selRect = evidence.selectionChange.boundingClientRect;
       const markRect = evidence.highlightVisual.markBox;
+      if (!selRect) {
+        return evidence;
+      }
       
       evidence.highlightVisual.alignmentDelta = {
         dx: markRect.left - selRect.left,

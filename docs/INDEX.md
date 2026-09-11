@@ -62,7 +62,7 @@ Welcome to the central documentation index for **Luma**, the distraction-free, l
 - **[PDF Reader Architecture](architecture/PDF-READER.md)**: Canvas-based rendering, text-layer overlay, and normalized bounding box coordinates.
 - **[Import Pipeline & Deduplication](architecture/IMPORT-PIPELINE.md)**: Ingestion validation, SHA-256 content hashing, cover image extraction, and metadata normalization.
 - **[Threat Model & Security Architecture](security/THREAT-MODEL.md)**: Path traversal defenses, zip bomb protection, IPC permission guards, and content sanitization.
-- **[Architectural Decision Records (ADRs)](adr/ADR-0001-Product-Architecture.md)**: Full catalog of 22 recorded architectural decisions (ADR-0001 through ADR-0022).
+- **[Architectural Decision Records (ADRs)](adr/ADR-0001-Product-Architecture.md)**: Architectural decisions, including the modular application boundary decision in ADR-0024.
 
 ---
 
@@ -73,4 +73,5 @@ Welcome to the central documentation index for **Luma**, the distraction-free, l
 | **IPC API Reference** | `apps/desktop/src-tauri/src/commands/` | On any command signature change | Continuous via CI |
 | **Data Models** | `crates/luma-core/`, `crates/luma-storage/` | On migration / struct changes | Continuous via CI |
 | **Architecture** | Rust crate implementations & ADRs | On design modifications | Quarterly |
+| **Module Boundaries** | `luma-storage` services and explicit exports | On command/storage changes | Continuous via architecture tests |
 | **Getting Started** | `package.json`, `Cargo.toml` | On toolchain / dependency upgrade | Per release |

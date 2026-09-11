@@ -1,12 +1,12 @@
 use luma_core::error::{LumaError, Result};
 use luma_core::ids::BookId;
-use luma_core::models::book::{Book, ReadingStatus};
+use luma_core::models::book::{Book, BookFile, ReadingStatus};
 use serde::{Deserialize, Serialize};
 
 use crate::cache::CacheManager;
 use crate::db::Database;
 use crate::events::{DomainEvent, EventBus};
-use crate::repos::BookRepository;
+use crate::repos::{BookFileRepository, BookRepository};
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct UpdateBookMetadataRequest {
@@ -38,6 +38,12 @@ impl BookService {
     pub fn get_by_id(&self, book_id: &BookId) -> Result<Option<Book>> {
         let repo = BookRepository::new(self.db.clone());
         repo.get_by_id(book_id)
+            .map_err(|e| LumaError::StorageError(e.to_string()))
+    }
+
+    pub fn list_files(&self, book_id: &BookId) -> Result<Vec<BookFile>> {
+        BookFileRepository::new(self.db.clone())
+            .list_by_book_id(book_id)
             .map_err(|e| LumaError::StorageError(e.to_string()))
     }
 

@@ -2,6 +2,7 @@ pub mod annotation_service;
 pub mod backup_service;
 pub mod book_service;
 pub mod bookmark_service;
+pub mod collection_service;
 pub mod diagnostics_service;
 pub mod import_service;
 pub mod library_service;
@@ -15,6 +16,7 @@ pub use annotation_service::AnnotationService;
 pub use backup_service::{BackupManifest, BackupPreview, BackupService};
 pub use book_service::{BookService, UpdateBookMetadataRequest};
 pub use bookmark_service::BookmarkService;
+pub use collection_service::CollectionService;
 pub use diagnostics_service::{
     DiagnosticsReport, DiagnosticsService, HealthStatus, SubsystemHealth,
 };

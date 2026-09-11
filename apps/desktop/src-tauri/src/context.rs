@@ -8,9 +8,9 @@ use luma_storage::files::FileService;
 use luma_storage::jobs::JobManager;
 use luma_storage::repos::JobRepository;
 use luma_storage::services::{
-    AnnotationService, BackupService, BookService, BookmarkService, DiagnosticsService,
-    ImportService, LibraryService, MaintenanceService, ReaderService, ReadingProgressService,
-    SearchService, SettingsService,
+    AnnotationService, BackupService, BookService, BookmarkService, CollectionService,
+    DiagnosticsService, ImportService, LibraryService, MaintenanceService, ReaderService,
+    ReadingProgressService, SearchService, SettingsService,
 };
 
 // ============================================================================
@@ -71,6 +71,7 @@ pub struct LumaAppContext {
     pub cache: CacheManager,
 
     pub library_service: LibraryService,
+    pub collection_service: CollectionService,
     pub book_service: BookService,
     pub import_service: ImportService,
     pub reader_service: ReaderService,
@@ -112,6 +113,7 @@ impl LumaAppContext {
         let job_manager = JobManager::new(job_repo, event_bus.clone());
 
         let library_service = LibraryService::new(db.clone(), event_bus.clone());
+        let collection_service = CollectionService::new(db.clone());
         let book_service = BookService::new(db.clone(), event_bus.clone(), cache.clone());
         let import_service = ImportService::new(
             db.clone(),
@@ -151,6 +153,7 @@ impl LumaAppContext {
             job_manager,
             cache,
             library_service,
+            collection_service,
             book_service,
             import_service,
             reader_service,

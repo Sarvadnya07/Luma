@@ -5,9 +5,6 @@ use tracing::{debug, error, info, instrument};
 use luma_core::error::BackendError;
 use luma_core::ids::{BookId, CollectionId, DeviceId, TagId};
 use luma_core::models::metadata::{Author, Collection, Series, Tag};
-use luma_storage::repos::{
-    AuthorRepository, CollectionRepository, SeriesRepository, TagRepository,
-};
 
 use crate::context::LumaAppContext;
 
@@ -48,10 +45,9 @@ fn parse_tag_id(id: &str) -> Result<TagId, BackendError> {
 #[tauri::command]
 pub fn list_collections(ctx: State<'_, LumaAppContext>) -> Result<Vec<Collection>, BackendError> {
     debug!("Listing collections");
-    let repo = CollectionRepository::new(ctx.db.clone());
-    repo.list_all().map_err(|e| {
+    ctx.collection_service.list_collections().map_err(|e| {
         error!(error = %e, "Failed to list collections");
-        BackendError::storage(e.to_string())
+        BackendError::from(e)
     })
 }
 
@@ -63,12 +59,12 @@ pub fn create_collection(
     description: Option<String>,
 ) -> Result<Collection, BackendError> {
     debug!(?name, "Creating collection");
-    let repo = CollectionRepository::new(ctx.db.clone());
-    let collection = repo
-        .create(&name, description.as_deref(), DeviceId::new())
+    let collection = ctx
+        .collection_service
+        .create_collection(&name, description.as_deref(), DeviceId::new())
         .map_err(|e| {
             error!(error = %e, "Failed to create collection");
-            BackendError::storage(e.to_string())
+            BackendError::from(e)
         })?;
     info!(collection_id = %collection.id, COLLECTION_CREATED_MSG);
     Ok(collection)
@@ -84,15 +80,13 @@ pub fn add_books_to_collection(
     let col_id = parse_collection_id(&collection_id)?;
     debug!(?col_id, "Adding books to collection");
 
-    let repo = CollectionRepository::new(ctx.db.clone());
-
     // Process each book ID, skipping invalid ones (but logging warnings)
     let mut added_count = 0;
     let mut errors: Vec<String> = Vec::new();
     for b in book_ids {
         match parse_book_id(&b) {
             Ok(bid) => {
-                if let Err(e) = repo.add_book_to_collection(&col_id, &bid) {
+                if let Err(e) = ctx.collection_service.add_book_to_collection(&col_id, &bid) {
                     error!(book_id = %bid, error = %e, "Failed to add book to collection");
                     errors.push(e.to_string());
                 } else {
@@ -125,10 +119,9 @@ pub fn add_books_to_collection(
 #[tauri::command]
 pub fn list_tags(ctx: State<'_, LumaAppContext>) -> Result<Vec<Tag>, BackendError> {
     debug!("Listing tags");
-    let repo = TagRepository::new(ctx.db.clone());
-    repo.list_all().map_err(|e| {
+    ctx.collection_service.list_tags().map_err(|e| {
         error!(error = %e, "Failed to list tags");
-        BackendError::storage(e.to_string())
+        BackendError::from(e)
     })
 }
 
@@ -142,18 +135,13 @@ pub fn add_tag_to_book(
     let bid = parse_book_id(&book_id)?;
     debug!(?bid, ?tag_name, "Adding tag to book");
 
-    let repo = TagRepository::new(ctx.db.clone());
-    let tag = repo
-        .get_or_create_by_name(&tag_name, DeviceId::new())
+    let tag = ctx
+        .collection_service
+        .add_tag_to_book(&bid, &tag_name, DeviceId::new())
         .map_err(|e| {
-            error!(error = %e, "Failed to get or create tag");
-            BackendError::storage(e.to_string())
+            error!(error = %e, "Failed to add tag to book");
+            BackendError::from(e)
         })?;
-
-    repo.add_tag_to_book(&bid, &tag.id).map_err(|e| {
-        error!(error = %e, "Failed to add tag to book");
-        BackendError::storage(e.to_string())
-    })?;
 
     info!(tag_id = %tag.id, TAG_ADDED_MSG);
     Ok(tag)
@@ -170,11 +158,12 @@ pub fn remove_tag_from_book(
     let tid = parse_tag_id(&tag_id)?;
     debug!(?bid, ?tid, "Removing tag from book");
 
-    let repo = TagRepository::new(ctx.db.clone());
-    repo.remove_tag_from_book(&bid, &tid).map_err(|e| {
-        error!(error = %e, "Failed to remove tag from book");
-        BackendError::storage(e.to_string())
-    })?;
+    ctx.collection_service
+        .remove_tag_from_book(&bid, &tid)
+        .map_err(|e| {
+            error!(error = %e, "Failed to remove tag from book");
+            BackendError::from(e)
+        })?;
 
     info!(TAG_REMOVED_MSG);
     Ok(())
@@ -184,10 +173,9 @@ pub fn remove_tag_from_book(
 #[tauri::command]
 pub fn list_authors(ctx: State<'_, LumaAppContext>) -> Result<Vec<Author>, BackendError> {
     debug!("Listing authors");
-    let repo = AuthorRepository::new(ctx.db.clone());
-    repo.list_all().map_err(|e| {
+    ctx.collection_service.list_authors().map_err(|e| {
         error!(error = %e, "Failed to list authors");
-        BackendError::storage(e.to_string())
+        BackendError::from(e)
     })
 }
 
@@ -195,9 +183,8 @@ pub fn list_authors(ctx: State<'_, LumaAppContext>) -> Result<Vec<Author>, Backe
 #[tauri::command]
 pub fn list_series(ctx: State<'_, LumaAppContext>) -> Result<Vec<Series>, BackendError> {
     debug!("Listing series");
-    let repo = SeriesRepository::new(ctx.db.clone());
-    repo.list_all().map_err(|e| {
+    ctx.collection_service.list_series().map_err(|e| {
         error!(error = %e, "Failed to list series");
-        BackendError::storage(e.to_string())
+        BackendError::from(e)
     })
 }
