@@ -20,7 +20,8 @@ use crate::context::LumaAppContext;
 // ============================================================================
 
 const INVALID_BOOK_ID_MSG: &str = "Invalid book_id format. Expected a valid BookId.";
-const INVALID_READING_STATUS_MSG: &str = "Invalid reading_status. Expected one of: unread, reading, completed, want_to_read, on_hold, did_not_finish.";
+const INVALID_READING_STATUS_MSG: &str =
+    "Invalid reading_status. Expected one of: unread, reading, completed, archived.";
 const METADATA_UPDATED_MSG: &str = "Book metadata updated successfully.";
 const READING_STATUS_UPDATED_MSG: &str = "Reading status updated successfully.";
 const BOOK_TASHED_MSG: &str = "Book moved to trash successfully.";

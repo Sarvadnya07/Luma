@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo, useCallback } from "react";
-import { Book, BookDetailViewData, Collection, DocumentFormat, ImportJob, LibrarySortBy, ReadingAnalytics, ReadingStatus, Tag } from "@luma/shared-types";
+import { Author, Book, BookDetailViewData, Collection, DocumentFormat, ImportJob, LibrarySortBy, ReadingAnalytics, ReadingStatus, Tag } from "@luma/shared-types";
 import { BookCard, BookTable, Pagination } from "@luma/library-ui";
 import { LumaApi, isTauri } from "../../lib/tauri";
 import { useReaderStore } from "../../state/readerState";
@@ -246,7 +246,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
   }, [config.enableCommandPalette, config.commandPaletteShortcut]);
 
   // Data loading
-  const [authors, setAuthors] = useState<any[]>([]);
+  const [authors, setAuthors] = useState<Author[]>([]);
   const [globalAnnotations, setGlobalAnnotations] = useState<AnnotationItem[]>([]);
 
   const loadMetadata = useCallback(async () => {
@@ -323,8 +323,8 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
           };
         });
         setGlobalAnnotations(mappedAnns);
-      } catch {
-        // fallback
+      } catch (err) {
+        console.warn("Failed to load global annotations:", err);
       }
 
       perfTelemetry.mark("LUMA_PERF_LIBRARY_VISIBLE", { count: fetchedBooks?.length || 0 });
@@ -378,8 +378,8 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
           try {
             const details = await LumaApi.getBookDetails(dupItem.book_id);
             foundBook = details?.book || null;
-          } catch {
-            // fallback
+          } catch (err) {
+            console.warn("Failed to resolve duplicate book details:", err);
           }
         }
         setDuplicateExistingBook(foundBook || books[0] || null);

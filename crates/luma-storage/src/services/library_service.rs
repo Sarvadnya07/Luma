@@ -69,20 +69,28 @@ impl LibraryService {
             .get_by_id(book_id)
             .map_err(|e| luma_core::error::LumaError::StorageError(e.to_string()))?
         {
-            let files = file_repo.list_by_book_id(book_id).unwrap_or_default();
+            let files = file_repo
+                .list_by_book_id(book_id)
+                .map_err(|e| luma_core::error::LumaError::StorageError(e.to_string()))?;
             let authors = author_repo
                 .get_authors_for_book(book_id)
-                .unwrap_or_default();
+                .map_err(|e| luma_core::error::LumaError::StorageError(e.to_string()))?;
             let series = if let Some(ref sid) = book.series_id {
-                series_repo.get_by_id(sid).unwrap_or(None)
+                series_repo
+                    .get_by_id(sid)
+                    .map_err(|e| luma_core::error::LumaError::StorageError(e.to_string()))?
             } else {
                 None
             };
-            let tags = tag_repo.get_tags_for_book(book_id).unwrap_or_default();
+            let tags = tag_repo
+                .get_tags_for_book(book_id)
+                .map_err(|e| luma_core::error::LumaError::StorageError(e.to_string()))?;
             let collections = collection_repo
                 .get_collections_for_book(book_id)
-                .unwrap_or_default();
-            let reading_progress = prog_repo.get(book_id).unwrap_or(None);
+                .map_err(|e| luma_core::error::LumaError::StorageError(e.to_string()))?;
+            let reading_progress = prog_repo
+                .get(book_id)
+                .map_err(|e| luma_core::error::LumaError::StorageError(e.to_string()))?;
 
             Ok(Some(BookDetailViewData {
                 book,

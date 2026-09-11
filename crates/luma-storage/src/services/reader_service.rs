@@ -52,6 +52,18 @@ pub struct ReaderService {
 impl ReaderService {
     pub const MAX_CACHED_SESSIONS: usize = 5;
 
+    fn insert_bounded<K, V>(sessions: &mut HashMap<K, V>, key: K, value: V)
+    where
+        K: Eq + std::hash::Hash + Clone,
+    {
+        if sessions.len() >= Self::MAX_CACHED_SESSIONS && !sessions.contains_key(&key) {
+            if let Some(oldest_key) = sessions.keys().next().cloned() {
+                sessions.remove(&oldest_key);
+            }
+        }
+        sessions.insert(key, value);
+    }
+
     pub fn new(db: Database, cache: CacheManager) -> Self {
         Self {
             db,
@@ -107,14 +119,20 @@ impl ReaderService {
             })?;
 
         let file_path = PathBuf::from(&file.relative_path);
-        let initial_progress = prog_repo.get(book_id).unwrap_or(None);
-        let annotations = ann_repo.list_by_book(book_id).unwrap_or_default();
-        let bookmarks = bm_repo.list_by_book_id(book_id).unwrap_or_default();
+        let initial_progress = prog_repo
+            .get(book_id)
+            .map_err(|e| LumaError::StorageError(e.to_string()))?;
+        let annotations = ann_repo
+            .list_by_book(book_id)
+            .map_err(|e| LumaError::StorageError(e.to_string()))?;
+        let bookmarks = bm_repo
+            .list_by_book_id(book_id)
+            .map_err(|e| LumaError::StorageError(e.to_string()))?;
 
         let author_repo = crate::repos::AuthorRepository::new(self.db.clone());
         let author_names: Vec<String> = author_repo
             .get_authors_for_book(book_id)
-            .unwrap_or_default()
+            .map_err(|e| LumaError::StorageError(e.to_string()))?
             .into_iter()
             .map(|a| a.name)
             .collect();
@@ -136,10 +154,7 @@ impl ReaderService {
                 let toc_items = doc.toc().to_vec();
 
                 let mut sessions = self.reflow_sessions.write().await;
-                if sessions.len() >= Self::MAX_CACHED_SESSIONS {
-                    sessions.clear();
-                }
-                sessions.insert(*book_id, doc);
+                Self::insert_bounded(&mut sessions, *book_id, doc);
 
                 (meta, toc_items, spine_len)
             }
@@ -159,10 +174,7 @@ impl ReaderService {
                 let toc_items = doc.toc().to_vec();
 
                 let mut sessions = self.reflow_sessions.write().await;
-                if sessions.len() >= Self::MAX_CACHED_SESSIONS {
-                    sessions.clear();
-                }
-                sessions.insert(*book_id, doc);
+                Self::insert_bounded(&mut sessions, *book_id, doc);
 
                 (meta, toc_items, spine_len)
             }
@@ -184,10 +196,7 @@ impl ReaderService {
                 let toc_items = doc.toc().to_vec();
 
                 let mut sessions = self.reflow_sessions.write().await;
-                if sessions.len() >= Self::MAX_CACHED_SESSIONS {
-                    sessions.clear();
-                }
-                sessions.insert(*book_id, doc);
+                Self::insert_bounded(&mut sessions, *book_id, doc);
 
                 (meta, toc_items, spine_len)
             }
@@ -207,10 +216,7 @@ impl ReaderService {
                 let toc_items = doc.toc().to_vec();
 
                 let mut sessions = self.reflow_sessions.write().await;
-                if sessions.len() >= Self::MAX_CACHED_SESSIONS {
-                    sessions.clear();
-                }
-                sessions.insert(*book_id, doc);
+                Self::insert_bounded(&mut sessions, *book_id, doc);
 
                 (meta, toc_items, spine_len)
             }
@@ -230,10 +236,7 @@ impl ReaderService {
                 let toc_items = doc.toc().to_vec();
 
                 let mut sessions = self.pdf_sessions.write().await;
-                if sessions.len() >= Self::MAX_CACHED_SESSIONS {
-                    sessions.clear();
-                }
-                sessions.insert(*book_id, doc);
+                Self::insert_bounded(&mut sessions, *book_id, doc);
 
                 (meta, toc_items, page_count)
             }
@@ -264,10 +267,7 @@ impl ReaderService {
 
         if let Ok(can_doc) = CanonicalDocument::open(&file_path, file.format) {
             let mut can_sessions = self.canonical_sessions.write().await;
-            if can_sessions.len() >= Self::MAX_CACHED_SESSIONS {
-                can_sessions.clear();
-            }
-            can_sessions.insert(*book_id, Arc::new(can_doc));
+            Self::insert_bounded(&mut can_sessions, *book_id, Arc::new(can_doc));
         }
 
         let capabilities = FormatCapabilities::for_format(file.format);
@@ -327,10 +327,7 @@ impl ReaderService {
         let chapter = doc.get_chapter(spine_index)?;
 
         let mut sessions = self.reflow_sessions.write().await;
-        if sessions.len() >= Self::MAX_CACHED_SESSIONS {
-            sessions.clear();
-        }
-        sessions.insert(*book_id, doc);
+        Self::insert_bounded(&mut sessions, *book_id, doc);
 
         Ok(chapter)
     }
@@ -358,10 +355,7 @@ impl ReaderService {
         let page = doc.get_page(page_number)?;
 
         let mut sessions = self.pdf_sessions.write().await;
-        if sessions.len() >= Self::MAX_CACHED_SESSIONS {
-            sessions.clear();
-        }
-        sessions.insert(*book_id, doc);
+        Self::insert_bounded(&mut sessions, *book_id, doc);
 
         Ok(page)
     }
@@ -401,7 +395,7 @@ impl ReaderService {
                 )?));
                 let matches = doc.search(query)?;
                 let mut sessions = self.reflow_sessions.write().await;
-                sessions.insert(*book_id, doc);
+                Self::insert_bounded(&mut sessions, *book_id, doc);
                 Ok(matches)
             }
             DocumentFormat::Txt => {
@@ -410,7 +404,7 @@ impl ReaderService {
                 )?));
                 let matches = doc.search(query)?;
                 let mut sessions = self.reflow_sessions.write().await;
-                sessions.insert(*book_id, doc);
+                Self::insert_bounded(&mut sessions, *book_id, doc);
                 Ok(matches)
             }
             DocumentFormat::Md => {
@@ -419,7 +413,7 @@ impl ReaderService {
                 )?));
                 let matches = doc.search(query)?;
                 let mut sessions = self.reflow_sessions.write().await;
-                sessions.insert(*book_id, doc);
+                Self::insert_bounded(&mut sessions, *book_id, doc);
                 Ok(matches)
             }
             DocumentFormat::Html => {
@@ -428,14 +422,14 @@ impl ReaderService {
                 )?));
                 let matches = doc.search(query)?;
                 let mut sessions = self.reflow_sessions.write().await;
-                sessions.insert(*book_id, doc);
+                Self::insert_bounded(&mut sessions, *book_id, doc);
                 Ok(matches)
             }
             DocumentFormat::Pdf => {
                 let doc = Arc::new(PdfDocument::open(&file.relative_path)?);
                 let matches = doc.search(query)?;
                 let mut sessions = self.pdf_sessions.write().await;
-                sessions.insert(*book_id, doc);
+                Self::insert_bounded(&mut sessions, *book_id, doc);
                 Ok(matches)
             }
             _ => Ok(Vec::new()),
@@ -492,10 +486,7 @@ impl ReaderService {
         let doc = Arc::new(CanonicalDocument::open(&file.relative_path, file.format)?);
 
         let mut sessions = self.canonical_sessions.write().await;
-        if sessions.len() >= Self::MAX_CACHED_SESSIONS {
-            sessions.clear();
-        }
-        sessions.insert(*book_id, doc.clone());
+        Self::insert_bounded(&mut sessions, *book_id, doc.clone());
 
         Ok(doc)
     }
@@ -590,7 +581,7 @@ impl ReaderService {
 
         let authors: Vec<String> = author_repo
             .get_authors_for_book(book_id)
-            .unwrap_or_default()
+            .map_err(|e| LumaError::StorageError(e.to_string()))?
             .into_iter()
             .map(|a| a.name)
             .collect();

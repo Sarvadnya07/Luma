@@ -212,16 +212,18 @@ impl ImportService {
         book.series_index = series_index;
 
         if let Some(ref sname) = series_name {
-            if let Ok(series) = series_repo.get_or_create_by_title(sname, device_id) {
-                book.series_id = Some(series.id);
-            }
+            let series = series_repo
+                .get_or_create_by_title(sname, device_id)
+                .map_err(|e| LumaError::StorageError(e.to_string()))?;
+            book.series_id = Some(series.id);
         }
 
         for author_name in authors {
-            if let Ok(author) = author_repo.get_or_create_by_name(&author_name, device_id) {
-                if !book.author_ids.contains(&author.id) {
-                    book.author_ids.push(author.id);
-                }
+            let author = author_repo
+                .get_or_create_by_name(&author_name, device_id)
+                .map_err(|e| LumaError::StorageError(e.to_string()))?;
+            if !book.author_ids.contains(&author.id) {
+                book.author_ids.push(author.id);
             }
         }
 
@@ -231,7 +233,9 @@ impl ImportService {
                 self.cover_store
                     .save_cover(Some(book.id), &cover.data, &cover.mime_type)
             {
-                let _ = cover_repo.insert(&saved_cover);
+                cover_repo
+                    .insert(&saved_cover)
+                    .map_err(|e| LumaError::StorageError(e.to_string()))?;
                 book.cover_image_id = Some(saved_cover.id);
                 book.cover_image_path = Some(saved_cover.relative_path);
             }
@@ -263,13 +267,16 @@ impl ImportService {
             .map_err(|e| LumaError::StorageError(e.to_string()))?;
 
         for sub in subjects {
-            if let Ok(tag) = tag_repo.get_or_create_by_name(&sub, device_id) {
-                let _ = tag_repo.add_tag_to_book(&book.id, &tag.id);
-            }
+            let tag = tag_repo
+                .get_or_create_by_name(&sub, device_id)
+                .map_err(|e| LumaError::StorageError(e.to_string()))?;
+            tag_repo
+                .add_tag_to_book(&book.id, &tag.id)
+                .map_err(|e| LumaError::StorageError(e.to_string()))?;
         }
 
         // 9. Update FTS5 Search Index
-        let _ = self.update_fts_index(&book);
+        self.update_fts_index(&book)?;
 
         // 10. Invalidate search cache & Publish Domain Event
         if let Ok(handle) = tokio::runtime::Handle::try_current() {
@@ -419,7 +426,14 @@ impl ImportService {
             LumaError::StorageError(format!("Failed to read directory {}: {}", dir.display(), e))
         })?;
 
-        for entry in entries.flatten() {
+        for entry in entries {
+            let entry = entry.map_err(|e| {
+                LumaError::StorageError(format!(
+                    "Failed to read directory entry in {}: {}",
+                    dir.display(),
+                    e
+                ))
+            })?;
             let p = entry.path();
             if p.is_dir() && recursive {
                 self.collect_files(&p, recursive, out)?;
@@ -461,8 +475,7 @@ impl ImportService {
                         "SELECT title FROM series WHERE id = ?1",
                         [sid.to_string()],
                         |r| r.get(0),
-                    )
-                    .unwrap_or_default()
+                    )?
                 } else {
                     String::new()
                 };

@@ -307,7 +307,9 @@ impl JobManager {
             ended_at: None,
         };
 
-        let _ = self.repo.insert(&record);
+        if let Err(error) = self.repo.insert(&record) {
+            tracing::error!(job_id = %id, %error, "Failed to persist newly created job");
+        }
 
         self.event_bus.publish(DomainEvent::JobProgressUpdated {
             job_id: id.clone(),
@@ -362,7 +364,7 @@ impl JobManager {
             }
         }
 
-        let _ = self.repo.update_progress(
+        if let Err(error) = self.repo.update_progress(
             job_id,
             JobProgressUpdate {
                 status: PersistentJobStatus::Running,
@@ -372,7 +374,9 @@ impl JobManager {
                 error_details: None,
                 ended_at: None,
             },
-        );
+        ) {
+            tracing::error!(%job_id, %error, "Failed to persist job progress");
+        }
 
         if should_emit {
             self.event_bus.publish(DomainEvent::JobProgressUpdated {
@@ -405,7 +409,7 @@ impl JobManager {
         }
 
         let now = chrono::Utc::now().to_rfc3339();
-        let _ = self.repo.update_progress(
+        if let Err(error) = self.repo.update_progress(
             job_id,
             JobProgressUpdate {
                 status: PersistentJobStatus::Completed,
@@ -415,7 +419,9 @@ impl JobManager {
                 error_details: None,
                 ended_at: Some(&now),
             },
-        );
+        ) {
+            tracing::error!(%job_id, %error, "Failed to persist completed job");
+        }
 
         self.event_bus.publish(DomainEvent::JobCompleted {
             job_id: job_id.to_string(),
@@ -453,7 +459,7 @@ impl JobManager {
         }
 
         let now = chrono::Utc::now().to_rfc3339();
-        let _ = self.repo.update_progress(
+        if let Err(persist_error) = self.repo.update_progress(
             job_id,
             JobProgressUpdate {
                 status: PersistentJobStatus::Failed,
@@ -463,7 +469,9 @@ impl JobManager {
                 error_details: Some(error),
                 ended_at: Some(&now),
             },
-        );
+        ) {
+            tracing::error!(%job_id, %persist_error, "Failed to persist failed job");
+        }
 
         self.event_bus.publish(DomainEvent::JobFailed {
             job_id: job_id.to_string(),
@@ -499,7 +507,7 @@ impl JobManager {
 
         if found {
             let now = chrono::Utc::now().to_rfc3339();
-            let _ = self.repo.update_progress(
+            if let Err(error) = self.repo.update_progress(
                 job_id,
                 JobProgressUpdate {
                     status: PersistentJobStatus::Cancelled,
@@ -509,7 +517,9 @@ impl JobManager {
                     error_details: None,
                     ended_at: Some(&now),
                 },
-            );
+            ) {
+                tracing::error!(%job_id, %error, "Failed to persist cancelled job");
+            }
 
             self.event_bus.publish(DomainEvent::JobProgressUpdated {
                 job_id: job_id.to_string(),

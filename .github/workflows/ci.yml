@@ -34,13 +34,19 @@ jobs:
       - name: Run Tests
         run: cargo test --workspace --verbose
 
+      - name: Dependency Policy
+        if: matrix.os == 'ubuntu-latest'
+        uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check advisories licenses bans sources
+
       - name: WASM Compilation Check
         run: |
           cargo check -p luma-core --target wasm32-unknown-unknown
           cargo check -p luma-anchor --target wasm32-unknown-unknown
 
   frontend-checks:
-    name: Frontend Typecheck, Lint & Build
+    name: Frontend Typecheck, Test, Lint & Build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -61,6 +67,12 @@ jobs:
 
       - name: TypeScript Check
         run: pnpm typecheck
+
+      - name: Frontend Tests
+        run: pnpm test
+
+      - name: ESLint
+        run: pnpm lint
 
       - name: Build Packages & Desktop
         run: pnpm build

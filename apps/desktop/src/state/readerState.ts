@@ -198,7 +198,7 @@ export function createReaderStore(config: ReaderStoreConfig = {}) {
     bookmarks: [],
     settings: {
       ...DEFAULT_READER_SETTINGS,
-      theme: (typeof localStorage !== "undefined" && localStorage.getItem("luma_theme") === "dark" ? "dark" : "light") as any,
+      theme: typeof localStorage !== "undefined" && localStorage.getItem("luma_theme") === "dark" ? "dark" : "light",
     },
     sidebarTab: null,
     isTypographyOpen: false,
@@ -311,7 +311,9 @@ export function createReaderStore(config: ReaderStoreConfig = {}) {
         clearTimeout(progressDebounceTimer);
         progressDebounceTimer = null;
         if (readingProgress) {
-          api.saveReadingProgress(readingProgress).catch(() => {});
+          api.saveReadingProgress(readingProgress).catch((err) => {
+            logger.warn("[readerStore] Failed to flush reading progress:", err);
+          });
         }
       }
 
