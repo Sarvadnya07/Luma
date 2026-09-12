@@ -10,7 +10,7 @@ import {
   Bookmark as BookmarkIcon,
 } from "lucide-react";
 import type { PDFDocumentProxy } from "pdfjs-dist";
-import { useReaderStore } from "../../state/readerState";
+import { useReaderStore } from "../../state/readerContext";
 import { LumaApi } from "../../lib/tauri";
 import { TextSelectionToolbar } from "./TextSelectionToolbar";
 import { PdfPageCanvas } from "./PdfPageCanvas";
@@ -51,6 +51,16 @@ export const PdfReaderView: React.FC = () => {
       scrollContainerRef.current.scrollTop = 0;
     }
   }, [currentPdfPage, isDualSpread]);
+
+  useEffect(() => {
+    console.log("[LUMA-OPEN] 10. FORMAT_READER_MOUNT", {
+      timestamp: new Date().toISOString(),
+      bookId: currentBook?.id,
+      format: "pdf",
+      totalPages,
+      currentPage: currentPdfPage,
+    });
+  }, [currentBook?.id]);
 
   // Load PDF Document bytes into PDF.js proxy
   useEffect(() => {

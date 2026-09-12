@@ -83,11 +83,17 @@ export interface MockDataProvider {
   chapterHtml: Record<string, string>;
 }
 
+export interface LumaTransport {
+  invoke<T = unknown>(command: string, args?: Record<string, unknown>): Promise<T>;
+}
+
 export interface LumaApiConfig {
   /** If true, force mock implementation even when Tauri runtime is detected. */
   useMock?: boolean;
   /** Custom invoke function (defaults to dynamic `@tauri-apps/api/core` invoke). */
   invoke?: <T = unknown>(cmd: string, args?: Record<string, unknown>) => Promise<T>;
+  /** Explicit transport; used by test-only browser integration. */
+  transport?: LumaTransport;
   /** Custom mock data store. */
   mockData?: MockDataProvider;
   /** Custom logger instance. */
@@ -153,8 +159,13 @@ export class MockDataStore implements MockDataProvider {
 // ============================================================================
 
 export class LumaApiClient {
-  private config: Required<Omit<LumaApiConfig, "invoke">> & {
+  private config: {
+    useMock: boolean;
     invoke: <T = unknown>(cmd: string, args?: Record<string, unknown>) => Promise<T>;
+    transport?: LumaTransport;
+    mockData: MockDataProvider;
+    logger: Logger;
+    defaultLabels: Required<DefaultLabels>;
   };
   private logger: Logger;
   private mockStore: MockDataStore;
@@ -178,9 +189,15 @@ export class LumaApiClient {
     this.config = {
       useMock: config.useMock ?? !isTauri(),
       invoke: config.invoke ?? defaultInvoke,
+      transport: config.transport,
       mockData: mockStore,
       logger,
-      defaultLabels: { ...defaultLabels, ...config.defaultLabels },
+      defaultLabels: {
+          unknownAuthor: config.defaultLabels?.unknownAuthor ?? defaultLabels.unknownAuthor!,
+          readingStatusLabel: config.defaultLabels?.readingStatusLabel ?? defaultLabels.readingStatusLabel!,
+          inProgressLabel: config.defaultLabels?.inProgressLabel ?? defaultLabels.inProgressLabel!,
+          availableLabel: config.defaultLabels?.availableLabel ?? defaultLabels.availableLabel!,
+        },
     };
 
     this.logger = logger;
@@ -193,11 +210,13 @@ export class LumaApiClient {
   }
 
   private async _call<T>(cmd: string, args?: Record<string, unknown>, mockFn?: () => T | Promise<T>): Promise<T> {
-    if (this.isMock() && mockFn) {
+    if (!this.config.transport && this.isMock() && mockFn) {
       return mockFn();
     }
     try {
-      return await this.config.invoke<T>(cmd, args);
+      return await (this.config.transport
+        ? this.config.transport.invoke<T>(cmd, args)
+        : this.config.invoke<T>(cmd, args));
     } catch (err) {
       this.logger.error(`Tauri invoke failed for [${cmd}]:`, err);
       throw err;

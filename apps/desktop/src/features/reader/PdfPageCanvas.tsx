@@ -370,6 +370,14 @@ export const PdfPageCanvas: React.FC<PdfPageCanvasProps> = ({
         if (!isCancelled) {
           setRenderState("rendered");
           if (!isThumbnail) {
+            console.log("[LUMA-OPEN] 11. FIRST_CONTENT_READY", {
+              timestamp: new Date().toISOString(),
+              format: "pdf",
+              pageNum,
+              hasText,
+              width: logicalWidth,
+              height: logicalHeight,
+            });
             perfTelemetry.mark("LUMA_PERF_PDF_CANVAS_READY", { pageNum });
           }
         }
@@ -377,6 +385,12 @@ export const PdfPageCanvas: React.FC<PdfPageCanvasProps> = ({
         if (err && typeof err === "object" && "name" in err && err.name === "RenderingCancelledException") {
           return;
         }
+        console.error("[LUMA-OPEN] 12. READER_RENDER_ERROR", {
+          timestamp: new Date().toISOString(),
+          format: "pdf",
+          pageNum,
+          error: String(err),
+        });
         console.warn(`[PdfPageCanvas] Page ${pageNum} render error:`, err);
         if (!isCancelled) {
           setRenderState("error");

@@ -12,7 +12,7 @@ import {
   SyncMetadata,
 } from "@luma/shared-types";
 import { DEFAULT_READER_SETTINGS } from "@luma/reader-ui";
-import { LumaApi } from "../lib/tauri";
+import { LumaApi, type LumaApiClient } from "../lib/tauri";
 import { perfTelemetry } from "../lib/perfTelemetry";
 import { generateUuid } from "../lib/uuid";
 
@@ -93,7 +93,7 @@ export interface ReaderStoreLabels {
 
 export interface ReaderStoreConfig {
   /** API client (defaults to global LumaApi) */
-  api?: typeof LumaApi;
+  api?: LumaApiClient;
   /** Logger instance (defaults to console) */
   logger?: Pick<Console, "debug" | "info" | "warn" | "error">;
   /** Debounce delay for saving progress (ms) */
@@ -223,10 +223,33 @@ export function createReaderStore(config: ReaderStoreConfig = {}) {
     },
 
     openBook: async (book: Book, fileId?: string) => {
+      console.log("[LUMA-OPEN] 2. OPEN_BOOK_START", {
+        timestamp: new Date().toISOString(),
+        bookId: book.id,
+        format: book.primary_file_id ? "resolving" : "unknown",
+        title: book.title,
+      });
       set({ loading: true, currentBook: book, activeTab: "reader" });
       perf.mark("LUMA_PERF_READER_OPEN", { bookId: book.id, title: book.title });
       try {
+        console.log("[LUMA-OPEN] 3. OPEN_READER_DOCUMENT_REQUEST", {
+          timestamp: new Date().toISOString(),
+          bookId: book.id,
+          fileId: fileId || book.primary_file_id || null,
+        });
         const docData = await api.openReaderDocument(book.id, fileId);
+
+        console.log("[LUMA-OPEN] 4. OPEN_READER_DOCUMENT_SUCCESS", {
+          timestamp: new Date().toISOString(),
+          bookId: book.id,
+          format: docData?.file?.format,
+          fileId: docData?.file?.id,
+          totalPagesOrSpines: docData?.total_pages_or_spines,
+          hasInitialProgress: !!docData?.initial_progress,
+          initialPage: docData?.initial_progress?.current_page_number ?? null,
+          initialLocator: docData?.initial_progress?.current_locator ?? null,
+        });
+
         const annotations = docData.annotations || [];
         const bookmarks = docData.bookmarks || [];
         const startProgress = docData.initial_progress?.progress_percentage || 0;
@@ -245,6 +268,14 @@ export function createReaderStore(config: ReaderStoreConfig = {}) {
           readingProgress: docData.initial_progress || null,
           activeSessionId: session?.id || null,
           sessionStartTime: Date.now(),
+        });
+
+        console.log("[LUMA-OPEN] 6. READER_STATE_UPDATED", {
+          timestamp: new Date().toISOString(),
+          bookId: book.id,
+          format: docData.file.format,
+          totalPagesOrSpines: docData.total_pages_or_spines,
+          activeTab: "reader",
         });
 
         // Restore initial position
@@ -297,6 +328,11 @@ export function createReaderStore(config: ReaderStoreConfig = {}) {
           set({ readingProgress: progress });
         }
       } catch (err) {
+        console.error("[LUMA-OPEN] 5. OPEN_READER_DOCUMENT_FAILURE", {
+          timestamp: new Date().toISOString(),
+          bookId: book.id,
+          error: String(err),
+        });
         logger.error("Failed to open book:", err);
         const msg = `${mergedLabels.openFailedMessage}${err}`;
         set({ statusMessage: msg });
@@ -635,3 +671,7 @@ export function createReaderStore(config: ReaderStoreConfig = {}) {
 // ----------------------------------------------------------------------------
 
 export const useReaderStore = createReaderStore();
+
+export function createReaderStoreForApi(api: LumaApiClient) {
+  return createReaderStore({ api });
+}

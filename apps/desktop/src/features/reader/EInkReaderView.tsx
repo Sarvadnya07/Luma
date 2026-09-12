@@ -1,6 +1,6 @@
 import React from "react";
 import { BookOpen } from "lucide-react";
-import { useReaderStore } from "../../state/readerState";
+import { useReaderStore } from "../../state/readerContext";
 
 export const EInkReaderView: React.FC = () => {
   const currentBook = useReaderStore((s) => s.currentBook);

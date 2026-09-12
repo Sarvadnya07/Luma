@@ -1,6 +1,6 @@
 import React from "react";
 import { RotateCcw, AlignLeft, AlignJustify, MoveHorizontal, Info } from "lucide-react";
-import { useReaderStore } from "../../state/readerState";
+import { useReaderStore } from "../../state/readerContext";
 
 export const TypographySettingsDrawer: React.FC = () => {
   const isTypographyOpen = useReaderStore((s) => s.isTypographyOpen);

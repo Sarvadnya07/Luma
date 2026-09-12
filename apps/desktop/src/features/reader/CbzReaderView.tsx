@@ -12,7 +12,7 @@ import {
   Loader2,
   ListTree,
 } from "lucide-react";
-import { useReaderStore } from "../../state/readerState";
+import { useReaderStore } from "../../state/readerContext";
 import { LumaApi } from "../../lib/tauri";
 
 export const CbzReaderView: React.FC = () => {

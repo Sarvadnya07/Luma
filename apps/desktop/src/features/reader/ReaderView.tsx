@@ -12,7 +12,7 @@ import {
   Moon,
 } from "lucide-react";
 import { Book } from "@luma/shared-types";
-import { useReaderStore } from "../../state/readerState";
+import { useReaderStore } from "../../state/readerContext";
 import { ReaderSidebar } from "./ReaderSidebar";
 import { TypographySettingsDrawer } from "./TypographySettingsDrawer";
 import { EpubReaderView } from "./EpubReaderView";
@@ -33,8 +33,13 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
   onToggleDarkMode,
 }) => {
   useEffect(() => {
+    console.log("[LUMA-OPEN] 9. READER_VIEW_MOUNT", {
+      timestamp: new Date().toISOString(),
+      bookId: book.id,
+      title: book.title,
+    });
     perfTelemetry.mark("LUMA_PERF_READER_VISIBLE", { bookId: book.id });
-  }, [book.id]);
+  }, [book.id, book.title]);
 
   const closeReader = useReaderStore((s) => s.closeReader);
 

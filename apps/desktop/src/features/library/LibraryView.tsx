@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { Author, Book, BookDetailViewData, Collection, DocumentFormat, ImportJob, LibrarySortBy, ReadingAnalytics, ReadingStatus, Tag } from "@luma/shared-types";
 import { BookCard, BookTable, Pagination } from "@luma/library-ui";
 import { LumaApi, isTauri } from "../../lib/tauri";
-import { useReaderStore } from "../../state/readerState";
+import { useReaderStore } from "../../state/readerContext";
 import { LibrarySidebar, SidebarSection } from "./LibrarySidebar";
 import { LibraryToolbar } from "./LibraryToolbar";
 import { BookDetailsDrawer } from "./BookDetailsDrawer";
@@ -693,8 +693,34 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
         <LumaHomeView
           books={books}
           authorMap={authorMap}
-          onSelectBook={(b) => handleOpenDetails(b.id)}
-          onOpenReader={(b) => setCurrentBook(b)}
+          onSelectBook={(b) => {
+            console.log("[LUMA-OPEN] 1. BOOK_CLICK", {
+              timestamp: new Date().toISOString(),
+              bookId: b.id,
+              title: b.title,
+              source: "LumaHomeView.onSelectBook",
+            });
+            console.log("[LUMA-OPEN] 7. ROUTE_NAVIGATION_START", {
+              timestamp: new Date().toISOString(),
+              bookId: b.id,
+              targetRoute: "reader",
+            });
+            setCurrentBook(b);
+          }}
+          onOpenReader={(b) => {
+            console.log("[LUMA-OPEN] 1. BOOK_CLICK", {
+              timestamp: new Date().toISOString(),
+              bookId: b.id,
+              title: b.title,
+              source: "LumaHomeView.onOpenReader",
+            });
+            console.log("[LUMA-OPEN] 7. ROUTE_NAVIGATION_START", {
+              timestamp: new Date().toISOString(),
+              bookId: b.id,
+              targetRoute: "reader",
+            });
+            setCurrentBook(b);
+          }}
           onViewAll={() => setCurrentSection("all")}
         />
       );
@@ -734,7 +760,20 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                 book={book}
                 authorName={author}
                 isSelected={isSelected}
-                onSelect={() => handleOpenDetails(book.id)}
+                onSelect={() => {
+                  console.log("[LUMA-OPEN] 1. BOOK_CLICK", {
+                    timestamp: new Date().toISOString(),
+                    bookId: book.id,
+                    title: book.title,
+                    source: "BookCard.onSelect",
+                  });
+                  console.log("[LUMA-OPEN] 7. ROUTE_NAVIGATION_START", {
+                    timestamp: new Date().toISOString(),
+                    bookId: book.id,
+                    targetRoute: "reader",
+                  });
+                  setCurrentBook(book);
+                }}
                 onOpenDetails={() => handleOpenDetails(book.id)}
               />
             );
@@ -750,7 +789,20 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
           books={books}
           authorMap={authorMap}
           selectedBookId={selectedBookDetails?.book.id}
-          onSelectBook={(book) => handleOpenDetails(book.id)}
+          onSelectBook={(book) => {
+            console.log("[LUMA-OPEN] 1. BOOK_CLICK", {
+              timestamp: new Date().toISOString(),
+              bookId: book.id,
+              title: book.title,
+              source: "BookTable.onSelectBook",
+            });
+            console.log("[LUMA-OPEN] 7. ROUTE_NAVIGATION_START", {
+              timestamp: new Date().toISOString(),
+              bookId: book.id,
+              targetRoute: "reader",
+            });
+            setCurrentBook(book);
+          }}
           onOpenDetails={(book) => handleOpenDetails(book.id)}
         />
         <div className="flex items-center justify-between pt-2">
@@ -886,6 +938,17 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
         onClose={() => setSelectedBookDetails(null)}
         onOpenReader={() => {
           if (selectedBookDetails) {
+            console.log("[LUMA-OPEN] 1. BOOK_CLICK", {
+              timestamp: new Date().toISOString(),
+              bookId: selectedBookDetails.book.id,
+              title: selectedBookDetails.book.title,
+              source: "BookDetailsDrawer.onOpenReader",
+            });
+            console.log("[LUMA-OPEN] 7. ROUTE_NAVIGATION_START", {
+              timestamp: new Date().toISOString(),
+              bookId: selectedBookDetails.book.id,
+              targetRoute: "reader",
+            });
             setCurrentBook(selectedBookDetails.book);
             setSelectedBookDetails(null);
           }

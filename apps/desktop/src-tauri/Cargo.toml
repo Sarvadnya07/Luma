@@ -7,6 +7,7 @@ authors.workspace = true
 description = "Luma – a modern, privacy-first digital reading and annotation platform."
 homepage = "https://luma.reader"
 repository = "https://github.com/luma/luma"
+default-run = "luma-desktop"
 
 [build-dependencies]
 tauri-build = { workspace = true }

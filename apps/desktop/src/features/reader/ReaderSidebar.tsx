@@ -10,7 +10,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { AnnotationItem } from "@luma/annotation-ui";
-import { useReaderStore } from "../../state/readerState";
+import { useReaderStore } from "../../state/readerContext";
 import { TocItem } from "@luma/shared-types";
 
 export const ReaderSidebar: React.FC = () => {
