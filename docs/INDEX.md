@@ -36,6 +36,7 @@ Welcome to the central documentation index for **Luma**, the distraction-free, l
 - **[Contributing Guide](../CONTRIBUTING.md)**: Development workflow, pull request guidelines, coding standards, and commit conventions.
 - **[Development & Quality Workflows](guides/DEVELOPMENT.md)**: Building, linting (`eslint`, `clippy`), formatting, and running tests.
 - **[Testing Strategy & Execution](testing/TEST-STRATEGY.md)**: Workspace test matrices, Rust unit/integration suites, and frontend test suites.
+- **[Respond to a Performance Budget Regression](guides/PERF-BUDGET-REGRESSIONS.md)**: Reading `BUDGET-GUARD` failures from the perf validation harness, distinguishing regressions from noise, and updating budget constants deliberately.
 - **[Library Test Matrix](testing/LIBRARY-TEST-MATRIX.md)**: Test scenarios for book ingestion, duplication detection, and trash lifecycle.
 - **[Reader Test Matrix](testing/READER-TEST-MATRIX.md)**: Test scenarios for EPUB spine navigation, PDF text layer selection, and anchor recovery.
 
