@@ -35,7 +35,9 @@ use luma_reader::PdfDocument;
 use luma_storage::cache::CacheManager;
 use luma_storage::db::Database;
 use luma_storage::events::EventBus;
-use luma_storage::repos::{BookFileRepository, BookRepository, LibraryFilterOptions, LibrarySortOptions};
+use luma_storage::repos::{
+    BookFileRepository, BookRepository, LibraryFilterOptions, LibrarySortOptions,
+};
 use luma_storage::services::{ReaderService, SearchService};
 use std::time::Instant;
 
@@ -52,10 +54,7 @@ fn percentiles(mut samples_ms: Vec<f64>) -> (f64, f64) {
 fn report(name: &str, samples_ms: &[f64]) {
     let (p50, p95) = percentiles(samples_ms.to_vec());
     let min = samples_ms.iter().cloned().fold(f64::INFINITY, f64::min);
-    let max = samples_ms
-        .iter()
-        .cloned()
-        .fold(f64::NEG_INFINITY, f64::max);
+    let max = samples_ms.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
     let mean = samples_ms.iter().sum::<f64>() / samples_ms.len() as f64;
     println!(
         "PERF-STAT|{name}|n={}|p50={p50:.3}ms|p95={p95:.3}ms|min={min:.3}ms|max={max:.3}ms|mean={mean:.3}ms",
@@ -74,7 +73,6 @@ fn assert_budget(name: &str, p95_ms: f64, budget_ms: f64) {
         "PERFORMANCE REGRESSION: {name} p95 {p95_ms:.3}ms exceeds recorded budget {budget_ms:.3}ms"
     );
 }
-
 
 #[tokio::test]
 async fn test_multi_run_hot_paths_with_percentiles() {
@@ -221,7 +219,11 @@ async fn test_multi_run_hot_paths_with_percentiles() {
 }
 
 /// Create one book with a real EPUB file on disk, returning the BookId.
-fn seed_book_with_epub(db: &Database, dir: &std::path::Path, chapters: usize) -> luma_core::ids::BookId {
+fn seed_book_with_epub(
+    db: &Database,
+    dir: &std::path::Path,
+    chapters: usize,
+) -> luma_core::ids::BookId {
     let book_repo = BookRepository::new(db.clone());
     let file_repo = BookFileRepository::new(db.clone());
     let device_id = DeviceId::new();
@@ -292,9 +294,7 @@ async fn test_soak_repeated_open_close_cycles() {
     let n = cycle_durations_ms.len();
     let (early_p50, _) = percentiles(cycle_durations_ms[..n / 2].to_vec());
     let (late_p50, _) = percentiles(cycle_durations_ms[n / 2..].to_vec());
-    println!(
-        "SOAK-DEGRADATION|early_p50={early_p50:.3}ms|late_p50={late_p50:.3}ms"
-    );
+    println!("SOAK-DEGRADATION|early_p50={early_p50:.3}ms|late_p50={late_p50:.3}ms");
     // Allow bounded drift (2x); a leak would show as monotonic growth.
     assert!(
         late_p50 < early_p50 * 2.0 + 1.0,

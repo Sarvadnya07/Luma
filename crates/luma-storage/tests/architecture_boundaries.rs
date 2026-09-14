@@ -93,8 +93,8 @@ fn crate_dependency_direction_matches_documented_layering() {
 fn layering_table_covers_every_workspace_crate() {
     // Guards against a new crate silently escaping the policy: if a crate is
     // added to the workspace but not to allowed_edges(), this fails.
-    let root_manifest = std::fs::read_to_string("../../Cargo.toml")
-        .expect("failed to read workspace Cargo.toml");
+    let root_manifest =
+        std::fs::read_to_string("../../Cargo.toml").expect("failed to read workspace Cargo.toml");
     let mut workspace_crates: Vec<&str> = root_manifest
         .lines()
         .filter_map(|l| l.trim().strip_prefix("\"crates/"))

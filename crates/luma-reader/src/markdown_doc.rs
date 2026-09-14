@@ -9,7 +9,7 @@ use luma_core::error::{LumaError, Result};
 use luma_core::models::canonical::{
     DocumentPosition, DocumentRange, DocumentStructure, NodeKind, StructureNode,
 };
-use luma_security::sanitize_untrusted_html;
+use luma_security::{sanitize_untrusted_html, strip_raw_html_blocks};
 
 /// Document engine for standalone Markdown files (.md).
 pub struct MarkdownDocument {
@@ -35,7 +35,12 @@ impl MarkdownDocument {
         })?;
 
         let raw_bytes_text = decode_text_bytes(&bytes);
-        let raw_text = sanitize_untrusted_html(&raw_bytes_text);
+        // `raw_text` is the plain-text markdown source — parsed for structure,
+        // search, and text extraction. It is never rendered as HTML; the
+        // generated HTML is sanitized at the render boundary (see `safe_html`).
+        // Embedded raw-HTML lines are stripped (not escaped) to honor the
+        // markdown rendering contract.
+        let raw_text = strip_raw_html_blocks(&raw_bytes_text);
 
         let fallback_title = path_ref
             .file_stem()

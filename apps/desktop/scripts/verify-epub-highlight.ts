@@ -1,7 +1,12 @@
 import { spawn, ChildProcess } from "child_process";
 import * as path from "path";
 import * as fs from "fs";
-import { chromium, Browser, Page } from "playwright";
+import { fileURLToPath } from "url";
+import { chromium } from "playwright";
+import type { Browser, Page } from "playwright";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 async function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -23,7 +28,7 @@ async function waitForPort(port: number, timeoutMs: number = 30000): Promise<boo
 
 async function runVerification() {
   console.log("=== LUMA EPUB HIGHLIGHT REAL DESKTOP VERIFICATION ===");
-  const projectRoot = path.resolve(__dirname, "..");
+  const projectRoot = path.resolve(__dirname, "..", "..", "..");
   const exePath = path.join(projectRoot, "target", "debug", "luma-desktop.exe");
   const artifactsDir = path.join(projectRoot, "docs", "reader-recovery", "runtime-artifacts");
 
@@ -55,13 +60,12 @@ async function runVerification() {
     console.log("3. Connecting Playwright to actual WebView2 runtime...");
     const browser: Browser = await chromium.connectOverCDP("http://localhost:9222");
     const contexts = browser.contexts();
-    const firstContext = contexts[0];
-    if (!firstContext) throw new Error("No browser contexts found in WebView2");
+    if (contexts.length === 0) throw new Error("No browser contexts found in WebView2");
 
-    const pages = firstContext.pages();
-    let page: Page | undefined = pages[0];
+    const pages = contexts[0].pages();
+    let page: Page = pages[0];
     if (!page) {
-      page = await firstContext.waitForEvent("page");
+      page = await contexts[0].waitForEvent("page");
     }
 
     console.log("4. Page connected! Current URL:", page.url());
@@ -69,23 +73,38 @@ async function runVerification() {
     await sleep(2000);
 
     console.log("5. Waiting for library or reader view...");
-    // Check if we are already in reader or library
-    const inReader = await page.$(".chapter-content, [data-annotation-id], #reader-root");
+    const inReader = await page.$(".chapter-content, .prose-reader, #reader-root");
     if (!inReader) {
-      console.log("Opening 'The Architecture of Stillness' EPUB...");
-      // Click on book card in library
-      const bookCard = await page.waitForSelector("text=The Architecture of Stillness, h3:has-text('The Architecture of Stillness'), [title*='Architecture of Stillness']", { timeout: 10000 });
-      await bookCard.click();
-      await sleep(2000);
+      // If we are on dashboard or another tab, click Library in the sidebar
+      const libraryTab = await page.$("button:has-text('Library'), [data-tab='library'], nav button:first-child");
+      if (libraryTab) {
+        await libraryTab.click();
+        await sleep(1500);
+      }
+
+      const titles = await page.evaluate(() => {
+        return {
+          headings: Array.from(document.querySelectorAll("h1, h2, h3, h4")).map(e => e.textContent?.trim()),
+          cards: Array.from(document.querySelectorAll(".grid > div, [data-testid='book-card']")).map(e => e.textContent?.trim().slice(0, 40)),
+        };
+      });
+      console.log("Found on page:", titles);
+
+      // Click the EPUB book card ("Sample" from sample_book.epub with ID prefix Ca26f467)
+      console.log("Clicking EPUB book card ('Ca26f467') to open in EPUB reader...");
+      const epubCard = page.locator(".grid > div, [data-testid='book-card']").filter({ hasText: "Ca26f467" }).first();
+      await epubCard.scrollIntoViewIfNeeded();
+      await epubCard.click();
+      await sleep(3000);
     }
 
     console.log("6. Waiting for EPUB reader content...");
-    await page.waitForSelector(".chapter-content p, .prose-reader p", { timeout: 15000 });
+    const paragraphHandle = await page.waitForSelector(
+      "p:has-text('software engineering'), p#p1, .chapter p, .chapter-content p, .prose-reader p",
+      { timeout: 15000 }
+    );
+    if (!paragraphHandle) throw new Error("Could not find paragraph element in EPUB reader content");
     await sleep(1500);
-
-    // Locate the first paragraph to select text
-    const paragraphHandle = await page.$(".chapter-content p, .prose-reader p");
-    if (!paragraphHandle) throw new Error("Could not find paragraph element in reader content");
 
     console.log("7. Calculating paragraph geometry for REAL mouse drag selection...");
     const pBox = await paragraphHandle.boundingBox();
@@ -93,12 +112,12 @@ async function runVerification() {
 
     console.log("Paragraph bounding box:", pBox);
 
-    // Perform an ACTUAL pointer mouse selection across multiple words / lines
-    // We select from x: pBox.x + 30, y: pBox.y + 12 to x: pBox.x + 320, y: pBox.y + 12 (or multi-line y: pBox.y + 35)
-    const startX = pBox.x + 25;
-    const startY = pBox.y + 10;
-    const endX = pBox.x + 350;
-    const endY = pBox.y + (pBox.height > 40 ? 35 : 10);
+    // Perform an ACTUAL pointer mouse selection across the words
+    // "In software engineering, local-first systems"
+    const startX = pBox.x + 8;
+    const startY = pBox.y + 12;
+    const endX = pBox.x + 360;
+    const endY = pBox.y + (pBox.height > 35 ? 12 : 12);
 
     console.log(`8. Performing REAL mouse drag: (${startX}, ${startY}) -> (${endX}, ${endY})...`);
     await page.mouse.move(startX, startY);
@@ -143,7 +162,6 @@ async function runVerification() {
     }
 
     console.log("10. Triggering highlight through the ACTUAL floating toolbar UI...");
-    // Find floating toolbar color button
     const highlightButton = await page.waitForSelector("button[title*='Highlight'], button[title*='Yellow'], [data-testid='highlight-button']", { timeout: 8000 });
     await highlightButton.click();
     await sleep(1500);

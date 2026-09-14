@@ -1,0 +1,87 @@
+{
+  "timestamp": "2026-09-14T02:50:49.178Z",
+  "bookId": "book_arch_stillness",
+  "chapterId": "ch_1",
+  "selectedText": "he Philosophy of Modern Reading",
+  "startContainer": "#text",
+  "startOffset": 1,
+  "endContainer": "#text",
+  "endOffset": 32,
+  "rangeRects": [
+    {
+      "x": 336.7124938964844,
+      "y": 147.1999969482422,
+      "width": 280.8999938964844,
+      "height": 23.20001220703125,
+      "top": 147.1999969482422,
+      "bottom": 170.40000915527344,
+      "left": 336.7124938964844,
+      "right": 617.6124877929688
+    }
+  ],
+  "highlightRects": [
+    {
+      "x": 336.7250061035156,
+      "y": 147.1999969482422,
+      "width": 280.8999938964844,
+      "height": 23.200000762939453,
+      "top": 147.1999969482422,
+      "bottom": 170.39999771118164,
+      "left": 336.7250061035156,
+      "right": 617.625
+    },
+    {
+      "x": 325.20001220703125,
+      "y": 204.8000030517578,
+      "width": 274.625,
+      "height": 23.200000762939453,
+      "top": 204.8000030517578,
+      "bottom": 228.00000381469727,
+      "left": 325.20001220703125,
+      "right": 599.8250122070312
+    }
+  ],
+  "marks": [
+    {
+      "id": "b342af04-50cb-460f-9255-7ac4ffa9a56a",
+      "text": "he Philosophy of Modern Reading",
+      "color": "rgba(253, 230, 138, 0.333)",
+      "border": "",
+      "padding": "0px",
+      "margin": "0px",
+      "rects": [
+        {
+          "x": 336.7250061035156,
+          "y": 147.1999969482422,
+          "width": 280.8999938964844,
+          "height": 23.200000762939453,
+          "top": 147.1999969482422,
+          "bottom": 170.39999771118164,
+          "left": 336.7250061035156,
+          "right": 617.625
+        }
+      ]
+    },
+    {
+      "id": "a2ebc1c4-02e7-41d5-95d3-1cbcb04e36a1",
+      "text": "Reading is an active dialogue bet",
+      "color": "rgba(253, 230, 138, 0.333)",
+      "border": "",
+      "padding": "0px",
+      "margin": "0px",
+      "rects": [
+        {
+          "x": 325.20001220703125,
+          "y": 204.8000030517578,
+          "width": 274.625,
+          "height": 23.200000762939453,
+          "top": 204.8000030517578,
+          "bottom": 228.00000381469727,
+          "left": 325.20001220703125,
+          "right": 599.8250122070312
+        }
+      ]
+    }
+  ],
+  "screenshot": "epub-highlight-fixed.png"
+}

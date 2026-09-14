@@ -52,8 +52,11 @@ impl HtmlDocument {
             Regex::new(r"(?i)<h1[^>]*>([^<]+)</h1>").expect("Valid regex")
         });
 
+        // `<title>` is head metadata and is intentionally stripped by the
+        // sanitizer, so extract it from the raw source. `<h1>` survives
+        // sanitization and is read from the sanitized fragment.
         let title = TITLE_REGEX
-            .captures(&sanitized)
+            .captures(&raw_html)
             .and_then(|c| c.get(1))
             .map(|m| m.as_str().trim().to_string())
             .or_else(|| {

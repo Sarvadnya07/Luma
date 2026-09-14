@@ -100,14 +100,14 @@ pub fn create_epub(dest_path: &Path, title: &str, author: &str, num_chapters: us
 
     let file = File::create(dest_path).expect("create epub file");
     let mut zip = ZipWriter::new(file);
-    let options =
-        SimpleFileOptions::default().compression_method(CompressionMethod::Deflated);
+    let options = SimpleFileOptions::default().compression_method(CompressionMethod::Deflated);
     let raw_options = SimpleFileOptions::default().compression_method(CompressionMethod::Stored);
 
     zip.start_file("mimetype", raw_options).expect("mimetype");
     zip.write_all(b"application/epub+zip").expect("write");
 
-    zip.start_file("META-INF/container.xml", options).expect("container");
+    zip.start_file("META-INF/container.xml", options)
+        .expect("container");
     zip.write_all(
         br#"<?xml version="1.0"?>
 <container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
@@ -145,7 +145,8 @@ pub fn create_epub(dest_path: &Path, title: &str, author: &str, num_chapters: us
     zip.write_all(manifest.as_bytes()).expect("write");
 
     for i in 0..num_chapters {
-        zip.start_file(format!("EPUB/ch{i}.xhtml"), options).expect("chapter");
+        zip.start_file(format!("EPUB/ch{i}.xhtml"), options)
+            .expect("chapter");
         zip.write_all(
             format!(
                 r#"<!DOCTYPE html><html><body><h1>Chapter {}</h1><p>Realistic body paragraph with Novel Volume text for search indexing and reading evaluation.</p></body></html>"#,

@@ -20,11 +20,9 @@ import { JSDOM } from "jsdom";
 import { Annotation } from "@luma/shared-types";
 import {
   applyHighlightsAndSearch,
-  clearDomHighlights,
   serializeRangeToDocumentRange,
   resolveDocumentRangeToDomRange,
   highlightDomRange,
-  buildCharMapping,
 } from "../../../features/reader/highlightEngine";
 
 describe("EPUB DOM Range Highlight Rendering Engine", () => {

@@ -452,10 +452,8 @@ export function highlightDomRange(
     priority?: number;
   } = {}
 ): HTMLElement[] {
-  const className = options.className || "luma-highlight";
   const color = options.color || "#fef08a";
   const annotationId = options.annotationId;
-  const priority = options.priority ?? 1;
 
   const mapping = buildCharMapping(container);
   const startRaw = getContainerOffset(container, range.startContainer, range.startOffset, mapping);

@@ -158,6 +158,9 @@ fn test_security_bounds_and_defenses() {
     let cleaned = sanitize_untrusted_html(xss_payload);
     assert!(!cleaned.contains("<script"));
     assert!(!cleaned.contains("href='javascript:"));
-    assert!(cleaned.contains("blocked-javascript:"));
+    // The allowlist sanitizer removes disallowed href schemes entirely
+    // (stronger than the legacy blocklist's `blocked-javascript:` rewrite).
+    assert!(!cleaned.contains("javascript:"));
+    assert!(cleaned.contains("Link")); // link text survives, URI does not
     assert!(cleaned.contains("Valid text"));
 }

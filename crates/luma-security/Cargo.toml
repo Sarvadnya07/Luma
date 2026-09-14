@@ -21,6 +21,7 @@ hex = { workspace = true }
 regex = { workspace = true }
 ammonia = "4.1.4"
 html5ever = "0.39"
+maplit = "1.0.2"
 
 [dev-dependencies]
 tokio = { workspace = true }

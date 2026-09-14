@@ -96,7 +96,8 @@ async fn test_benchmark_large_scale_10k_library() {
         }
         tx.commit()?;
         Ok(())
-    }).expect("bulk insert");
+    })
+    .expect("bulk insert");
 
     let insert_duration = insert_start.elapsed();
     println!("10,000 Books Bulk Ingestion Time: {:?}", insert_duration);

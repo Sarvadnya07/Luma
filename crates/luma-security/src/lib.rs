@@ -1,4 +1,6 @@
 use ammonia::Builder;
+use maplit::hashset;
+use regex::Regex;
 use sha2::{Digest, Sha256};
 use std::path::{Component, Path, PathBuf};
 
@@ -181,16 +183,40 @@ pub fn verify_archive_safety(
 // `SanitizerConfig` is `pub`; it is no longer used by `sanitize_untrusted_html`.
 
 /// Sanitizes untrusted HTML using the default configuration.
+///
+/// Beyond ammonia's defaults, `id` and `class` are allowed as generic
+/// attributes: both are inert, and the reader's scroll/annotation locators
+/// bind to generated ids (`heading-0`, `p-1`, `quote-2`) while the reader
+/// stylesheet styles via classes. Dropping them would break anchoring.
 pub fn sanitize_untrusted_html(input: &str) -> String {
-    let base = ammonia::url::Url::parse("about:blank").expect("valid base URL");
     Builder::default()
-        .url_relative(ammonia::UrlRelative::RewriteWithBase(base))
+        .generic_attributes(hashset!["lang", "title", "id", "class"])
         .clean(&strip_document_wrappers(input))
         .to_string()
 }
 
+/// Strips embedded raw-HTML from plain-text markup sources (Markdown, plain
+/// text) before parsing. Text formats are *not* HTML: their security boundary
+/// is the sanitizer applied to the generated HTML at the render boundary, but
+/// their rendering contract requires embedded markup to be removed rather than
+/// escaped (escaped `<script>` text still exposes its payload to search and
+/// text extraction), and requires markdown syntax (`> quote`, `[link](url)`)
+/// to survive untouched — so a parse-tree sanitizer cannot be applied to the
+/// source itself. This pass drops any line containing tag-like markup
+/// (`<` followed by a letter, `/`, `!`, or `?`); ordinary prose (`a < b`) is
+/// never altered. Trade-off: literal HTML inside code fences is also removed,
+/// consistent with the content-removal contract.
+pub fn strip_raw_html_blocks(source: &str) -> String {
+    static TAG_LIKE_LINE: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"(?im)^.*<[a-zA-Z/!?].*$").expect("valid regex"));
+    TAG_LIKE_LINE.replace_all(source, "").into_owned()
+}
+
 /// Removes `<head>...</head>` regions and literal `<html>`/`<body>` wrapper
-/// tags before ammonia parses the input.
+/// tags before ammonia parses the input. Relative URL attributes pass through
+/// unchanged (ammonia's default `UrlRelative::PassThrough`): EPUB resources are
+/// resolved by the renderer against the document's own base, not by a global
+/// security base URL.
 ///
 /// Ammonia parses in HTML5 *fragment* mode (as if inside a `<div>`), so a
 /// literal `<head>` start tag makes the tree builder route everything after it
@@ -203,9 +229,37 @@ pub fn sanitize_untrusted_html(input: &str) -> String {
 /// invalid HTML anyway).
 fn strip_document_wrappers(input: &str) -> String {
     let lower = input.to_ascii_lowercase();
+
+    // 1. If an unclosed `<head>` exists, html5ever would swallow everything
+    //    after it as head content — drop that tail entirely (matches what a
+    //    browser's DOM would expose as renderable content).
+    let scan_from = match lower.find("<head") {
+        Some(open)
+            if lower[open + 5..].starts_with('>')
+                || lower[open + 5..].starts_with(|c: char| c.is_ascii_whitespace()) =>
+        {
+            if lower[open..].find("</head").is_none() {
+                // Unclosed `<head>`: html5ever would route the remainder into
+                // a head subtree and lose it. The reader's content-recovery
+                // contract prefers readable text: if a literal `<body>` tag
+                // exists after the head region, resume from there (dropping
+                // the head metadata and its swallowed title text); otherwise
+                // nothing is recoverable and only the content before the
+                // unclosed `<head>` is kept.
+                return match lower[open..].find("<body") {
+                    Some(body_rel) => strip_wrapping_tags(&input[open + body_rel..]),
+                    None => strip_wrapping_tags(&input[..open]),
+                };
+            }
+            open
+        }
+        _ => 0,
+    };
+
+    // 2. Remove each `<head>...</head>` region (metadata is never rendered).
     let mut out = String::with_capacity(input.len());
     let mut consumed = 0usize; // bytes of `input` already emitted
-    let mut search_from = 0usize; // offset into `lower` for the next find
+    let mut search_from = scan_from; // offset into `lower` for the next find
 
     while let Some(rel) = lower[search_from..].find("<head") {
         let open = search_from + rel;
@@ -226,17 +280,61 @@ fn strip_document_wrappers(input: &str) -> String {
                 consumed = close_end;
                 search_from = close_end;
             }
-            // Unclosed `<head>`: html5ever would swallow the rest as head
-            // content, so drop everything from here on.
-            None => return out,
+            // Unclosed `<head>` (first pass ensured this cannot happen for the
+            // first occurrence, but a malformed second one may exist): drop the
+            // rest, mirroring html5ever's head-routing behavior.
+            None => return strip_wrapping_tags(&out),
         }
     }
     out.push_str(&input[consumed..]);
+    strip_wrapping_tags(&out)
+}
 
-    out.replace("<html>", "")
-        .replace("</html>", "")
-        .replace("<body>", "")
-        .replace("</body>", "")
+/// Drops literal `<html>`/`<body>` wrapper tags (case-insensitive).
+fn strip_wrapping_tags(fragment: &str) -> String {
+    let mut result = String::with_capacity(fragment.len());
+    let lower = fragment.to_ascii_lowercase();
+    let mut rest = fragment;
+    let mut low = lower.as_str();
+
+    // Scan tag-by-tag: at each '<' decide whether it opens an html/body wrapper
+    // (skip through its '>') or something else (copy through to the next '<').
+    while let Some(pos) = low.find('<') {
+        result.push_str(&rest[..pos]);
+        let after = &low[pos + 1..];
+
+        let is_wrapper = ["html", "body"].iter().any(|t| {
+            after.strip_prefix(t).is_some_and(|tail| {
+                tail.starts_with('>')
+                    || tail.starts_with('/')
+                    || tail.starts_with(char::is_whitespace)
+            })
+        });
+
+        let tag_end = after.find('>').map(|i| i + 1);
+        match (is_wrapper, tag_end) {
+            (true, Some(gt)) => {
+                // Drop the whole wrapper tag including its '>'.
+                rest = &rest[pos + 1 + gt..];
+                low = &low[pos + 1 + gt..];
+            }
+            (true, None) => break, // malformed unclosed wrapper: drop the tail
+            (false, Some(gt)) => {
+                // Keep this tag verbatim (ammonia will parse it properly).
+                result.push_str(&rest[pos..pos + 1 + gt]);
+                rest = &rest[pos + 1 + gt..];
+                low = &low[pos + 1 + gt..];
+            }
+            (false, None) => {
+                // No '>' ahead: keep the remainder verbatim and stop.
+                result.push_str(&rest[pos..]);
+                rest = "";
+                break;
+            }
+        }
+    }
+    result.push_str(rest);
+    result
 }
 
 /// Sanitizes untrusted HTML using a custom configuration.
