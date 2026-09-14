@@ -1,3 +1,4 @@
+use ammonia::Builder;
 use sha2::{Digest, Sha256};
 use std::path::{Component, Path, PathBuf};
 
@@ -168,10 +169,74 @@ pub fn verify_archive_safety(
 // ============================================================================
 // HTML Sanitizer (default & configurable)
 // ============================================================================
+// ARCH-02 hardening: sanitization is now allowlist-based (html5ever parser via
+// `ammonia`) instead of a regex blocklist. An allowlist parser cannot be
+// bypassed by mutation-XSS or encoding tricks because it reconstructs the
+// document from a parse tree, keeping only tags/attributes on the allowlist.
+// The tag allowlist is content-oriented (headings, paragraphs, lists, tables,
+// links, images) so EPUB/CBZ/Markdown chapter HTML renders faithfully.
+//
+// The previous regex-blocklist implementation (`DANGEROUS_TAG_PAIRS`,
+// `EVENT_HANDLER_REGEX_STR`, `JS_PROTO_REGEX_STR`) is retained only because
+// `SanitizerConfig` is `pub`; it is no longer used by `sanitize_untrusted_html`.
 
 /// Sanitizes untrusted HTML using the default configuration.
 pub fn sanitize_untrusted_html(input: &str) -> String {
-    sanitize_untrusted_html_with_config(input, &SanitizerConfig::default())
+    let base = ammonia::url::Url::parse("about:blank").expect("valid base URL");
+    Builder::default()
+        .url_relative(ammonia::UrlRelative::RewriteWithBase(base))
+        .clean(&strip_document_wrappers(input))
+        .to_string()
+}
+
+/// Removes `<head>...</head>` regions and literal `<html>`/`<body>` wrapper
+/// tags before ammonia parses the input.
+///
+/// Ammonia parses in HTML5 *fragment* mode (as if inside a `<div>`), so a
+/// literal `<head>` start tag makes the tree builder route everything after it
+/// into a head-element subtree that ammonia does not serialize back — and an
+/// unclosed `<script>` inside such input can then survive as escaped *text*
+/// (`&lt;script&gt;alert(...)`) rather than being dropped. EPUB and CBZ
+/// containers regularly contain such malformed chapter markup, so we normalize
+/// it here and let ammonia see pure fragment content. Case-insensitive; the
+/// first `</head>` closes an unclosed-scanned `<head>` (nested `<head>` is
+/// invalid HTML anyway).
+fn strip_document_wrappers(input: &str) -> String {
+    let lower = input.to_ascii_lowercase();
+    let mut out = String::with_capacity(input.len());
+    let mut consumed = 0usize; // bytes of `input` already emitted
+    let mut search_from = 0usize; // offset into `lower` for the next find
+
+    while let Some(rel) = lower[search_from..].find("<head") {
+        let open = search_from + rel;
+        let after = &lower[open + 5..];
+        // Match a real `<head>`/`<head ...>` open tag, not `<header>`.
+        if !(after.starts_with('>') || after.starts_with(|c: char| c.is_ascii_whitespace())) {
+            search_from = open + 5;
+            continue;
+        }
+        out.push_str(&input[consumed..open]);
+        match lower[open..].find("</head") {
+            Some(close_rel) => {
+                let close = open + close_rel;
+                let close_end = lower[close..]
+                    .find('>')
+                    .map(|i| close + i + 1)
+                    .unwrap_or(lower.len());
+                consumed = close_end;
+                search_from = close_end;
+            }
+            // Unclosed `<head>`: html5ever would swallow the rest as head
+            // content, so drop everything from here on.
+            None => return out,
+        }
+    }
+    out.push_str(&input[consumed..]);
+
+    out.replace("<html>", "")
+        .replace("</html>", "")
+        .replace("<body>", "")
+        .replace("</body>", "")
 }
 
 /// Sanitizes untrusted HTML using a custom configuration.
@@ -257,6 +322,7 @@ mod tests {
         let cleaned = sanitize_untrusted_html(dirty_img);
         assert!(!cleaned.contains("onerror"));
         assert!(!cleaned.contains("onload"));
+        assert!(!cleaned.contains("alert"));
         assert!(cleaned.contains("src=\"valid.jpg\""));
         assert!(cleaned.contains("alt=\"Cover\""));
     }

@@ -27,5 +27,24 @@ export default tseslint.config(
       ],
       "no-undef": "off", // TypeScript itself checks for undefined variables
     },
+  },
+  {
+    // Architecture boundary (ARCH-02): the desktop app may consume workspace
+    // packages only through their public entry points, never their internals.
+    files: ["apps/**/*.ts", "apps/**/*.tsx"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["@luma/*/src/**", "@luma/*/src", "@luma/*/dist/**"],
+              message:
+                "Import workspace packages through their public entry point (@luma/<pkg>), not their internals.",
+            },
+          ],
+        },
+      ],
+    },
   }
 );

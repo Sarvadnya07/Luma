@@ -238,8 +238,12 @@ select {
    6. Highlight & Search Hit Styling
    ============================================================================ */
 mark.luma-highlight {
-  border-radius: 2px;
-  padding: 1px 2px;
+  border-radius: 0;
+  padding: 0;
+  margin: 0;
+  border: none;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
   color: inherit !important;
   cursor: pointer;
   transition: filter 0.15s ease-in-out;

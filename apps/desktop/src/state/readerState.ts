@@ -10,6 +10,7 @@ import {
   ReaderSettings,
   PdfPageData,
   SyncMetadata,
+  DocumentRange,
 } from "@luma/shared-types";
 import { DEFAULT_READER_SETTINGS } from "@luma/reader-ui";
 import { LumaApi, type LumaApiClient } from "../lib/tauri";
@@ -62,7 +63,8 @@ export interface ReaderStoreState {
     prefix?: string,
     suffix?: string,
     note?: string,
-    pageNumber?: number
+    pageNumber?: number,
+    documentRange?: DocumentRange
   ) => Promise<void>;
   deleteAnnotation: (id: string) => Promise<void>;
   updateAnnotationNote: (id: string, note: string) => Promise<void>;
@@ -556,7 +558,7 @@ export function createReaderStore(config: ReaderStoreConfig = {}) {
       set((state) => ({ isTypographyOpen: !state.isTypographyOpen }));
     },
 
-    createHighlight: async (colorHex, quote, prefix, suffix, note, pageNumber) => {
+    createHighlight: async (colorHex, quote, prefix, suffix, note, pageNumber, documentRange) => {
       const { currentBook, currentSpineIndex, currentPdfPage, documentData } = get();
       if (!currentBook) return;
 
@@ -569,6 +571,7 @@ export function createReaderStore(config: ReaderStoreConfig = {}) {
         normalized_exact: quote.toLowerCase().replace(/\s+/g, " "),
         spine_index: isPdf ? undefined : currentSpineIndex,
         page_number: isPdf ? targetPage : undefined,
+        range: documentRange || undefined,
       });
 
       const newAnn: Annotation = {

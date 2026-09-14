@@ -1,8 +1,9 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { BookOpen } from "lucide-react";
 import { useReaderStore } from "../../state/readerContext";
+import { DocumentRange } from "@luma/shared-types";
 import { TextSelectionToolbar } from "./TextSelectionToolbar";
-import { applyHighlightsAndSearch } from "./highlightEngine";
+import { applyHighlightsAndSearch, serializeRangeToDocumentRange } from "./highlightEngine";
 
 export const EpubReaderView: React.FC = () => {
   const currentChapter = useReaderStore((s) => s.currentChapter);
@@ -23,6 +24,7 @@ export const EpubReaderView: React.FC = () => {
   const [selectedText, setSelectedText] = useState<string>("");
   const [prefixContext, setPrefixContext] = useState<string>("");
   const [suffixContext, setSuffixContext] = useState<string>("");
+  const [activeDocRange, setActiveDocRange] = useState<DocumentRange | null>(null);
   const [footnotePopover, setFootnotePopover] = useState<{ text: string; x: number; y: number } | null>(null);
 
   const totalSpines = documentData?.total_pages_or_spines || 1;
@@ -136,21 +138,28 @@ export const EpubReaderView: React.FC = () => {
   // Text selection listener with multi-node DOM context extraction
   const handleMouseUp = useCallback(() => {
     const selection = window.getSelection();
-    if (!selection || selection.isCollapsed) {
+    if (!selection || selection.isCollapsed || selection.rangeCount === 0) {
       setSelectionPos(null);
       setSelectedText("");
-      return;
-    }
-
-    const text = selection.toString().trim();
-    if (!text || text.length < 2) {
-      setSelectionPos(null);
-      setSelectedText("");
+      setActiveDocRange(null);
       return;
     }
 
     const range = selection.getRangeAt(0);
+    if (!contentRef.current || !contentRef.current.contains(range.commonAncestorContainer)) {
+      return;
+    }
+
+    const text = range.toString();
+    if (!text || text.trim().length === 0) {
+      setSelectionPos(null);
+      setSelectedText("");
+      setActiveDocRange(null);
+      return;
+    }
+
     const rect = range.getBoundingClientRect();
+    const docRange = serializeRangeToDocumentRange(contentRef.current, range, currentSpineIndex);
 
     let prefix = "";
     let suffix = "";
@@ -163,22 +172,20 @@ export const EpubReaderView: React.FC = () => {
         const preRange = document.createRange();
         preRange.setStart(parentBlock, 0);
         preRange.setEnd(range.startContainer, range.startOffset);
-        prefix = preRange.toString().slice(-40).trim();
+        prefix = preRange.toString().slice(-40);
 
         const postRange = document.createRange();
         postRange.setStart(range.endContainer, range.endOffset);
         postRange.setEnd(parentBlock, parentBlock.childNodes.length);
-        suffix = postRange.toString().slice(0, 40).trim();
+        suffix = postRange.toString().slice(0, 40);
       }
     } catch {
       if (currentChapter?.text_content) {
         const fullText = currentChapter.text_content;
         const idx = fullText.indexOf(text);
         if (idx !== -1) {
-          prefix = fullText.substring(Math.max(0, idx - 40), idx).trim();
-          suffix = fullText
-            .substring(idx + text.length, Math.min(fullText.length, idx + text.length + 40))
-            .trim();
+          prefix = fullText.substring(Math.max(0, idx - 40), idx);
+          suffix = fullText.substring(idx + text.length, Math.min(fullText.length, idx + text.length + 40));
         }
       }
     }
@@ -186,11 +193,12 @@ export const EpubReaderView: React.FC = () => {
     setPrefixContext(prefix);
     setSuffixContext(suffix);
     setSelectedText(text);
+    setActiveDocRange(docRange);
     setSelectionPos({
       top: rect.top,
       left: rect.left + rect.width / 2,
     });
-  }, [currentChapter]);
+  }, [currentChapter, currentSpineIndex]);
 
   const handleContentClick = (e: React.MouseEvent<HTMLDivElement>) => {
     const target = e.target as HTMLElement;
@@ -262,12 +270,24 @@ export const EpubReaderView: React.FC = () => {
         position={selectionPos}
         selectedText={selectedText}
         onHighlight={(colorHex, note) => {
-          createHighlight(colorHex, selectedText, prefixContext, suffixContext, note);
+          createHighlight(
+            colorHex,
+            selectedText,
+            prefixContext,
+            suffixContext,
+            note,
+            undefined,
+            activeDocRange || undefined
+          );
           window.getSelection()?.removeAllRanges();
           setSelectionPos(null);
+          setActiveDocRange(null);
         }}
         onBookmark={toggleBookmark}
-        onClose={() => setSelectionPos(null)}
+        onClose={() => {
+          setSelectionPos(null);
+          setActiveDocRange(null);
+        }}
       />
 
       {/* Footnote Reference Popover */}
