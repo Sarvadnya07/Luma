@@ -10,6 +10,7 @@ import {
   Bookmark as BookmarkIcon,
 } from "lucide-react";
 import type { PDFDocumentProxy } from "pdfjs-dist";
+import type { DocumentSearchMatch } from "@luma/shared-types";
 import { useReaderStore } from "../../state/readerContext";
 import { LumaApi } from "../../lib/tauri";
 import { TextSelectionToolbar } from "./TextSelectionToolbar";
@@ -115,7 +116,7 @@ export const PdfReaderView: React.FC = () => {
 
     const cleanQuery = searchQuery.trim().toLowerCase();
     const runPdfSearch = async () => {
-      const results: any[] = [];
+      const results: DocumentSearchMatch[] = [];
       const total = pdfDoc.numPages;
 
       for (let pageNum = 1; pageNum <= total; pageNum++) {
@@ -124,7 +125,7 @@ export const PdfReaderView: React.FC = () => {
           const page = await pdfDoc.getPage(pageNum);
           const textContent = await page.getTextContent();
           const strings: string[] = [];
-          for (const item of textContent.items as any[]) {
+          for (const item of textContent.items as Array<{ str?: unknown }>) {
             if (typeof item.str === "string") {
               strings.push(item.str);
             }

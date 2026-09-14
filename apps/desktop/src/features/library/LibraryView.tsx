@@ -54,9 +54,9 @@ export interface LibraryViewLabels {
   // Pagination
   showingItemsLabel?: (start: number, end: number, total: number) => string;
   // Sub‑component labels (passed through)
-  sidebarLabels?: any; // could use the same types from LibrarySidebar
-  toolbarLabels?: any;
-  detailsLabels?: any;
+  sidebarLabels?: Record<string, unknown>;
+  toolbarLabels?: Record<string, unknown>;
+  detailsLabels?: Record<string, unknown>;
   // etc.
 }
 
@@ -97,8 +97,11 @@ export interface LibraryViewProps {
   style?: React.CSSProperties;
   // Optional overrides for child components (for dependency injection)
   components?: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- generic passthrough for injected child components
     LibrarySidebar?: React.ComponentType<any>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- generic passthrough for injected child components
     LibraryToolbar?: React.ComponentType<any>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- generic passthrough for injected child components
     BookDetailsDrawer?: React.ComponentType<any>;
     // ... etc.
   };

@@ -137,9 +137,9 @@ export const DuplicateReviewModal: React.FC<DuplicateReviewModalProps> = ({
 
   const title = existingBook?.title || labels.existingBookFallbackTitle;
   const author = (() => {
-    const anyBook = existingBook as any;
+    const anyBook = existingBook as { authors?: Array<{ name?: string }>; author?: unknown } | null;
     if (Array.isArray(anyBook?.authors)) {
-      return anyBook.authors.map((a: any) => a.name).join(', ') || labels.authorFallbackLabel;
+      return anyBook.authors.map((a) => a.name ?? "").join(', ') || labels.authorFallbackLabel;
     }
     // Fallback to other possible single-author fields
     if (typeof anyBook?.author === 'string' && anyBook.author.trim()) {

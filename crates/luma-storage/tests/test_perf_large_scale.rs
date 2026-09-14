@@ -1,3 +1,6 @@
+mod common;
+
+use common::{insert_book, synthetic_pdf_bytes};
 use luma_core::ids::DeviceId;
 use luma_core::models::book::{Book, ReadingStatus};
 use luma_reader::PdfDocument;
@@ -8,30 +11,12 @@ use luma_storage::repos::{
     AuthorRepository, BookRepository, LibraryFilterOptions, LibrarySortOptions,
 };
 use luma_storage::services::{ReaderService, SearchService};
-use std::fs::File;
-use std::io::Write;
 use std::time::Instant;
 
 fn create_synthetic_pdf(num_pages: usize) -> tempfile::NamedTempFile {
+    let pdf_bytes = synthetic_pdf_bytes(num_pages);
     let temp_file = tempfile::NamedTempFile::new().expect("temp file");
-    let mut file = File::create(temp_file.path()).expect("create");
-
-    let mut content = String::from("%PDF-1.7\n");
-    for i in 1..=num_pages {
-        content.push_str(&format!(
-            "{} 0 obj\n<< /Type /Page /Parent 2 0 R >>\nendobj\n",
-            i + 2
-        ));
-        content.push_str(&format!(
-            "{} 0 obj\n<< /Length 60 >>\nstream\nBT\n/F1 12 Tf\n100 700 Td\n(Page {} content with text payload) Tj\nET\nendstream\nendobj\n",
-            i + 1000, i
-        ));
-    }
-    content.push_str("2 0 obj\n<< /Type /Pages /Count ");
-    content.push_str(&num_pages.to_string());
-    content.push_str(" >>\nendobj\n%%EOF\n");
-
-    file.write_all(content.as_bytes()).expect("write");
+    std::fs::write(temp_file.path(), &pdf_bytes).expect("write pdf");
     temp_file
 }
 
@@ -108,50 +93,7 @@ async fn test_benchmark_large_scale_10k_library() {
             } else if i % 5 == 0 {
                 b.reading_status = ReadingStatus::Completed;
             }
-
-            let state_str = b.library_state.to_string();
-            let status_str = b.reading_status.to_string();
-            let created_str = b.sync.created_at.to_rfc3339();
-            let updated_str = b.sync.updated_at.to_rfc3339();
-            let dev_str = b.sync.device_id.to_string();
-
-            tx.execute(
-                r#"
-                INSERT INTO books (
-                    id, title, subtitle, series_id, series_index, description,
-                    publisher, published_date, language, isbn, cover_image_path,
-                    primary_file_id, reading_status, library_state, trashed_at,
-                    version, created_at, updated_at, device_id, is_deleted
-                ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20)
-                "#,
-                rusqlite::params![
-                    b.id.to_string(),
-                    b.title,
-                    b.subtitle,
-                    b.series_id.map(|s| s.to_string()),
-                    b.series_index,
-                    b.description,
-                    b.publisher,
-                    b.published_date,
-                    b.language,
-                    b.isbn,
-                    b.cover_image_path,
-                    b.primary_file_id.map(|f| f.to_string()),
-                    status_str,
-                    state_str,
-                    b.trashed_at.map(|t| t.to_rfc3339()),
-                    b.sync.version.0 as i64,
-                    created_str,
-                    updated_str,
-                    dev_str,
-                    0
-                ],
-            )?;
-
-            tx.execute(
-                "INSERT INTO book_authors (book_id, author_id, position) VALUES (?1, ?2, ?3)",
-                rusqlite::params![b.id.to_string(), b.author_ids[0].to_string(), 0],
-            )?;
+            insert_book(&tx, &b);
         }
         tx.commit()?;
         Ok(())

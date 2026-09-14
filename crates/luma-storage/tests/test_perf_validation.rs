@@ -26,14 +26,17 @@ mod budget {
     pub const CAPACITY_RAMP_P95_MS: f64 = 20.0;
 }
 
+mod common;
+
+use common::{seed_books, synthetic_pdf_bytes};
 use luma_core::ids::DeviceId;
-use luma_core::models::book::{Book, BookFile, DocumentFormat, ReadingStatus};
+use luma_core::models::book::{Book, BookFile, DocumentFormat};
 use luma_reader::PdfDocument;
 use zip::ZipWriter;
 use luma_storage::cache::CacheManager;
 use luma_storage::db::Database;
 use luma_storage::events::EventBus;
-use luma_storage::repos::{AuthorRepository, BookRepository, LibraryFilterOptions, LibrarySortOptions};
+use luma_storage::repos::{BookRepository, LibraryFilterOptions, LibrarySortOptions};
 use luma_storage::services::{ReaderService, SearchService};
 use std::io::Write;
 use std::time::Instant;
@@ -74,95 +77,6 @@ fn assert_budget(name: &str, p95_ms: f64, budget_ms: f64) {
     );
 }
 
-/// Seed `count` books via a single bulk transaction and return the bulk-insert duration in ms.
-fn seed_books(db: &Database, count: usize) -> f64 {
-    let author_repo = AuthorRepository::new(db.clone());
-    let device_id = DeviceId::new();
-    let author = author_repo
-        .get_or_create_by_name("Perf Validation Author", device_id)
-        .expect("author");
-
-    let start = Instant::now();
-    db.with_write_conn(|conn| {
-        let tx = conn.transaction().expect("tx");
-        for i in 0..count {
-            let mut b = Book::new(format!("Validation Book {i:06}"), device_id);
-            b.author_ids.push(author.id);
-            if i % 3 == 0 {
-                b.reading_status = ReadingStatus::Reading;
-            }
-            let state_str = b.library_state.to_string();
-            let status_str = b.reading_status.to_string();
-            let created_str = b.sync.created_at.to_rfc3339();
-            let updated_str = b.sync.updated_at.to_rfc3339();
-            let dev_str = b.sync.device_id.to_string();
-            tx.execute(
-                r#"
-                INSERT INTO books (
-                    id, title, subtitle, series_id, series_index, description,
-                    publisher, published_date, language, isbn, cover_image_path,
-                    primary_file_id, reading_status, library_state, trashed_at,
-                    version, created_at, updated_at, device_id, is_deleted
-                ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20)
-                "#,
-                rusqlite::params![
-                    b.id.to_string(),
-                    b.title,
-                    b.subtitle,
-                    b.series_id.map(|s| s.to_string()),
-                    b.series_index,
-                    b.description,
-                    b.publisher,
-                    b.published_date,
-                    b.language,
-                    b.isbn,
-                    b.cover_image_path,
-                    b.primary_file_id.map(|f| f.to_string()),
-                    status_str,
-                    state_str,
-                    b.trashed_at.map(|t| t.to_rfc3339()),
-                    b.sync.version.0 as i64,
-                    created_str,
-                    updated_str,
-                    dev_str,
-                    0
-                ],
-            )
-            .expect("insert book");
-            tx.execute(
-                "INSERT INTO book_authors (book_id, author_id, position) VALUES (?1, ?2, ?3)",
-                rusqlite::params![b.id.to_string(), b.author_ids[0].to_string(), 0],
-            )
-            .expect("insert author link");
-        }
-        tx.commit().expect("commit");
-        Ok(())
-    })
-    .expect("bulk seed");
-    start.elapsed().as_secs_f64() * 1000.0
-}
-
-fn make_synthetic_pdf(num_pages: usize) -> Vec<u8> {
-    let mut content = String::from("%PDF-1.7\n");
-    for i in 1..=num_pages {
-        content.push_str(&format!(
-            "{a} 0 obj\n<< /Type /Page /Parent 2 0 R >>\nendobj\n",
-            a = i + 2
-        ));
-        content.push_str(&format!(
-            "{b} 0 obj\n<< /Length 60 >>\nstream\nBT\n/F1 12 Tf\n100 700 Td\n(Page {i} content with text payload) Tj\nET\nendstream\nendobj\n",
-            b = i + 1000
-        ));
-    }
-    content.push_str("2 0 obj\n<< /Type /Pages /Count ");
-    content.push_str(&num_pages.to_string());
-    content.push_str(" >>\nendobj\n%%EOF\n");
-    content.into_bytes()
-}
-
-// ============================================================================
-// Tier 1: Multi-run percentile validation of the primary hot paths
-// ============================================================================
 
 #[tokio::test]
 async fn test_multi_run_hot_paths_with_percentiles() {
@@ -237,7 +151,7 @@ async fn test_multi_run_hot_paths_with_percentiles() {
     );
 
     // --- PDF cold open x 10 (fresh parse each run, 250-page synthetic doc)
-    let pdf_bytes = make_synthetic_pdf(250);
+    let pdf_bytes = synthetic_pdf_bytes(250);
     let tmp = tempfile::NamedTempFile::new().expect("tmp");
     std::fs::write(tmp.path(), &pdf_bytes).expect("write pdf");
     let mut pdf_open = Vec::new();

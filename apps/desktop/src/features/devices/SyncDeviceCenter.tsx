@@ -25,7 +25,7 @@ export interface Device {
   storageUsed?: string; // e.g., "24 GB"
   storageTotal?: string; // e.g., "512 GB"
   battery?: number; // percentage
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface SyncConflict {

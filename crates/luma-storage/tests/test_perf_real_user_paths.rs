@@ -1,4 +1,7 @@
+mod common;
+
 use anyhow::{Context, Result};
+use common::create_epub;
 use luma_core::ids::DeviceId;
 use luma_storage::cache::CacheManager;
 use luma_storage::db::Database;
@@ -10,11 +13,8 @@ use luma_storage::repos::{
 };
 use luma_storage::services::{ImportService, ReaderService, ReadingProgressService, SearchService};
 use serde_json::json;
-use std::fs::File;
-use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
-use zip::write::{SimpleFileOptions, ZipWriter};
 
 // ============================================================================
 // Configuration
@@ -49,77 +49,13 @@ impl Default for BenchmarkConfig {
 // EPUB Generator
 // ============================================================================
 
-fn create_epub(dest_path: &Path, title: &str, author: &str, num_chapters: usize) -> Result<()> {
-    let file = File::create(dest_path).context("Failed to open file for EPUB creation")?;
-    let mut zip = ZipWriter::new(file);
-    let options = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
-    let raw_options =
-        SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
-
-    zip.start_file("mimetype", raw_options)?;
-    zip.write_all(b"application/epub+zip")?;
-
-    zip.start_file("META-INF/container.xml", options)?;
-    zip.write_all(
-        br#"<?xml version="1.0"?>
-<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
-  <rootfiles>
-    <rootfile full-path="EPUB/package.opf" media-type="application/oebps-package+xml"/>
-  </rootfiles>
-</container>"#,
-    )?;
-
-    zip.start_file("EPUB/package.opf", options)?;
-    let mut manifest = format!(
-        r#"<?xml version="1.0" encoding="utf-8"?>
-<package xmlns="http://www.idpf.org/2007/opf" version="3.0">
-  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
-    <dc:title>{}</dc:title>
-    <dc:creator>{}</dc:creator>
-    <dc:language>en</dc:language>
-  </metadata>
-  <manifest>
-"#,
-        title, author
-    );
-
-    let mut spine = String::from("  <spine>\n");
-    for i in 0..num_chapters {
-        manifest.push_str(&format!(
-            r#"    <item id="ch{}" href="ch{}.xhtml" media-type="application/xhtml+xml"/>"#,
-            i, i
-        ));
-        manifest.push('\n');
-        spine.push_str(&format!(r#"    <itemref idref="ch{}"/>"#, i));
-        spine.push('\n');
-    }
-    manifest.push_str("  </manifest>\n");
-    spine.push_str("  </spine>\n</package>");
-    zip.write_all(format!("{}{}", manifest, spine).as_bytes())?;
-
-    for i in 0..num_chapters {
-        zip.start_file(format!("EPUB/ch{}.xhtml", i), options)?;
-        zip.write_all(
-            format!(
-                r#"<!DOCTYPE html><html><body><h1>Chapter {}</h1><p>Realistic body paragraph with Novel Volume text for search indexing and reading evaluation.</p></body></html>"#,
-                i + 1
-            )
-            .as_bytes(),
-        )?;
-    }
-
-    zip.finish()?;
-    Ok(())
-}
-
 fn generate_epub_files(dir: &Path, config: &BenchmarkConfig) -> Result<Vec<PathBuf>> {
     let mut files = Vec::with_capacity(config.num_books);
     for i in 0..config.num_books {
         let title = format!("{} {:02}", config.title_prefix, i);
         let author = format!("{} {:02}", config.author_prefix, i % 3);
         let file_path = dir.join(format!("book_{:02}.epub", i));
-        create_epub(&file_path, &title, &author, config.num_chapters_per_book)
-            .with_context(|| format!("Failed to create EPUB for '{}'", title))?;
+        create_epub(&file_path, &title, &author, config.num_chapters_per_book);
         files.push(file_path);
     }
     Ok(files)

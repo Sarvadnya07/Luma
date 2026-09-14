@@ -48,6 +48,25 @@ pub struct BackupPreview {
     pub sha256_hash: String,
 }
 
+/// Serialize `value` as pretty JSON and write it into the backup archive.
+/// Both serialization and I/O failures return `LumaError` — no panics on the
+/// user-facing backup path.
+fn write_json<T: serde::Serialize>(
+    zip: &mut ZipWriter<File>,
+    options: SimpleFileOptions,
+    name: &str,
+    value: &T,
+) -> Result<()> {
+    let json = serde_json::to_string_pretty(value).map_err(|e| {
+        LumaError::StorageError(format!("Failed to serialize backup entry {name}: {e}"))
+    })?;
+    zip.start_file(name, options)
+        .map_err(|e| LumaError::StorageError(format!("Failed to write archive entry {name}: {e}")))?;
+    zip.write_all(json.as_bytes())
+        .map_err(|e| LumaError::StorageError(format!("Failed to write archive entry {name}: {e}")))?;
+    Ok(())
+}
+
 #[derive(Clone)]
 pub struct BackupService {
     db: Database,
@@ -138,121 +157,22 @@ impl BackupService {
         let options =
             SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
 
-        // 1. Manifest
-        zip.start_file("manifest.json", options)
-            .map_err(|e| LumaError::StorageError(e.to_string()))?;
-        zip.write_all(serde_json::to_string_pretty(&manifest).unwrap().as_bytes())
-            .map_err(|e| LumaError::StorageError(e.to_string()))?;
-
-        // 2. Books
-        zip.start_file("books.json", options)
-            .map_err(|e| LumaError::StorageError(e.to_string()))?;
-        zip.write_all(serde_json::to_string_pretty(&books).unwrap().as_bytes())
-            .map_err(|e| LumaError::StorageError(e.to_string()))?;
-
-        // 3. Annotations
-        zip.start_file("annotations.json", options)
-            .map_err(|e| LumaError::StorageError(e.to_string()))?;
-        zip.write_all(
-            serde_json::to_string_pretty(&annotations)
-                .unwrap()
-                .as_bytes(),
-        )
-        .map_err(|e| LumaError::StorageError(e.to_string()))?;
-
-        // 4. Bookmarks
-        zip.start_file("bookmarks.json", options)
-            .map_err(|e| LumaError::StorageError(e.to_string()))?;
-        zip.write_all(serde_json::to_string_pretty(&bookmarks).unwrap().as_bytes())
-            .map_err(|e| LumaError::StorageError(e.to_string()))?;
-
-        // 5. Reading Progress
-        zip.start_file("reading_progress.json", options)
-            .map_err(|e| LumaError::StorageError(e.to_string()))?;
-        zip.write_all(
-            serde_json::to_string_pretty(&progress_list)
-                .unwrap()
-                .as_bytes(),
-        )
-        .map_err(|e| LumaError::StorageError(e.to_string()))?;
-
-        // 6. Settings
-        zip.start_file("settings.json", options)
-            .map_err(|e| LumaError::StorageError(e.to_string()))?;
-        zip.write_all(serde_json::to_string_pretty(&settings).unwrap().as_bytes())
-            .map_err(|e| LumaError::StorageError(e.to_string()))?;
-
-        // 7. Notes
-        zip.start_file("notes.json", options)
-            .map_err(|e| LumaError::StorageError(e.to_string()))?;
-        zip.write_all(serde_json::to_string_pretty(&notes).unwrap().as_bytes())
-            .map_err(|e| LumaError::StorageError(e.to_string()))?;
-
-        // 8. Flashcards & Study Reviews
-        zip.start_file("flashcards.json", options)
-            .map_err(|e| LumaError::StorageError(e.to_string()))?;
-        zip.write_all(
-            serde_json::to_string_pretty(&flashcards)
-                .unwrap()
-                .as_bytes(),
-        )
-        .map_err(|e| LumaError::StorageError(e.to_string()))?;
-
-        zip.start_file("study_reviews.json", options)
-            .map_err(|e| LumaError::StorageError(e.to_string()))?;
-        zip.write_all(
-            serde_json::to_string_pretty(&study_reviews)
-                .unwrap()
-                .as_bytes(),
-        )
-        .map_err(|e| LumaError::StorageError(e.to_string()))?;
-
-        // 9. Research Projects, Questions, Evidence, Drafts
-        zip.start_file("research_projects.json", options)
-            .map_err(|e| LumaError::StorageError(e.to_string()))?;
-        zip.write_all(
-            serde_json::to_string_pretty(&research_projects)
-                .unwrap()
-                .as_bytes(),
-        )
-        .map_err(|e| LumaError::StorageError(e.to_string()))?;
-
-        zip.start_file("research_questions.json", options)
-            .map_err(|e| LumaError::StorageError(e.to_string()))?;
-        zip.write_all(
-            serde_json::to_string_pretty(&research_questions)
-                .unwrap()
-                .as_bytes(),
-        )
-        .map_err(|e| LumaError::StorageError(e.to_string()))?;
-
-        zip.start_file("research_evidence.json", options)
-            .map_err(|e| LumaError::StorageError(e.to_string()))?;
-        zip.write_all(
-            serde_json::to_string_pretty(&research_evidence)
-                .unwrap()
-                .as_bytes(),
-        )
-        .map_err(|e| LumaError::StorageError(e.to_string()))?;
-
-        zip.start_file("research_drafts.json", options)
-            .map_err(|e| LumaError::StorageError(e.to_string()))?;
-        zip.write_all(
-            serde_json::to_string_pretty(&research_drafts)
-                .unwrap()
-                .as_bytes(),
-        )
-        .map_err(|e| LumaError::StorageError(e.to_string()))?;
-
-        // 10. Reading Sessions
-        zip.start_file("reading_sessions.json", options)
-            .map_err(|e| LumaError::StorageError(e.to_string()))?;
-        zip.write_all(
-            serde_json::to_string_pretty(&reading_sessions)
-                .unwrap()
-                .as_bytes(),
-        )
-        .map_err(|e| LumaError::StorageError(e.to_string()))?;
+        // Serialize each payload as a pretty-printed JSON entry in the archive.
+        // Serialization and I/O failures propagate as LumaError instead of panicking.
+        write_json(&mut zip, options, "manifest.json", &manifest)?;
+        write_json(&mut zip, options, "books.json", &books)?;
+        write_json(&mut zip, options, "annotations.json", &annotations)?;
+        write_json(&mut zip, options, "bookmarks.json", &bookmarks)?;
+        write_json(&mut zip, options, "reading_progress.json", &progress_list)?;
+        write_json(&mut zip, options, "settings.json", &settings)?;
+        write_json(&mut zip, options, "notes.json", &notes)?;
+        write_json(&mut zip, options, "flashcards.json", &flashcards)?;
+        write_json(&mut zip, options, "study_reviews.json", &study_reviews)?;
+        write_json(&mut zip, options, "research_projects.json", &research_projects)?;
+        write_json(&mut zip, options, "research_questions.json", &research_questions)?;
+        write_json(&mut zip, options, "research_evidence.json", &research_evidence)?;
+        write_json(&mut zip, options, "research_drafts.json", &research_drafts)?;
+        write_json(&mut zip, options, "reading_sessions.json", &reading_sessions)?;
 
         zip.finish().map_err(|e| {
             LumaError::StorageError(format!("Failed to finalize backup ZIP: {}", e))
