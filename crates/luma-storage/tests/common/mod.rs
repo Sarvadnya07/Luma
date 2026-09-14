@@ -16,7 +16,7 @@ use std::time::Instant;
 /// Bulk-insert `count` books in one transaction; returns the insert duration in ms.
 /// Every book gets one author link and every third book gets `ReadingStatus::Reading`.
 pub fn seed_books(db: &Database, count: usize) -> f64 {
-    use luma_storage::repos::{AuthorRepository, BookRepository};
+    use luma_storage::repos::AuthorRepository;
 
     let author_repo = AuthorRepository::new(db.clone());
     let device_id = DeviceId::new();

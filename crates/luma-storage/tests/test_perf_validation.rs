@@ -28,17 +28,15 @@ mod budget {
 
 mod common;
 
-use common::{seed_books, synthetic_pdf_bytes};
+use common::{create_epub, seed_books, synthetic_pdf_bytes};
 use luma_core::ids::DeviceId;
 use luma_core::models::book::{Book, BookFile, DocumentFormat};
 use luma_reader::PdfDocument;
-use zip::ZipWriter;
 use luma_storage::cache::CacheManager;
 use luma_storage::db::Database;
 use luma_storage::events::EventBus;
-use luma_storage::repos::{BookRepository, LibraryFilterOptions, LibrarySortOptions};
+use luma_storage::repos::{BookFileRepository, BookRepository, LibraryFilterOptions, LibrarySortOptions};
 use luma_storage::services::{ReaderService, SearchService};
-use std::io::Write;
 use std::time::Instant;
 
 /// p50/p95 from a sorted sample list (nearest-rank).
@@ -222,56 +220,14 @@ async fn test_multi_run_hot_paths_with_percentiles() {
     );
 }
 
-fn create_minimal_epub(dir: &std::path::Path, name: &str, chapters: usize) -> std::path::PathBuf {
-    let path = dir.join(name);
-    let file = std::fs::File::create(&path).expect("create epub");
-    let mut zip = zip::write::ZipWriter::new(file);
-    let options =
-        zip::write::SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
-    zip.start_file("mimetype", options).expect("mimetype");
-    zip.write_all(b"application/epub+zip").expect("write");
-    zip.start_file("META-INF/container.xml", options).expect("container");
-    zip.write_all(
-        br#"<?xml version="1.0"?><container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="EPUB/package.opf" media-type="application/oebps-package+xml"/></rootfiles></container>"#,
-    )
-    .expect("write");
-    zip.start_file("EPUB/package.opf", options).expect("opf");
-    let mut manifest = String::from(
-        r#"<?xml version="1.0"?><package xmlns="http://www.idpf.org/2007/opf" version="3.0"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>Soak</dc:title><dc:language>en</dc:language></metadata><manifest>"#,
-    );
-    let mut spine = String::from("</manifest><spine>");
-    for i in 0..chapters {
-        manifest.push_str(&format!(
-            r#"<item id="ch{i}" href="ch{i}.xhtml" media-type="application/xhtml+xml"/>"#
-        ));
-        spine.push_str(&format!(r#"<itemref idref="ch{i}"/>"#));
-    }
-    manifest.push_str(&spine);
-    manifest.push_str("</spine></package>");
-    zip.write_all(manifest.as_bytes()).expect("write");
-    for i in 0..chapters {
-        zip.start_file(format!("EPUB/ch{i}.xhtml"), options)
-            .expect("chapter");
-        zip.write_all(
-            format!(
-                r#"<html><body><h1>Chapter {}</h1><p>Soak cycle body text.</p></body></html>"#,
-                i + 1
-            )
-            .as_bytes(),
-        )
-        .expect("write");
-    }
-    zip.finish().expect("finish");
-    path
-}
-
 /// Create one book with a real EPUB file on disk, returning the BookId.
 fn seed_book_with_epub(db: &Database, dir: &std::path::Path, chapters: usize) -> luma_core::ids::BookId {
     let book_repo = BookRepository::new(db.clone());
-    let file_repo = luma_storage::repos::BookFileRepository::new(db.clone());
+    let file_repo = BookFileRepository::new(db.clone());
     let device_id = DeviceId::new();
 
-    let epub_path = create_minimal_epub(dir, "soak_book.epub", chapters);
+    let epub_path = dir.join("soak_book.epub");
+    create_epub(&epub_path, "Soak Cycle Book", "Soak Author", chapters);
     let bytes = std::fs::metadata(&epub_path).expect("meta").len();
 
     let mut book = Book::new("Soak Cycle Book".to_string(), device_id);

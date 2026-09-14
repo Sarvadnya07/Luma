@@ -1109,8 +1109,7 @@ export class LumaApiClient {
             if (val) return JSON.parse(val);
           }
         } catch (err) {
-          // Fallback persistence read failed — surface it; silent data loss is worse than a log line.
-          this.logger.warn(`[luma] localStorage getSetting("${key}") failed, using in-memory mock store:`, err);
+          this.logger.warn(`localStorage getSetting("${key}") failed, using in-memory mock store:`, err);
         }
         return (this.mockStore.settings[key] as T) ?? null;
       }
@@ -1127,8 +1126,7 @@ export class LumaApiClient {
             localStorage.setItem(`luma_setting_${key}`, JSON.stringify(value));
           }
         } catch (err) {
-          // Quota/availability failure — surface it; setting will only live in memory.
-          this.logger.warn(`[luma] localStorage setSetting("${key}") failed, setting kept in memory only:`, err);
+          this.logger.warn(`localStorage setSetting("${key}") failed, setting kept in memory only:`, err);
         }
         this.mockStore.settings[key] = value;
       }
@@ -1340,8 +1338,7 @@ export class LumaApiClient {
           try {
             return JSON.parse(saved);
           } catch (err) {
-            // Corrupt fallback store — surface it rather than silently returning empty.
-            this.logger.warn("[luma] localStorage notes store is corrupt, returning empty list:", err);
+            this.logger.warn("localStorage notes store is corrupt, returning empty list:", err);
             return [];
           }
         }

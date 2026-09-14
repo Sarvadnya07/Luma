@@ -13,16 +13,15 @@ use luma_storage::repos::{
 use luma_storage::services::{ReaderService, SearchService};
 use std::time::Instant;
 
-fn create_synthetic_pdf(num_pages: usize) -> tempfile::NamedTempFile {
-    let pdf_bytes = synthetic_pdf_bytes(num_pages);
+fn create_synthetic_pdf_file(num_pages: usize) -> tempfile::NamedTempFile {
     let temp_file = tempfile::NamedTempFile::new().expect("temp file");
-    std::fs::write(temp_file.path(), &pdf_bytes).expect("write pdf");
+    std::fs::write(temp_file.path(), synthetic_pdf_bytes(num_pages)).expect("write pdf");
     temp_file
 }
 
 #[tokio::test]
 async fn test_benchmark_pdf_random_access_and_caching() {
-    let pdf_file = create_synthetic_pdf(250);
+    let pdf_file = create_synthetic_pdf_file(250);
     let path = pdf_file.path();
 
     // 1. Cold Open & First Page Measurement
