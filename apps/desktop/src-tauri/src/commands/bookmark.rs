@@ -3,7 +3,7 @@ use tauri::State;
 use tracing::{debug, error, info, instrument};
 
 use luma_core::error::BackendError;
-use luma_core::ids::{BookId, BookmarkId, DeviceId};
+use luma_core::ids::{BookId, BookmarkId};
 use luma_core::models::reading::Bookmark;
 
 use crate::context::LumaAppContext;
@@ -61,7 +61,7 @@ pub fn create_bookmark(
     page_number: Option<u32>,
 ) -> Result<Bookmark, BackendError> {
     let bid = parse_book_id(&book_id)?;
-    let device_id = DeviceId::new();
+    let device_id = ctx.device_id;
 
     debug!(?bid, ?locator, "Creating bookmark");
 

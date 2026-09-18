@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useReaderStore } from "../../state/readerContext";
 import { LumaApi } from "../../lib/tauri";
+import { getDeviceId } from "../../lib/deviceIdentity";
 
 export const CbzReaderView: React.FC = () => {
   const currentBook = useReaderStore((s) => s.currentBook);
@@ -149,7 +150,7 @@ export const CbzReaderView: React.FC = () => {
             version: 1,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
-            device_id: currentBook.sync?.device_id || "00000000-0000-0000-0000-000000000001",
+            device_id: currentBook.sync?.device_id || getDeviceId(),
             is_deleted: false,
           },
         };

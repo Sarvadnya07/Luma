@@ -41,7 +41,17 @@ impl AuthorRepository {
     }
 
     pub fn get_or_create_by_name(&self, name: &str, device_id: DeviceId) -> StorageResult<Author> {
-        self.db.with_conn(|conn| {
+        self.db
+            .with_conn(|conn| Self::get_or_create_by_name_with_conn(conn, name, device_id))
+    }
+
+    /// Connection-injected variant for composing multiple writes into one transaction.
+    pub fn get_or_create_by_name_with_conn(
+        conn: &mut rusqlite::Connection,
+        name: &str,
+        device_id: DeviceId,
+    ) -> StorageResult<Author> {
+        {
             let mut stmt = conn.prepare(SQL_SELECT_AUTHOR_BY_NAME)?;
             let mut rows = stmt.query(params![name])?;
             if let Some(row) = rows.next()? {
@@ -66,7 +76,7 @@ impl AuthorRepository {
             )?;
 
             Ok(author)
-        })
+        }
     }
 
     pub fn list_all(&self) -> StorageResult<Vec<Author>> {

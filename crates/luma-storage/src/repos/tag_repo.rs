@@ -16,7 +16,17 @@ impl TagRepository {
     }
 
     pub fn get_or_create_by_name(&self, name: &str, device_id: DeviceId) -> StorageResult<Tag> {
-        self.db.with_conn(|conn| {
+        self.db
+            .with_conn(|conn| Self::get_or_create_by_name_with_conn(conn, name, device_id))
+    }
+
+    /// Connection-injected variant for composing multiple writes into one transaction.
+    pub fn get_or_create_by_name_with_conn(
+        conn: &rusqlite::Connection,
+        name: &str,
+        device_id: DeviceId,
+    ) -> StorageResult<Tag> {
+        {
             let normalized = name.trim().to_lowercase();
             let mut stmt = conn.prepare("SELECT id, name, color_hex, version, created_at, updated_at, device_id, is_deleted, deleted_at FROM tags WHERE LOWER(name) = ?1 AND is_deleted = 0")?;
             let mut rows = stmt.query(params![normalized])?;
@@ -42,7 +52,7 @@ impl TagRepository {
             )?;
 
             Ok(tag)
-        })
+        }
     }
 
     pub fn list_all(&self) -> StorageResult<Vec<Tag>> {
@@ -58,13 +68,23 @@ impl TagRepository {
     }
 
     pub fn add_tag_to_book(&self, book_id: &BookId, tag_id: &TagId) -> StorageResult<()> {
-        self.db.with_conn(|conn| {
+        self.db
+            .with_conn(|conn| Self::add_tag_to_book_with_conn(conn, book_id, tag_id))
+    }
+
+    /// Connection-injected variant for composing multiple writes into one transaction.
+    pub fn add_tag_to_book_with_conn(
+        conn: &rusqlite::Connection,
+        book_id: &BookId,
+        tag_id: &TagId,
+    ) -> StorageResult<()> {
+        {
             conn.execute(
                 "INSERT OR IGNORE INTO book_tags (book_id, tag_id) VALUES (?1, ?2)",
                 params![book_id.to_string(), tag_id.to_string()],
             )?;
             Ok(())
-        })
+        }
     }
 
     pub fn remove_tag_from_book(&self, book_id: &BookId, tag_id: &TagId) -> StorageResult<()> {

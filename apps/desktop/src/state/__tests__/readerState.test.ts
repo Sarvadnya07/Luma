@@ -1,6 +1,8 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import { useReaderStore } from "../readerState";
-import { Book } from "@luma/shared-types";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { createReaderStoreForApi, useReaderStore } from "../readerState";
+import { createLumaApi, type LumaApiClient } from "../../lib/tauri";
+import { createInMemoryLibraryBackend } from "../../testing/inMemoryBackend";
+import { Book, ChapterContent } from "@luma/shared-types";
 
 const mockBook: Book = {
   id: "book_01918a23010170008000000000000001",
@@ -29,9 +31,54 @@ const mockBook: Book = {
   },
 };
 
+const isReflowable = mockBook.id.startsWith("book_01918");
+
+/** Three synthetic chapters for `mockBook`, so the store has a real document. */
+const mockChapters: Record<string, ChapterContent> = Object.fromEntries(
+  [0, 1, 2].map((spineIndex) => [
+    `${mockBook.id}:${spineIndex}`,
+    {
+      spine_index: spineIndex,
+      id: `ch_${spineIndex}`,
+      title: `Chapter ${spineIndex + 1}`,
+      href: `text/ch${spineIndex + 1}.xhtml`,
+      html_content: `<p>content ${spineIndex}</p>`,
+      text_content: `Chapter ${spineIndex + 1} content`, // fixture text
+    } satisfies ChapterContent,
+  ])
+);
+
 describe("readerState store", () => {
   beforeEach(() => {
+    // The module-level store resolves `LumaApi` lazily, so installing a backend
+    // here is enough for it to read from an explicit in-memory store.
+    createLumaApi({
+      transport: createInMemoryLibraryBackend({
+        books: [mockBook],
+        files: [
+          {
+            id: mockBook.primary_file_id!,
+            book_id: mockBook.id,
+            original_filename: "rust.epub",
+            relative_path: "library/rust.epub",
+            canonical_path: null,
+            format: isReflowable ? "epub" : "pdf",
+            mime_type: null,
+            file_size_bytes: 1024,
+            sha256_hash: "fixture",
+            imported_at: new Date().toISOString(),
+            modified_at: null,
+            availability: "available",
+          },
+        ],
+        chapters: mockChapters,
+      }).transport,
+    });
     useReaderStore.getState().closeReader();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("opens a book and initializes session data", async () => {
@@ -113,4 +160,120 @@ describe("readerState store", () => {
     expect(state.documentData).toBeNull();
     expect(state.activeTab).toBe("library");
   });
+
+  // ------------------------------------------------------------------
+  // Load-failure state (FE-CRIT-1) and ownership/consistency guards
+  // (ARCH-02). These use an isolated store through the injected API seam.
+  // ------------------------------------------------------------------
+
+  it("surfaces an open failure as loadError and clears it on a successful retry", async () => {
+    const api = makeStubApi();
+    api.openReaderDocument.mockRejectedValueOnce(new Error("file is missing on disk"));
+    const store = createReaderStoreForApi(api as unknown as LumaApiClient);
+
+    await store.getState().openBook(mockBook);
+    expect(store.getState().loadError).toContain("file is missing on disk");
+    expect(store.getState().documentData).toBeNull();
+
+    await store.getState().retryLoad();
+    expect(store.getState().loadError).toBeNull();
+    expect(store.getState().documentData).not.toBeNull();
+  });
+
+  it("surfaces a chapter failure and keeps the previously loaded chapter valid", async () => {
+    const api = makeStubApi();
+    const store = createReaderStoreForApi(api as unknown as LumaApiClient);
+    await store.getState().openBook(mockBook);
+    expect(store.getState().loadError).toBeNull();
+
+    api.getReaderChapter.mockRejectedValueOnce(new Error("corrupt spine"));
+    await store.getState().loadChapter(2);
+
+    expect(store.getState().loadError).toContain("Could not load this chapter");
+    expect(store.getState().loadError).toContain("corrupt spine");
+
+    store.getState().clearLoadError();
+    expect(store.getState().loadError).toBeNull();
+  });
+
+  it("flushes the final reading position on close even after the debounce window elapsed", async () => {
+    vi.useFakeTimers();
+    try {
+      const api = makeStubApi();
+      const store = createReaderStoreForApi(api as unknown as LumaApiClient);
+
+      await store.getState().openBook(mockBook);
+      await store.getState().loadChapter(1);
+
+      // Let the debounce fire first: the old implementation only flushed on
+      // close when a timer happened to still be pending, so this exact sequence
+      // used to lose the last position.
+      vi.advanceTimersByTime(1000);
+      const beforeClose = api.saveReadingProgress.mock.calls.length;
+      expect(beforeClose).toBeGreaterThan(0);
+
+      store.getState().closeReader();
+      expect(api.saveReadingProgress.mock.calls.length).toBe(beforeClose + 1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("does not write the chrome theme to the document or to storage", () => {
+    // Single-owner guard for FE-HIGH-2: `App` + `lib/theme.ts` own the chrome
+    // theme. If a DOM/localStorage write is reintroduced here this fails.
+    const classList = { toggle: vi.fn(), add: vi.fn(), remove: vi.fn(), contains: vi.fn() };
+    Object.defineProperty(globalThis, "document", {
+      value: { documentElement: { classList, style: {} } },
+      configurable: true,
+    });
+    const setItem = vi.fn();
+    Object.defineProperty(globalThis, "localStorage", {
+      value: { getItem: vi.fn(() => null), setItem },
+      configurable: true,
+    });
+
+    try {
+      useReaderStore.getState().updateSettings({ theme: "dark" });
+      expect(useReaderStore.getState().settings.theme).toBe("dark");
+      expect(classList.toggle).not.toHaveBeenCalled();
+      expect(setItem).not.toHaveBeenCalled();
+    } finally {
+      Reflect.deleteProperty(globalThis as object, "document");
+      Reflect.deleteProperty(globalThis as object, "localStorage");
+    }
+  });
 });
+
+/** Minimal injected API double covering the reader-store call surface. */
+function makeStubApi() {
+  return {
+    openReaderDocument: vi.fn(async () => ({
+      file: { id: "file_1", book_id: mockBook.id, format: "txt" },
+      metadata: { title: mockBook.title },
+      total_pages_or_spines: 3,
+      toc: [],
+      annotations: [],
+      bookmarks: [],
+      initial_progress: null,
+    })),
+    getReaderChapter: vi.fn(async (bookId: string, spineIndex: number) => ({
+      book_id: bookId,
+      spine_index: spineIndex,
+      title: `Chapter ${spineIndex + 1}`,
+      html_content: "<p>content</p>",
+    })),
+    getReaderPdfPage: vi.fn(async () => null),
+    startReadingSession: vi.fn(async () => ({ id: "session_1" })),
+    completeReadingSession: vi.fn(async () => undefined),
+    saveReadingProgress: vi.fn(async () => undefined),
+    listAnnotations: vi.fn(async () => []),
+    listBookmarks: vi.fn(async () => []),
+    saveAnnotation: vi.fn(async () => undefined),
+    deleteAnnotation: vi.fn(async () => undefined),
+    updateAnnotationNote: vi.fn(async () => undefined),
+    createBookmark: vi.fn(async () => ({ id: "bmk_1", locator: "page=1" })),
+    deleteBookmark: vi.fn(async () => undefined),
+    searchDocument: vi.fn(async () => []),
+  };
+}

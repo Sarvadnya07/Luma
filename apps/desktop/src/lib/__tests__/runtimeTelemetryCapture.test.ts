@@ -1,7 +1,28 @@
 import { describe, it, expect } from "vitest";
 import { perfTelemetry } from "../perfTelemetry";
 import * as fs from "fs";
+import * as os from "os";
 import * as path from "path";
+
+/**
+ * Output location for the capture (CQ-CRIT-1).
+ *
+ * This harness used to write straight into `docs/performance/runtime/`, a
+ * tracked directory, so every `pnpm test` dirtied the working tree (235 lines
+ * of pure timestamp/timing noise) and overwrote the repository's committed
+ * performance evidence with whatever machine happened to run the suite.
+ *
+ * It now defaults to a temp directory. To deliberately regenerate the
+ * committed artifact, opt in explicitly:
+ *
+ *   LUMA_TELEMETRY_OUT=docs/performance/runtime pnpm --filter @luma/desktop test
+ */
+function telemetryOutputDir(): string {
+  const override = process.env.LUMA_TELEMETRY_OUT;
+  return override && override.trim().length > 0
+    ? path.resolve(override)
+    : path.join(os.tmpdir(), "luma-perf-capture");
+}
 
 function calculateStats(samples: number[]) {
   if (samples.length === 0) return { n: 0, min: 0, median: 0, p95: 0, max: 0 };
@@ -123,12 +144,13 @@ describe("LUMA PERF-05A Runtime Telemetry Capture Harness", () => {
       events: allEvents,
     };
 
-    const outDir = path.resolve(__dirname, "../../../../../docs/performance/runtime");
+    const outDir = telemetryOutputDir();
     if (!fs.existsSync(outDir)) {
       fs.mkdirSync(outDir, { recursive: true });
     }
     const outFile = path.join(outDir, "raw_telemetry_capture.json");
     fs.writeFileSync(outFile, JSON.stringify(summary, null, 2), "utf-8");
     expect(fs.existsSync(outFile)).toBe(true);
+    expect(summary.raw_event_count).toBeGreaterThan(50);
   });
 });

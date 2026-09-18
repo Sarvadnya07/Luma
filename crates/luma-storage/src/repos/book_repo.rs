@@ -54,7 +54,12 @@ impl BookRepository {
     }
 
     pub fn insert(&self, book: &Book) -> StorageResult<()> {
-        self.db.with_conn(|conn| {
+        self.db.with_conn(|conn| Self::insert_with_conn(conn, book))
+    }
+
+    /// Connection-injected variant for composing multiple writes into one transaction.
+    pub fn insert_with_conn(conn: &rusqlite::Connection, book: &Book) -> StorageResult<()> {
+        {
             conn.execute(
                 r#"
                 INSERT INTO books (
@@ -99,7 +104,7 @@ impl BookRepository {
             }
 
             Ok(())
-        })
+        }
     }
 
     pub fn update(&self, book: &Book) -> StorageResult<()> {

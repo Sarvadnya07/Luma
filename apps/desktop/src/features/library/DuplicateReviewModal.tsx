@@ -107,11 +107,21 @@ export const DuplicateReviewModal: React.FC<DuplicateReviewModalProps> = ({
 
   const closeButtonRef = useRef<HTMLButtonElement>(null);
 
+  // Focus restoration on close (see CollectionModal for the rationale).
+  const openerRef = useRef<HTMLElement | null>(null);
+
   // Auto-focus the close button when modal opens
   useEffect(() => {
     if (isOpen && closeButtonRef.current) {
-      setTimeout(() => closeButtonRef.current?.focus(), 50);
+      openerRef.current = document.activeElement as HTMLElement | null;
+      const timer = setTimeout(() => closeButtonRef.current?.focus(), 50);
+      return () => clearTimeout(timer);
     }
+    if (!isOpen && openerRef.current) {
+      openerRef.current.focus();
+      openerRef.current = null;
+    }
+    return undefined;
   }, [isOpen]);
 
   // Handle Escape key

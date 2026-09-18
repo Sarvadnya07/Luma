@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { LumaApi } from "../tauri";
+import { createLumaApi, LumaApi } from "../tauri";
+import { createInMemoryLibraryBackend } from "../../testing/inMemoryBackend";
 import { Note, Flashcard } from "@luma/shared-types";
 
 class MockLocalStorage implements Storage {
@@ -35,6 +36,8 @@ if (typeof globalThis.localStorage === "undefined") {
 describe("CORE-03R Frontend Runtime Matrix & Migration Acceptance", () => {
   beforeEach(() => {
     localStorage.clear();
+    // Every case runs against a freshly seeded backend; no shared invented state.
+    createLumaApi({ transport: createInMemoryLibraryBackend().transport });
   });
 
   it("migrates legacy localStorage notes and flashcards faithfully", async () => {

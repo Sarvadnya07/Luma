@@ -10,6 +10,8 @@ import {
   CheckCircle2,
   Sun,
   Moon,
+  AlertTriangle,
+  RotateCw,
 } from "lucide-react";
 import { Book } from "@luma/shared-types";
 import { useReaderStore } from "../../state/readerContext";
@@ -33,15 +35,12 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
   onToggleDarkMode,
 }) => {
   useEffect(() => {
-    console.log("[LUMA-OPEN] 9. READER_VIEW_MOUNT", {
-      timestamp: new Date().toISOString(),
-      bookId: book.id,
-      title: book.title,
-    });
     perfTelemetry.mark("LUMA_PERF_READER_VISIBLE", { bookId: book.id });
-  }, [book.id, book.title]);
+  }, [book.id]);
 
   const closeReader = useReaderStore((s) => s.closeReader);
+  const loadError = useReaderStore((s) => s.loadError);
+  const retryLoad = useReaderStore((s) => s.retryLoad);
 
   const documentData = useReaderStore((s) => s.documentData);
   const readingProgress = useReaderStore((s) => s.readingProgress);
@@ -136,6 +135,26 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
         <div className="fixed top-16 left-1/2 transform -translate-x-1/2 z-50 bg-[#18181B] dark:bg-[#27272A] text-white text-xs px-4 py-2 rounded-full shadow-2xl flex items-center gap-2 animate-in fade-in slide-in-from-top-2 duration-150 font-medium border border-transparent dark:border-white/10">
           <CheckCircle2 className="w-4 h-4 text-emerald-400" />
           {statusMessage}
+        </div>
+      )}
+
+      {/* Load failure is a first-class state: without this the viewport was
+          simply blank, indistinguishable from "still loading". */}
+      {loadError && (
+        <div
+          role="alert"
+          className="flex items-center gap-2 px-4 py-2 text-xs bg-rose-50 dark:bg-rose-950/40 text-rose-800 dark:text-rose-200 border-b border-rose-200 dark:border-rose-900/60 flex-shrink-0"
+        >
+          <AlertTriangle className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
+          <span className="flex-1 min-w-0 truncate">{loadError}</span>
+          <button
+            type="button"
+            onClick={() => void retryLoad()}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-md font-medium border border-rose-300 dark:border-rose-800 hover:bg-rose-100 dark:hover:bg-rose-900/60 transition-colors"
+          >
+            <RotateCw className="w-3.5 h-3.5" aria-hidden="true" />
+            Retry
+          </button>
         </div>
       )}
 

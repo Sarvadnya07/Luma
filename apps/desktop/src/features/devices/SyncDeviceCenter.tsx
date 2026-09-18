@@ -76,7 +76,9 @@ const DeviceCard: React.FC<DeviceCardProps> = ({ device, onSync, onManage, onWak
   const Icon = IconMap[device.type] || Laptop;
 
   const statusConfig = {
-    synced: { label: "Synced just now", color: "emerald", dot: "bg-emerald-600" },
+    // The relative age is rendered from `lastSynced`; the status itself makes
+    // no claim about when the last sync happened.
+    synced: { label: "Synced", color: "emerald", dot: "bg-emerald-600" },
     syncing: { label: "Syncing...", color: "amber", dot: "bg-amber-500 animate-pulse" },
     offline: { label: "Offline", color: "gray", dot: "bg-gray-400" },
     error: { label: "Sync error", color: "rose", dot: "bg-rose-500" },
@@ -351,7 +353,7 @@ export const SyncDeviceCenter: React.FC<SyncDeviceCenterProps> = ({
                 <Smartphone className="w-8 h-8 text-[#A8A29E] mx-auto" />
                 <h3 className="font-serif text-base font-bold text-[#1C1917] mt-2">No devices connected</h3>
                 <p className="text-xs text-[#78716C]">
-                  Connect a device to start syncing your library.
+                  Device sync is not available in this build, so no devices are listed.
                 </p>
               </div>
             ) : (

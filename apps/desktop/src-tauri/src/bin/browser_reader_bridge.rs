@@ -79,6 +79,7 @@ fn handle_command(
                 .map_err(|e| e.to_string())?;
             Ok(serde_json::to_value(books).map_err(|e| e.to_string())?)
         }
+        "get_book_cover_data_url" => Ok(Value::Null),
         "get_book_details" => {
             let book_id: String = json_arg(&request.args, "bookId")?;
             let id = book_id.parse::<BookId>().map_err(|e| e.to_string())?;
@@ -192,7 +193,18 @@ fn handle_connection(mut stream: TcpStream, state: BridgeState, runtime: Arc<Run
         .unwrap_or("/");
     let body = &request_text[header_end.min(request_text.len())..];
 
-    let (status, payload) = if path == "/health" {
+    let method = request_text
+        .lines()
+        .next()
+        .and_then(|line| line.split_whitespace().next())
+        .unwrap_or("GET");
+
+    let (status, payload) = if method == "OPTIONS" {
+        // The bridge is driven from a browser page on another origin, so the
+        // preflight must be answered or every command fails at CORS before it
+        // reaches the real services.
+        ("204 No Content", String::new())
+    } else if path == "/health" {
         ("200 OK", response(json!({ "status": "ok" })))
     } else if path == "/api/invoke" {
         match serde_json::from_str::<RequestEnvelope>(body)
@@ -207,7 +219,7 @@ fn handle_connection(mut stream: TcpStream, state: BridgeState, runtime: Arc<Run
     };
 
     let response_text = format!(
-        "HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+        "HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nAccess-Control-Allow-Origin: *\r\nAccess-Control-Allow-Headers: content-type\r\nAccess-Control-Allow-Methods: POST, OPTIONS\r\nConnection: close\r\n\r\n{}",
         payload.len(), payload
     );
     let _ = stream.write_all(response_text.as_bytes());
@@ -255,6 +267,15 @@ fn main() {
         .expect("import real EPUB through ImportService");
     let item = imported.items.first().expect("import item");
     let book_id = item.book_id.expect("imported book id");
+    let book_file_id = item.file_id.expect("imported book file id");
+    let book_file_path = data_dir.join("library");
+    eprintln!(
+        "LUMA_BROWSER_IMPORT fixture={} importService=true bookId={} bookFileId={} libraryDir={}",
+        fixture.display(),
+        book_id,
+        book_file_id,
+        book_file_path.display()
+    );
 
     let library = LibraryService::new(db.clone(), event_bus);
     let reader = ReaderService::new(db, cache);

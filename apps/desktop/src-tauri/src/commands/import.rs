@@ -5,7 +5,6 @@ use tauri::State;
 use tracing::{debug, error, info, instrument, warn};
 
 use luma_core::error::BackendError;
-use luma_core::ids::DeviceId;
 use luma_core::models::ingest::ImportJob;
 
 use crate::context::LumaAppContext;
@@ -114,7 +113,7 @@ pub async fn import_files(
 ) -> Result<ImportJob, BackendError> {
     debug!("Importing files");
 
-    let device_id = DeviceId::new();
+    let device_id = ctx.device_id;
     let mut paths = Vec::with_capacity(file_paths.len());
     for path_str in file_paths {
         match pathbuf_from_string(&path_str) {
@@ -150,7 +149,7 @@ pub async fn import_directory(
     let path = pathbuf_from_string(&dir_path)?;
     debug!(?path, "Importing directory");
 
-    let device_id = DeviceId::new();
+    let device_id = ctx.device_id;
 
     let job = ctx
         .import_service
@@ -175,7 +174,7 @@ pub async fn import_file_bytes(
 ) -> Result<ImportJob, BackendError> {
     debug!(%filename, "Importing file from bytes");
 
-    let device_id = DeviceId::new();
+    let device_id = ctx.device_id;
     // Ensure we have an owned PathBuf so we can use it after borrows/moves
     let staging_dir = ctx.file_service.staging_dir().to_path_buf();
 

@@ -18,6 +18,21 @@ export default defineConfig({
   build: {
     target: "esnext",
     minify: !process.env.TAURI_DEBUG ? "esbuild" : false,
-    sourcemap: !!process.env.TAURI_DEBUG,
+    // ARCH-2: always emit maps. Without them a field crash in a bundled
+    // desktop build cannot be symbolicated at all, which made the (previously
+    // absent) error telemetry unusable even after it was added.
+    sourcemap: true,
+    rollupOptions: {
+      output: {
+        // Keep the eagerly loaded application shell separate from the lazily
+        // loaded reader engines and feature screens so a cache-busting change in
+        // one does not invalidate the other, and so the biggest third-party
+        // dependency (pdf.js) never lands in the initial chunk.
+        manualChunks: {
+          "pdf-engine": ["pdfjs-dist"],
+          "react-vendor": ["react", "react-dom"],
+        },
+      },
+    },
   },
 });

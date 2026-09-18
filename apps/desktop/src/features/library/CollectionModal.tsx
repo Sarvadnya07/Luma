@@ -75,11 +75,22 @@ export const CollectionModal: React.FC<CollectionModalProps> = ({
 
   const nameInputRef = useRef<HTMLInputElement>(null);
 
+  // Focus restoration: remember what had focus before opening, and give it back
+  // on close so keyboard users do not fall off to <body>.
+  const openerRef = useRef<HTMLElement | null>(null);
+
   // Auto-focus when modal opens
   useEffect(() => {
     if (isOpen && nameInputRef.current) {
-      setTimeout(() => nameInputRef.current?.focus(), 50);
+      openerRef.current = document.activeElement as HTMLElement | null;
+      const timer = setTimeout(() => nameInputRef.current?.focus(), 50);
+      return () => clearTimeout(timer);
     }
+    if (!isOpen && openerRef.current) {
+      openerRef.current.focus();
+      openerRef.current = null;
+    }
+    return undefined;
   }, [isOpen]);
 
   // Handle Escape key
@@ -159,6 +170,11 @@ export const CollectionModal: React.FC<CollectionModalProps> = ({
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          {/* The dialog declares aria-describedby; this element is what it points at. */}
+          <p id="collection-modal-desc" className="sr-only">
+            Name a collection to group books from your library.
+          </p>
+
           {/* Name Field */}
           <div>
             <label htmlFor="collection-name" className="block text-xs font-semibold text-[#78716C] mb-1">

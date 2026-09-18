@@ -232,14 +232,33 @@ export const LibrarySidebar: React.FC<LibrarySidebarProps> = ({
 
   // Render sub‑items for collections or tags when the section is active
   const renderSubItemsContent = () => {
-    if (currentSection === "collections" && collections.length > 0) {
+    // Collections: render the sub-list whenever the section is active, even with
+    // zero collections. Gating on `collections.length > 0` also hid the
+    // "New Collection" action, so a fresh install had no discoverable way to
+    // create its first collection (only the book-details drawer offered one,
+    // which requires at least one book).
+    if (currentSection === "collections") {
       if (renderSubItems) {
-        return renderSubItems({
-          type: "collections",
-          items: collections,
-          selectedId: selectedCollectionId,
-          onSelect: handleSelectCollection,
-        });
+        return (
+          <>
+            {collections.length > 0 &&
+              renderSubItems({
+                type: "collections",
+                items: collections,
+                selectedId: selectedCollectionId,
+                onSelect: handleSelectCollection,
+              })}
+            {onCreateCollection && (
+              <button
+                onClick={() => onCreateCollection()}
+                className="mt-1 ml-7 w-[calc(100%-1.75rem)] text-left px-2 py-1 text-xs text-[#78716C] hover:text-[#1C1917] flex items-center gap-1"
+              >
+                <Plus className="w-3 h-3" />
+                <span>New Collection</span>
+              </button>
+            )}
+          </>
+        );
       }
       return (
         <div className="mt-1 ml-7 space-y-0.5">
@@ -256,6 +275,9 @@ export const LibrarySidebar: React.FC<LibrarySidebarProps> = ({
               {coll.name}
             </button>
           ))}
+          {collections.length === 0 && labels.noCollectionsLabel && (
+            <p className="px-2 py-1 text-xs text-[#8C8275]">{labels.noCollectionsLabel}</p>
+          )}
           <button
             onClick={() => onCreateCollection?.()}
             className="w-full text-left px-2 py-1 text-xs text-[#78716C] hover:text-[#1C1917] flex items-center gap-1"

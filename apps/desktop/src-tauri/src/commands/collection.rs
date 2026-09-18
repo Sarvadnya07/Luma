@@ -3,7 +3,7 @@ use tauri::State;
 use tracing::{debug, error, info, instrument};
 
 use luma_core::error::BackendError;
-use luma_core::ids::{BookId, CollectionId, DeviceId, TagId};
+use luma_core::ids::{BookId, CollectionId, TagId};
 use luma_core::models::metadata::{Author, Collection, Series, Tag};
 
 use crate::context::LumaAppContext;
@@ -61,7 +61,7 @@ pub fn create_collection(
     debug!(?name, "Creating collection");
     let collection = ctx
         .collection_service
-        .create_collection(&name, description.as_deref(), DeviceId::new())
+        .create_collection(&name, description.as_deref(), ctx.device_id)
         .map_err(|e| {
             error!(error = %e, "Failed to create collection");
             BackendError::from(e)
@@ -137,7 +137,7 @@ pub fn add_tag_to_book(
 
     let tag = ctx
         .collection_service
-        .add_tag_to_book(&bid, &tag_name, DeviceId::new())
+        .add_tag_to_book(&bid, &tag_name, ctx.device_id)
         .map_err(|e| {
             error!(error = %e, "Failed to add tag to book");
             BackendError::from(e)

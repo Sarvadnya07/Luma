@@ -160,3 +160,14 @@ $RECYCLE.BIN/
 *.bak
 *.orig
 *.rej
+
+# ------------------------------------------------------------------------------
+# Session Artifacts & Agent Workspaces (BACKEND-04 pre-commit hygiene)
+# ------------------------------------------------------------------------------
+# Alternate cargo target dirs (bridge validation builds are multi-GB artifacts)
+target-*/
+# Freebuff session logs (run docs are tracked; logs are ephemeral)
+.freebuff/*.log
+.freebuff/*.log.err
+# Windows reserved-device-name junk files created by shell redirection bugs
+NUL

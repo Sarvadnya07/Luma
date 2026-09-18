@@ -16,7 +16,6 @@ import {
   PdfPageData,
   DocumentSearchMatch,
   Bookmark,
-  TocItem,
   ReadingStatus,
   BackupManifest,
   BackupPreview,
@@ -42,20 +41,17 @@ import {
   CanonicalSearchMatch,
 } from "@luma/shared-types";
 
-import {
-  mockBooks,
-  mockAnnotations,
-  mockBookmarks,
-  mockCollections,
-  mockTags,
-  mockSettings,
-  BOOK_AUTHORS_MAP,
-  GATSBY_CHAPTER_3_HTML,
-  MEDITATIONS_BOOK_2_HTML,
-} from "./mockData";
-
 // ============================================================================
-// 1. Types & Configuration
+// 1. Transport Types
+//
+// Luma owns exactly one source of application data: the local database behind
+// the desktop core. Every method on this client is a *transport call* — it
+// never synthesises library, reader, knowledge or analytics content.
+//
+// The `transport` seam exists so integration harnesses can drive the real UI
+// against the real backend (Tauri IPC in the shipped app, the browser
+// integration bridge in the Playwright harness). Test doubles are installed by
+// tests and live under `src/testing/` — never in this module.
 // ============================================================================
 
 export interface Logger {
@@ -65,45 +61,47 @@ export interface Logger {
   error(...args: unknown[]): void;
 }
 
-export interface DefaultLabels {
-  unknownAuthor?: string;
-  readingStatusLabel?: string;
-  inProgressLabel?: string;
-  availableLabel?: string;
-}
-
-export interface MockDataProvider {
-  books: Book[];
-  collections: Collection[];
-  tags: Tag[];
-  annotations: Annotation[];
-  bookmarks: Bookmark[];
-  settings: Record<string, unknown>;
-  authorMap: Record<string, string>;
-  chapterHtml: Record<string, string>;
-}
-
 export interface LumaTransport {
   invoke<T = unknown>(command: string, args?: Record<string, unknown>): Promise<T>;
+  /**
+   * Optional domain events. A transport that cannot deliver events leaves this
+   * undefined, and `onDomainEvent` degrades to a no-op subscription — the same
+   * behaviour as an environment without the event bridge. Implementations that
+   * do support it (the browser integration harness, tests) can now exercise the
+   * refresh-on-change paths that were previously untestable.
+   */
+  subscribe?<T = unknown>(event: string, callback: (payload: T) => void): () => void;
 }
 
 export interface LumaApiConfig {
-  /** If true, force mock implementation even when Tauri runtime is detected. */
-  useMock?: boolean;
-  /** Custom invoke function (defaults to dynamic `@tauri-apps/api/core` invoke). */
+  /** Custom invoke function (defaults to the dynamic `@tauri-apps/api/core` invoke). */
   invoke?: <T = unknown>(cmd: string, args?: Record<string, unknown>) => Promise<T>;
-  /** Explicit transport; used by test-only browser integration. */
+  /** Explicit transport; used by the browser integration harness and tests. */
   transport?: LumaTransport;
-  /** Custom mock data store. */
-  mockData?: MockDataProvider;
   /** Custom logger instance. */
   logger?: Logger;
-  /** Default fallback labels. */
-  defaultLabels?: DefaultLabels;
+}
+
+/**
+ * Thrown when a command is requested with no way to reach the data layer.
+ *
+ * This used to be a silent in-memory fake library, which meant a browser build
+ * (or a desktop build that failed runtime detection) presented invented books,
+ * annotations and reading statistics as if they were the user's own data. An
+ * unavailable data layer must surface as an error state, never as content.
+ */
+export class DataServicesUnavailableError extends Error {
+  constructor(readonly command: string) {
+    super(
+      `Luma data services are unavailable: "${command}" has no transport. ` +
+        "Run the desktop application, or supply an explicit transport."
+    );
+    this.name = "DataServicesUnavailableError";
+  }
 }
 
 // ============================================================================
-// 2. Default Logger & Tauri Detection
+// 2. Runtime Detection
 // ============================================================================
 
 class ConsoleLogger implements Logger {
@@ -126,99 +124,63 @@ export const isTauri = (): boolean =>
   ("__TAURI_INTERNALS__" in window || "__TAURI__" in window);
 
 // ============================================================================
-// 3. Mock Data Store
-// ============================================================================
-
-export class MockDataStore implements MockDataProvider {
-  public books: Book[];
-  public collections: Collection[];
-  public tags: Tag[];
-  public annotations: Annotation[];
-  public bookmarks: Bookmark[];
-  public settings: Record<string, unknown>;
-  public authorMap: Record<string, string>;
-  public chapterHtml: Record<string, string>;
-
-  constructor(initialData?: Partial<MockDataProvider>) {
-    this.books = initialData?.books ?? [...mockBooks];
-    this.collections = initialData?.collections ?? [...mockCollections];
-    this.tags = initialData?.tags ?? [...mockTags];
-    this.annotations = initialData?.annotations ?? [...mockAnnotations];
-    this.bookmarks = initialData?.bookmarks ?? [...mockBookmarks];
-    this.settings = initialData?.settings ?? { ...mockSettings };
-    this.authorMap = initialData?.authorMap ?? { ...BOOK_AUTHORS_MAP };
-    this.chapterHtml = initialData?.chapterHtml ?? {
-      gatsby: GATSBY_CHAPTER_3_HTML,
-      meditations: MEDITATIONS_BOOK_2_HTML,
-    };
-  }
-}
-
-// ============================================================================
-// 4. Main LumaApiClient
+// 3. Main LumaApiClient
 // ============================================================================
 
 export class LumaApiClient {
   private config: {
-    useMock: boolean;
     invoke: <T = unknown>(cmd: string, args?: Record<string, unknown>) => Promise<T>;
     transport?: LumaTransport;
-    mockData: MockDataProvider;
     logger: Logger;
-    defaultLabels: Required<DefaultLabels>;
+    explicitInvoke: boolean;
   };
   private logger: Logger;
-  private mockStore: MockDataStore;
 
   constructor(config: LumaApiConfig = {}) {
-    const defaultLabels: DefaultLabels = {
-      unknownAuthor: "Unknown Author",
-      readingStatusLabel: "Reading",
-      inProgressLabel: "In Progress",
-      availableLabel: "Available",
-    };
-
-    const mockStore = (config.mockData as MockDataStore) ?? new MockDataStore();
     const logger = config.logger ?? new ConsoleLogger();
 
-    const defaultInvoke = async <T = unknown>(cmd: string, args?: Record<string, unknown>): Promise<T> => {
+    const defaultInvoke = async <T = unknown>(
+      cmd: string,
+      args?: Record<string, unknown>
+    ): Promise<T> => {
       const { invoke } = await import("@tauri-apps/api/core");
       return invoke<T>(cmd, args);
     };
 
     this.config = {
-      useMock: config.useMock ?? !isTauri(),
       invoke: config.invoke ?? defaultInvoke,
       transport: config.transport,
-      mockData: mockStore,
       logger,
-      defaultLabels: {
-          unknownAuthor: config.defaultLabels?.unknownAuthor ?? defaultLabels.unknownAuthor!,
-          readingStatusLabel: config.defaultLabels?.readingStatusLabel ?? defaultLabels.readingStatusLabel!,
-          inProgressLabel: config.defaultLabels?.inProgressLabel ?? defaultLabels.inProgressLabel!,
-          availableLabel: config.defaultLabels?.availableLabel ?? defaultLabels.availableLabel!,
-        },
+      explicitInvoke: Boolean(config.invoke),
     };
 
     this.logger = logger;
-    this.mockStore = mockStore;
   }
 
-  private isMock(): boolean {
-    if (this.config.useMock) return true;
-    return !isTauri();
-  }
+  /**
+   * Dispatch a command to the owning data layer.
+   *
+   * Order: explicit transport -> desktop IPC -> unavailable. There is no
+   * fallback that invents a result; an unreachable data layer is an error the
+   * UI is expected to render as an error state.
+   */
+  private async _call<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+    const target = this.config.transport
+      ? this.config.transport
+      : this.config.explicitInvoke || isTauri()
+        ? { invoke: this.config.invoke }
+        : null;
 
-  private async _call<T>(cmd: string, args?: Record<string, unknown>, mockFn?: () => T | Promise<T>): Promise<T> {
-    if (!this.config.transport && this.isMock() && mockFn) {
-      return mockFn();
+    if (!target) {
+      const err = new DataServicesUnavailableError(cmd);
+      this.logger.error(err.message);
+      throw err;
     }
+
     try {
-      return await (this.config.transport
-        ? this.config.transport.invoke<T>(cmd, args)
-        : this.config.invoke<T>(cmd, args));
+      return await target.invoke<T>(cmd, args);
     } catch (err) {
-      this.logger.error(`Tauri invoke failed for [${cmd}]:`, err);
+      this.logger.error(`Luma command failed for [${cmd}]:`, err);
       throw err;
     }
   }
@@ -227,408 +189,89 @@ export class LumaApiClient {
   // Library API
   // --------------------------------------------------------------------------
 
-  async listBooks(filter?: LibraryFilterOptions, sort?: LibrarySortOptions, page?: number, pageSize?: number): Promise<Book[]> {
-    return this._call(
-      "list_books",
-      { filter, sort, page, pageSize },
-      () => {
-        let res = [...this.mockStore.books];
-        if (filter?.library_state) {
-          res = res.filter((b) => b.library_state === filter.library_state);
-        } else {
-          res = res.filter((b) => b.library_state === "active");
-        }
-        if (filter?.reading_status) {
-          res = res.filter((b) => b.reading_status === filter.reading_status);
-        }
-        if (filter?.search_query) {
-          const q = filter.search_query.toLowerCase();
-          res = res.filter((b) => b.title.toLowerCase().includes(q) || (b.description && b.description.toLowerCase().includes(q)));
-        }
-        return res;
-      }
-    );
+  async listBooks(
+    filter?: LibraryFilterOptions,
+    sort?: LibrarySortOptions,
+    page?: number,
+    pageSize?: number
+  ): Promise<Book[]> {
+    return this._call("list_books", { filter, sort, page, pageSize });
   }
 
   async getBookCoverDataUrl(bookId: string): Promise<string | null> {
-    return this._call(
-      "get_book_cover_data_url",
-      { bookId },
-      () => {
-        const book = this.mockStore.books.find((b) => b.id === bookId);
-        return book?.cover_image_path || null;
-      }
-    );
+    return this._call("get_book_cover_data_url", { bookId });
   }
 
   async getBookDetails(bookId: string): Promise<BookDetailViewData | null> {
-    return this._call(
-      "get_book_details",
-      { bookId },
-      () => {
-        const book = this.mockStore.books.find((b) => b.id === bookId);
-        if (!book) return null;
-
-        const authorName = this.mockStore.authorMap[book.id] || this.config.defaultLabels.unknownAuthor || "Unknown Author";
-
-        return {
-          book,
-          files: [
-            {
-              id: book.primary_file_id ?? "file_01",
-              book_id: book.id,
-              original_filename: `${book.title.replace(/\s+/g, "_")}.epub`,
-              relative_path: `library/${book.title.replace(/\s+/g, "_")}.epub`,
-              canonical_path: `/Users/luma/Documents/${book.title}.epub`,
-              format: book.id === "book_design_everyday" ? "pdf" : "epub",
-              mime_type: book.id === "book_design_everyday" ? "application/pdf" : "application/epub+zip",
-              file_size_bytes: 4829104,
-              sha256_hash: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-              imported_at: book.sync.created_at,
-              availability: "available",
-            },
-          ],
-          authors: [
-            {
-              id: "auth_01",
-              name: authorName,
-              sync: { version: 1, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), device_id: "dev_01", is_deleted: false },
-            },
-          ],
-          series: book.series_id ? { id: book.series_id, title: "Foundation", sync: { version: 1, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), device_id: "dev_01", is_deleted: false } } : null,
-          tags: this.mockStore.tags,
-          collections: this.mockStore.collections.filter((c) => c.book_ids.includes(bookId)),
-          reading_progress: {
-            book_id: book.id,
-            progress_percentage: book.id === "book_arch_stillness" ? 0.75 : book.id === "book_great_gatsby" ? 0.66 : book.id === "book_meditations" ? 0.15 : book.id === "book_foundation" ? 1.0 : book.id === "book_design_everyday" ? 0.12 : 0,
-            current_locator: "epubcfi(/6/4[chapter-1]!/4/2/10)",
-            current_chapter_title: book.id === "book_meditations" ? "Book Two" : book.id === "book_great_gatsby" ? "Chapter III" : "Chapter 1",
-            current_page_number: 1,
-            total_pages: 12,
-            last_read_at: new Date().toISOString(),
-            sync: { version: 1, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), device_id: "dev_01", is_deleted: false },
-          },
-        };
-      }
-    );
+    return this._call("get_book_details", { bookId });
   }
 
   async openReaderDocument(bookId: string, fileId?: string): Promise<OpenDocumentResult> {
-    return this._call(
-      "open_reader_document",
-      { bookId, fileId },
-      () => {
-        const book = this.mockStore.books.find((b) => b.id === bookId) || {
-          id: bookId,
-          title: bookId.startsWith("book_01918") ? "The Rust Programming Language" : this.mockStore.books[0]?.title || "Book Title",
-          subtitle: null,
-          author_ids: [],
-          series_id: null,
-          series_index: null,
-          description: "Document reader content",
-          publisher: null,
-          published_date: null,
-          language: "en",
-          isbn: null,
-          cover_image_id: null,
-          cover_image_path: null,
-          primary_file_id: fileId ?? "file_01",
-          reading_status: "reading" as const,
-          library_state: "active" as const,
-          trashed_at: null,
-          sync: { version: 1, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), device_id: "dev_01", is_deleted: false },
-        };
-        const authorName = this.mockStore.authorMap[book.id] || this.config.defaultLabels.unknownAuthor || "Unknown Author";
-
-        let toc: TocItem[] = [
-          { title: "Chapter 1: The Principle of Architecture", locator: "epubcfi(/6/2!/4/1:0)", play_order: 1, children: [] },
-          { title: "Chapter 2: Data Autonomy & Sync", locator: "epubcfi(/6/4!/4/1:0)", play_order: 2, children: [] },
-          { title: "Chapter 3: Resilient Annotation Anchoring", locator: "epubcfi(/6/6!/4/1:0)", play_order: 3, children: [] },
-          { title: "Chapter 4: Conclusion & Knowledge Mesh", locator: "epubcfi(/6/8!/4/1:0)", play_order: 4, children: [] },
-        ];
-
-        if (book.id === "book_great_gatsby") {
-          toc = [
-            { title: "Chapter I", locator: "epubcfi(/6/2!/4/1:0)", play_order: 1, children: [] },
-            { title: "Chapter II", locator: "epubcfi(/6/4!/4/1:0)", play_order: 2, children: [] },
-            { title: "Chapter III", locator: "epubcfi(/6/6!/4/1:0)", play_order: 3, children: [] },
-            { title: "Chapter IV", locator: "epubcfi(/6/8!/4/1:0)", play_order: 4, children: [] },
-            { title: "Chapter V", locator: "epubcfi(/6/10!/4/1:0)", play_order: 5, children: [] },
-          ];
-        } else if (book.id === "book_meditations") {
-          toc = [
-            { title: "Book One", locator: "epubcfi(/6/2!/4/1:0)", play_order: 1, children: [] },
-            {
-              title: "Book Two",
-              locator: "epubcfi(/6/4!/4/1:0)",
-              play_order: 2,
-              children: [
-                { title: "Section 1", locator: "epubcfi(/6/4!/4/2:0)", play_order: 1, children: [] },
-                { title: "Section 2", locator: "epubcfi(/6/4!/4/4:0)", play_order: 2, children: [] },
-                { title: "Section 3", locator: "epubcfi(/6/4!/4/6:0)", play_order: 3, children: [] },
-              ],
-            },
-            { title: "Book Three", locator: "epubcfi(/6/6!/4/1:0)", play_order: 42, children: [] },
-            { title: "Book Four", locator: "epubcfi(/6/8!/4/1:0)", play_order: 58, children: [] },
-            { title: "Book Five", locator: "epubcfi(/6/10!/4/1:0)", play_order: 74, children: [] },
-          ];
-        }
-
-        const isPdf = book.id === "book_design_everyday";
-
-        return {
-          book,
-          file: {
-            id: book.primary_file_id ?? "file_01",
-            book_id: book.id,
-            original_filename: `${book.title}.epub`,
-            relative_path: `library/${book.title}.epub`,
-            canonical_path: `/Users/luma/${book.title}.epub`,
-            format: isPdf ? "pdf" : "epub",
-            mime_type: isPdf ? "application/pdf" : "application/epub+zip",
-            file_size_bytes: 3429104,
-            sha256_hash: "mocksha256",
-            imported_at: new Date().toISOString(),
-            availability: "available",
-          },
-          metadata: {
-            title: book.title,
-            authors: [authorName],
-            language: "en",
-            publisher: book.publisher || "Publisher",
-            description: book.description,
-            isbn: book.isbn,
-            format: isPdf ? "pdf" : "epub",
-            total_pages_or_spines: toc.length,
-          },
-          toc,
-          total_pages_or_spines: toc.length,
-          capabilities: {
-            supports_reflow: !isPdf,
-            supports_fixed_layout: isPdf,
-            supports_cfi: !isPdf,
-            supports_page_coordinates: isPdf,
-            supports_embedded_fonts: true,
-            supports_text_extraction: true,
-          },
-          initial_progress: {
-            book_id: book.id,
-            progress_percentage: book.id === "book_great_gatsby" ? 0.66 : book.id === "book_meditations" ? 0.15 : 0.75,
-            current_locator: book.id === "book_meditations" ? "epubcfi(/6/4!/4/6:0)" : "epubcfi(/6/6!/4/1:0)",
-            current_chapter_title: book.id === "book_meditations" ? "Book Two" : book.id === "book_great_gatsby" ? "Chapter III" : "Chapter 1",
-            current_page_number: 1,
-            total_pages: toc.length,
-            last_read_at: new Date().toISOString(),
-            sync: { version: 1, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), device_id: "dev_01", is_deleted: false },
-          },
-          annotations: this.mockStore.annotations.filter((a) => a.book_id === bookId),
-          bookmarks: this.mockStore.bookmarks.filter((b) => b.book_id === bookId),
-        };
-      }
-    );
+    return this._call("open_reader_document", { bookId, fileId });
   }
 
   async getReaderChapter(bookId: string, spineIndex: number): Promise<ChapterContent> {
-    return this._call(
-      "get_reader_chapter",
-      { bookId, spineIndex },
-      () => {
-        if (bookId === "book_great_gatsby") {
-          return {
-            spine_index: spineIndex,
-            id: `gatsby_ch_${spineIndex + 1}`,
-            title: `Chapter ${["I", "II", "III", "IV", "V"][spineIndex] || spineIndex + 1}`,
-            href: `text/ch${spineIndex + 1}.xhtml`,
-            html_content: this.mockStore.chapterHtml.gatsby || GATSBY_CHAPTER_3_HTML,
-            text_content: "Chapter III. There was music from my neighbor's house through the summer nights. In his blue gardens men and girls came and went like moths among the whisperings and the champagne and the stars.",
-          };
-        }
-
-        if (bookId === "book_meditations") {
-          return {
-            spine_index: spineIndex,
-            id: `meditations_book_${spineIndex + 1}`,
-            title: `Book ${["One", "Two", "Three", "Four", "Five"][spineIndex] || spineIndex + 1}`,
-            href: `text/book${spineIndex + 1}.xhtml`,
-            html_content: this.mockStore.chapterHtml.meditations || MEDITATIONS_BOOK_2_HTML,
-            text_content: "Book Two. Begin the morning by saying to thyself, I shall meet with the busy-body, the ungrateful, arrogant, deceitful, envious, unsocial. The third then is the ruling part: consider thus: Thou art an old man.",
-          };
-        }
-
-        return {
-          spine_index: spineIndex,
-          id: `ch_${spineIndex + 1}`,
-          title: `The Architecture of Stillness`,
-          href: `text/ch${spineIndex + 1}.xhtml`,
-          html_content: this.mockStore.chapterHtml.gatsby || GATSBY_CHAPTER_3_HTML,
-          text_content: "In this profound exploration of spatial dynamics within literature, the author examines how the physical environments constructed by modernist writers serve as vessels for silence and psychological depth.",
-        };
-      }
-    );
+    return this._call("get_reader_chapter", { bookId, spineIndex });
   }
 
   async getReaderPdfPage(bookId: string, pageNumber: number): Promise<PdfPageData> {
-    return this._call(
-      "get_reader_pdf_page",
-      { bookId, pageNumber },
-      () => ({
-        page_number: pageNumber,
-        width_pt: 595.0,
-        height_pt: 842.0,
-        text_content: `PDF Page ${pageNumber} content for local reading. Annotation integrity remains preserved.`,
-      })
-    );
+    return this._call("get_reader_pdf_page", { bookId, pageNumber });
   }
 
   async getBookFileBytes(bookId: string, fileId?: string): Promise<Uint8Array> {
-    const res = await this._call<number[] | Uint8Array | ArrayBuffer>(
-      "get_book_file_bytes",
-      { bookId, fileId },
-      () => new Uint8Array()
-    );
-    if (!res) return new Uint8Array();
-    if (res instanceof Uint8Array) return res;
-    if (res instanceof ArrayBuffer) return new Uint8Array(res);
-    if (Array.isArray(res)) return new Uint8Array(res);
-    return new Uint8Array();
+    return this._call("get_book_file_bytes", { bookId, fileId });
   }
 
   async searchDocument(bookId: string, query: string): Promise<DocumentSearchMatch[]> {
-    return this._call(
-      "search_document",
-      { bookId, query },
-      () => {
-        const q = query.toLowerCase();
-        if ("annotation integrity".includes(q) || "architecture".includes(q) || "systems".includes(q)) {
-          return [
-            {
-              spine_index: 0,
-              chapter_title: "Chapter 1: The Principle of Architecture",
-              locator: "epubcfi(/6/2!/4/100:0)",
-              snippet: "...Annotation integrity is the cornerstone of any serious reading system...",
-              match_char_offset: 120,
-            },
-          ];
-        }
-        return [];
-      }
-    );
+    return this._call("search_document", { bookId, query });
   }
 
-  // --------------------------------------------------------------------------
-  // Canonical Document Access API (ARCH-01)
-  // --------------------------------------------------------------------------
-
   async getDocumentStructure(bookId: string): Promise<DocumentStructure> {
-    return this._call(
-      "get_document_structure",
-      { bookId },
-      () => ({
-        root: {
-          id: "root",
-          kind: { type: "document" },
-          text: "Document Root",
-          children: [
-            {
-              id: "p0",
-              kind: { type: "paragraph", data: { index: 0 } },
-              text: "Sample paragraph content for local reading and canonical access.",
-              children: [],
-              range: {
-                start: { section_index: 0, char_offset: 0 },
-                end: { section_index: 0, char_offset: 68 },
-              },
-            },
-          ],
-        },
-        total_sections: 1,
-        total_paragraphs: 1,
-        total_words: 10,
-      })
-    );
+    return this._call("get_document_structure", { bookId });
   }
 
   async getDocumentNodeText(bookId: string, nodeId: string): Promise<string> {
-    return this._call(
-      "get_document_node_text",
-      { bookId, nodeId },
-      () => "Sample paragraph content for local reading and canonical access."
-    );
+    return this._call("get_document_node_text", { bookId, nodeId });
   }
 
   async getDocumentRangeText(bookId: string, range: DocumentRange): Promise<string> {
-    return this._call(
-      "get_document_range_text",
-      { bookId, range },
-      () => "Sample paragraph content for local reading and canonical access."
-    );
+    return this._call("get_document_range_text", { bookId, range });
   }
 
-  async getDocumentParagraph(bookId: string, sectionOrPage: number, paragraphIndex: number): Promise<string> {
-    return this._call(
-      "get_document_paragraph",
-      { bookId, sectionOrPage, paragraphIndex },
-      () => "Sample paragraph content for local reading and canonical access."
-    );
+  async getDocumentParagraph(
+    bookId: string,
+    sectionOrPage: number,
+    paragraphIndex: number
+  ): Promise<string> {
+    return this._call("get_document_paragraph", { bookId, sectionOrPage, paragraphIndex });
   }
 
   async getDocumentHeadings(bookId: string): Promise<StructureNode[]> {
-    return this._call(
-      "get_document_headings",
-      { bookId },
-      () => []
-    );
+    return this._call("get_document_headings", { bookId });
   }
 
   async getDocumentResources(bookId: string): Promise<ResourceDescriptor[]> {
-    return this._call(
-      "get_document_resources",
-      { bookId },
-      () => []
-    );
+    return this._call("get_document_resources", { bookId });
   }
 
   async readDocumentResource(bookId: string, hrefOrId: string): Promise<Uint8Array> {
-    const res = await this._call<number[] | Uint8Array | ArrayBuffer>(
-      "read_document_resource",
-      { bookId, hrefOrId },
-      () => new Uint8Array()
-    );
-    if (!res) return new Uint8Array();
-    if (res instanceof Uint8Array) return res;
-    if (res instanceof ArrayBuffer) return new Uint8Array(res);
-    if (Array.isArray(res)) return new Uint8Array(res);
-    return new Uint8Array();
+    return this._call("read_document_resource", { bookId, hrefOrId });
   }
 
   async getDocumentCitation(bookId: string, range: DocumentRange): Promise<CitationContext> {
-    return this._call(
-      "get_document_citation",
-      { bookId, range },
-      () => ({
-        document_title: "Document",
-        authors: ["Unknown Author"],
-        locator: "section:0,offset:0",
-        quote: "Sample quotation from canonical model.",
-        formatted_citation: 'Unknown Author (n.d.). Document, "section:0,offset:0". "Sample quotation from canonical model."',
-      })
-    );
+    return this._call("get_document_citation", { bookId, range });
   }
 
   async searchDocumentCanonical(bookId: string, query: string): Promise<CanonicalSearchMatch[]> {
-    return this._call(
-      "search_document_canonical",
-      { bookId, query },
-      () => []
-    );
+    return this._call("search_document_canonical", { bookId, query });
   }
 
+  // --------------------------------------------------------------------------
+  // Bookmarks & Annotations
+  // --------------------------------------------------------------------------
+
   async listBookmarks(bookId: string): Promise<Bookmark[]> {
-    return this._call(
-      "list_bookmarks",
-      { bookId },
-      () => this.mockStore.bookmarks.filter((b) => b.book_id === bookId)
-    );
+    return this._call("list_bookmarks", { bookId });
   }
 
   async createBookmark(
@@ -638,90 +281,36 @@ export class LumaApiClient {
     chapterTitle?: string | null,
     pageNumber?: number | null
   ): Promise<Bookmark> {
-    return this._call(
-      "create_bookmark",
-      { bookId, locator, title, chapterTitle, pageNumber },
-      () => {
-        const newBmk: Bookmark = {
-          id: `bmk_${Date.now()}`,
-          book_id: bookId,
-          locator,
-          title: title || null,
-          chapter_title: chapterTitle || null,
-          page_number: pageNumber || null,
-          sync: { version: 1, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), device_id: "dev_01", is_deleted: false },
-        };
-        this.mockStore.bookmarks.push(newBmk);
-        return newBmk;
-      }
-    );
+    return this._call("create_bookmark", { bookId, locator, title, chapterTitle, pageNumber });
   }
 
   async deleteBookmark(bookmarkId: string): Promise<void> {
-    return this._call(
-      "delete_bookmark",
-      { bookmarkId },
-      () => {
-        this.mockStore.bookmarks = this.mockStore.bookmarks.filter((b) => b.id !== bookmarkId);
-      }
-    );
+    return this._call("delete_bookmark", { bookmarkId });
   }
 
   async listAnnotations(bookId: string): Promise<Annotation[]> {
-    return this._call(
-      "list_annotations",
-      { bookId },
-      () => this.mockStore.annotations.filter((a) => a.book_id === bookId)
-    );
+    return this._call("list_annotations", { bookId });
   }
 
   async listAllAnnotations(): Promise<Annotation[]> {
-    return this._call(
-      "list_all_annotations",
-      undefined,
-      () => [...this.mockStore.annotations]
-    );
+    return this._call("list_all_annotations");
   }
 
   async saveAnnotation(annotation: Annotation): Promise<void> {
-    return this._call(
-      "save_annotation",
-      { annotation },
-      () => {
-        const idx = this.mockStore.annotations.findIndex((a) => a.id === annotation.id);
-        if (idx >= 0) {
-          this.mockStore.annotations[idx] = annotation;
-        } else {
-          this.mockStore.annotations.push(annotation);
-        }
-      }
-    );
+    return this._call("save_annotation", { annotation });
   }
 
   async deleteAnnotation(annotationId: string): Promise<void> {
-    return this._call(
-      "delete_annotation",
-      { annotationId },
-      () => {
-        this.mockStore.annotations = this.mockStore.annotations.filter((a) => a.id !== annotationId);
-      }
-    );
+    return this._call("delete_annotation", { annotationId });
   }
 
   async updateAnnotationNote(annotationId: string, note: string | null): Promise<void> {
-    return this._call(
-      "update_annotation_note",
-      { annotationId, note },
-      () => {
-        const target = this.mockStore.annotations.find((a) => a.id === annotationId);
-        if (target) {
-          target.note = note;
-          target.sync.updated_at = new Date().toISOString();
-          target.sync.version += 1;
-        }
-      }
-    );
+    return this._call("update_annotation_note", { annotationId, note });
   }
+
+  // --------------------------------------------------------------------------
+  // Book Mutation
+  // --------------------------------------------------------------------------
 
   async updateBookMetadata(
     bookId: string,
@@ -735,284 +324,99 @@ export class LumaApiClient {
       isbn?: string | null;
     }
   ): Promise<void> {
-    return this._call(
-      "update_book_metadata",
-      { bookId, metadata },
-      () => {
-        const idx = this.mockStore.books.findIndex((b) => b.id === bookId);
-        if (idx !== -1 && this.mockStore.books[idx]) {
-          const b = this.mockStore.books[idx]!;
-          this.mockStore.books[idx] = {
-            ...b,
-            ...metadata,
-            sync: { ...b.sync, updated_at: new Date().toISOString(), version: b.sync.version + 1 },
-          };
-        }
-      }
-    );
+    return this._call("update_book_metadata", { bookId, metadata });
   }
 
   async setReadingStatus(bookId: string, status: ReadingStatus): Promise<void> {
-    return this._call(
-      "set_reading_status",
-      { bookId, status },
-      () => {
-        const idx = this.mockStore.books.findIndex((b) => b.id === bookId);
-        if (idx !== -1 && this.mockStore.books[idx]) {
-          this.mockStore.books[idx]!.reading_status = status;
-        }
-      }
-    );
+    return this._call("set_reading_status", { bookId, status });
   }
 
   async trashBook(bookId: string): Promise<void> {
-    return this._call(
-      "trash_book",
-      { bookId },
-      () => {
-        const idx = this.mockStore.books.findIndex((b) => b.id === bookId);
-        if (idx !== -1 && this.mockStore.books[idx]) {
-          this.mockStore.books[idx]!.library_state = "trashed";
-          this.mockStore.books[idx]!.trashed_at = new Date().toISOString();
-        }
-      }
-    );
+    return this._call("trash_book", { bookId });
   }
 
   async restoreBook(bookId: string): Promise<void> {
-    return this._call(
-      "restore_book",
-      { bookId },
-      () => {
-        const idx = this.mockStore.books.findIndex((b) => b.id === bookId);
-        if (idx !== -1 && this.mockStore.books[idx]) {
-          this.mockStore.books[idx]!.library_state = "active";
-          this.mockStore.books[idx]!.trashed_at = null;
-        }
-      }
-    );
+    return this._call("restore_book", { bookId });
   }
 
   async deleteBookPermanently(bookId: string, deleteFiles: boolean): Promise<void> {
-    return this._call(
-      "delete_book_permanently",
-      { bookId, deleteFiles },
-      () => {
-        const idx = this.mockStore.books.findIndex((b) => b.id === bookId);
-        if (idx !== -1) {
-          this.mockStore.books.splice(idx, 1);
-        }
-      }
-    );
+    return this._call("delete_book_permanently", { bookId, deleteFiles });
   }
 
+  // --------------------------------------------------------------------------
+  // Import
+  // --------------------------------------------------------------------------
+
   async pickImportFiles(): Promise<string[]> {
-    return this._call(
-      "pick_import_files",
-      undefined,
-      () => []
-    );
+    return this._call("pick_import_files");
   }
 
   async pickImportDirectory(): Promise<string | null> {
-    return this._call(
-      "pick_import_directory",
-      undefined,
-      () => null
-    );
+    return this._call("pick_import_directory");
   }
 
   async importFileBytes(filename: string, data: Uint8Array): Promise<ImportJob> {
-    return this._call(
-      "import_file_bytes",
-      { filename, data: Array.from(data) },
-      () => this.importFiles([filename])
-    );
+    return this._call("import_file_bytes", { filename, data: Array.from(data) });
   }
 
   async importFiles(filePaths: string[]): Promise<ImportJob> {
-    return this._call(
-      "import_files",
-      { filePaths },
-      () => {
-        const newItems = filePaths.map((fp, i) => {
-          const name = fp.split(/[\\/]/).pop() || `Imported Book ${this.mockStore.books.length + 1}`;
-          const newBook: Book = {
-            id: `book_mock_${Date.now()}_${i}`,
-            title: name.replace(/\.[^/.]+$/, "").replace(/[_-]/g, " "),
-            subtitle: null,
-            author_ids: [],
-            series_id: null,
-            series_index: null,
-            description: "Locally imported digital publication.",
-            publisher: "Independent",
-            published_date: "2024",
-            language: "en",
-            isbn: null,
-            cover_image_id: null,
-            cover_image_path: null,
-            primary_file_id: `file_mock_${Date.now()}_${i}`,
-            reading_status: "unread",
-            library_state: "active",
-            trashed_at: null,
-            sync: {
-              version: 1,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-              device_id: "dev_01",
-              is_deleted: false,
-            },
-          };
-          this.mockStore.books.push(newBook);
-          return {
-            source_path: fp,
-            original_filename: name,
-            status: "success" as const,
-            book_id: newBook.id,
-            file_id: newBook.primary_file_id,
-            duplicate_level: "unrelated" as const,
-            error_message: null,
-          };
-        });
-
-        return {
-          id: `job_${Date.now()}`,
-          total_files: filePaths.length,
-          completed_count: filePaths.length,
-          failed_count: 0,
-          skipped_count: 0,
-          status: "completed" as const,
-          items: newItems,
-          started_at: new Date().toISOString(),
-          ended_at: new Date().toISOString(),
-        };
-      }
-    );
+    return this._call("import_files", { filePaths });
   }
 
   async importDirectory(dirPath: string, recursive: boolean): Promise<ImportJob> {
-    return this._call(
-      "import_directory",
-      { dirPath, recursive },
-      () => this.importFiles([`${dirPath}/sample_epub.epub`, `${dirPath}/sample_pdf.pdf`])
-    );
+    return this._call("import_directory", { dirPath, recursive });
   }
 
+  // --------------------------------------------------------------------------
+  // Collections, Tags, Authors, Series
+  // --------------------------------------------------------------------------
+
   async listCollections(): Promise<Collection[]> {
-    return this._call(
-      "list_collections",
-      undefined,
-      () => this.mockStore.collections
-    );
+    return this._call("list_collections");
   }
 
   async createCollection(name: string, description?: string): Promise<Collection> {
-    return this._call(
-      "create_collection",
-      { name, description },
-      () => {
-        const newCol: Collection = {
-          id: `col_${Date.now()}`,
-          name,
-          description: description || null,
-          book_ids: [],
-          sync: { version: 1, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), device_id: "dev_01", is_deleted: false },
-        };
-        this.mockStore.collections.push(newCol);
-        return newCol;
-      }
-    );
+    return this._call("create_collection", { name, description });
   }
 
   async addBooksToCollection(collectionId: string, bookIds: string[]): Promise<void> {
-    return this._call(
-      "add_books_to_collection",
-      { collectionId, bookIds },
-      () => {
-        const col = this.mockStore.collections.find((c) => c.id === collectionId);
-        if (col) {
-          for (const bid of bookIds) {
-            if (!col.book_ids.includes(bid)) col.book_ids.push(bid);
-          }
-        }
-      }
-    );
+    return this._call("add_books_to_collection", { collectionId, bookIds });
   }
 
   async listTags(): Promise<Tag[]> {
-    return this._call(
-      "list_tags",
-      undefined,
-      () => this.mockStore.tags
-    );
+    return this._call("list_tags");
   }
 
   async addTagToBook(bookId: string, tagName: string): Promise<Tag> {
-    return this._call(
-      "add_tag_to_book",
-      { bookId, tagName },
-      () => {
-        let tag = this.mockStore.tags.find((t) => t.name.toLowerCase() === tagName.toLowerCase());
-        if (!tag) {
-          tag = {
-            id: `tag_${Date.now()}`,
-            name: tagName,
-            color_hex: "#38bdf8",
-            sync: { version: 1, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), device_id: "dev_01", is_deleted: false },
-          };
-          this.mockStore.tags.push(tag);
-        }
-        return tag;
-      }
-    );
+    return this._call("add_tag_to_book", { bookId, tagName });
   }
 
   async removeTagFromBook(bookId: string, tagId: string): Promise<void> {
-    return this._call(
-      "remove_tag_from_book",
-      { bookId, tagId },
-      () => {}
-    );
+    return this._call("remove_tag_from_book", { bookId, tagId });
   }
 
   async listAuthors(): Promise<Author[]> {
-    return this._call(
-      "list_authors",
-      undefined,
-      () => []
-    );
+    return this._call("list_authors");
   }
 
   async listSeries(): Promise<Series[]> {
-    return this._call(
-      "list_series",
-      undefined,
-      () => []
-    );
+    return this._call("list_series");
   }
 
   async reconcileLibraryFiles(): Promise<number> {
-    return this._call(
-      "reconcile_library_files",
-      undefined,
-      () => 0
-    );
+    return this._call("reconcile_library_files");
   }
 
+  // --------------------------------------------------------------------------
+  // Reading Progress & Anchors
+  // --------------------------------------------------------------------------
+
   async getReadingProgress(bookId: string): Promise<ReadingProgress | null> {
-    return this._call(
-      "get_reading_progress",
-      { bookId },
-      () => null
-    );
+    return this._call("get_reading_progress", { bookId });
   }
 
   async saveReadingProgress(progress: ReadingProgress): Promise<void> {
-    return this._call(
-      "save_reading_progress",
-      { progress },
-      () => {}
-    );
+    return this._call("save_reading_progress", { progress });
   }
 
   async resolveAnchor(
@@ -1021,284 +425,151 @@ export class LumaApiClient {
     suffix: string | null,
     documentText: string
   ): Promise<ResolutionResult> {
-    return this._call(
-      "resolve_anchor",
-      { exact, prefix, suffix, documentText },
-      () => {
-        const idx = documentText.indexOf(exact);
-        if (idx !== -1) {
-          return {
-            status: "highconfidence",
-            data: {
-              start_char: idx,
-              end_char: idx + exact.length,
-              matched_text: exact,
-              confidence_score: 1.0,
-              exact_text_matched: true,
-              prefix_matched: true,
-              suffix_matched: true,
-              fuzzy_similarity: 1.0,
-            },
-          };
-        }
-
-        return {
-          status: "failed",
-          data: {
-            reason: "Anchor text not found in document",
-          },
-        };
-      }
-    );
+    return this._call("resolve_anchor", { exact, prefix, suffix, documentText });
   }
 
+  // --------------------------------------------------------------------------
   // Bulk Operations
+  // --------------------------------------------------------------------------
+
   async bulkAddTags(bookIds: string[], tagNames: string[]): Promise<BulkOperationResult> {
-    return this._call(
-      "bulk_add_tags",
-      { payload: { book_ids: bookIds, tag_names: tagNames } },
-      () => {
-        const count = bookIds.length * tagNames.length;
-        return { total: count, successful: count, failed: 0 };
-      }
-    );
+    return this._call("bulk_add_tags", { payload: { book_ids: bookIds, tag_names: tagNames } });
   }
 
-  async bulkAddToCollection(collectionId: string, bookIds: string[]): Promise<BulkOperationResult> {
-    return this._call(
-      "bulk_add_to_collection",
-      { payload: { collection_id: collectionId, book_ids: bookIds } },
-      () => ({ total: bookIds.length, successful: bookIds.length, failed: 0 })
-    );
+  async bulkAddToCollection(
+    collectionId: string,
+    bookIds: string[]
+  ): Promise<BulkOperationResult> {
+    return this._call("bulk_add_to_collection", {
+      payload: { collection_id: collectionId, book_ids: bookIds },
+    });
   }
 
   async bulkTrashBooks(bookIds: string[]): Promise<BulkOperationResult> {
-    return this._call(
-      "bulk_trash_books",
-      { bookIds },
-      () => ({ total: bookIds.length, successful: bookIds.length, failed: 0 })
-    );
+    return this._call("bulk_trash_books", { bookIds });
   }
 
-  async bulkSetReadingStatus(bookIds: string[], status: ReadingStatus): Promise<BulkOperationResult> {
-    return this._call(
-      "bulk_set_reading_status",
-      { payload: { book_ids: bookIds, status } },
-      () => ({ total: bookIds.length, successful: bookIds.length, failed: 0 })
-    );
+  async bulkSetReadingStatus(
+    bookIds: string[],
+    status: ReadingStatus
+  ): Promise<BulkOperationResult> {
+    return this._call("bulk_set_reading_status", { payload: { book_ids: bookIds, status } });
   }
 
-  // Search
-  async searchLibrary(query: string, bookIdFilter?: string | null, maxResults?: number): Promise<{ hits: DocumentSearchMatch[]; total_count: number; query_duration_ms: number }> {
-    return this._call(
-      "search_library",
-      { query, bookIdFilter, maxResults },
-      () => ({ hits: [], total_count: 0, query_duration_ms: 0 })
-    );
+  async searchLibrary(
+    query: string,
+    bookIdFilter?: string | null,
+    maxResults?: number
+  ): Promise<{ hits: DocumentSearchMatch[]; total_count: number; query_duration_ms: number }> {
+    return this._call("search_library", { query, bookIdFilter, maxResults });
   }
 
+  // --------------------------------------------------------------------------
   // Settings
+  // --------------------------------------------------------------------------
+
   async getSetting<T = unknown>(key: string): Promise<T | null> {
-    return this._call(
-      "get_setting",
-      { key },
-      () => {
-        try {
-          if (typeof localStorage !== "undefined") {
-            const val = localStorage.getItem(`luma_setting_${key}`);
-            if (val) return JSON.parse(val);
-          }
-        } catch (err) {
-          this.logger.warn(`localStorage getSetting("${key}") failed, using in-memory mock store:`, err);
-        }
-        return (this.mockStore.settings[key] as T) ?? null;
-      }
-    );
+    return this._call("get_setting", { key });
   }
 
   async setSetting(key: string, value: unknown): Promise<void> {
-    return this._call(
-      "set_setting",
-      { key, value },
-      () => {
-        try {
-          if (typeof localStorage !== "undefined") {
-            localStorage.setItem(`luma_setting_${key}`, JSON.stringify(value));
-          }
-        } catch (err) {
-          this.logger.warn(`localStorage setSetting("${key}") failed, setting kept in memory only:`, err);
-        }
-        this.mockStore.settings[key] = value;
-      }
-    );
+    return this._call("set_setting", { key, value });
   }
 
   async getAllSettings(): Promise<Record<string, unknown>> {
-    return this._call(
-      "get_all_settings",
-      undefined,
-      () => ({ ...this.mockStore.settings })
-    );
+    return this._call("get_all_settings");
   }
 
-  // Backup & Restore
+  // --------------------------------------------------------------------------
+  // Backup, Maintenance, Diagnostics, Jobs
+  // --------------------------------------------------------------------------
+
   async createBackup(prefix?: string): Promise<BackupRecord> {
-    return this._call(
-      "create_backup",
-      { prefix },
-      () => {
-        const pfx = prefix || "luma_backup";
-        return {
-          id: `backup_${Date.now()}`,
-          backup_name: `${pfx}_${Date.now()}.luma-backup`,
-          file_path: `/data/backups/${pfx}_${Date.now()}.luma-backup`,
-          file_size_bytes: 1048576,
-          sha256_hash: "mockhash",
-          books_count: this.mockStore.books.length,
-          annotations_count: this.mockStore.annotations.length,
-          bookmarks_count: this.mockStore.bookmarks.length,
-          created_at: new Date().toISOString(),
-        };
-      }
-    );
+    return this._call("create_backup", { prefix });
   }
 
   async listBackups(): Promise<BackupRecord[]> {
-    return this._call(
-      "list_backups",
-      undefined,
-      () => []
-    );
+    return this._call("list_backups");
   }
 
   async inspectBackup(backupPath: string): Promise<BackupPreview> {
-    return this._call(
-      "inspect_backup",
-      { backupPath },
-      () => ({
-        manifest: {
-          version: 1,
-          created_at: new Date().toISOString(),
-          books_count: 5,
-          annotations_count: 10,
-          bookmarks_count: 3,
-          settings_count: 2,
-        },
-        file_size_bytes: 1048576,
-        sha256_hash: "mockhash",
-      })
-    );
+    return this._call("inspect_backup", { backupPath });
   }
 
   async restoreBackup(backupPath: string): Promise<BackupManifest> {
-    return this._call(
-      "restore_backup",
-      { backupPath },
-      () => ({
-        version: 1,
-        created_at: new Date().toISOString(),
-        books_count: 5,
-        annotations_count: 10,
-        bookmarks_count: 3,
-        settings_count: 2,
-      })
-    );
+    return this._call("restore_backup", { backupPath });
   }
 
-  // Maintenance
   async reconcileFiles(): Promise<MaintenanceResult> {
-    return this._call(
-      "maintenance_reconcile_files",
-      undefined,
-      () => ({ operation: "reconcile_files", items_processed: 0, duration_ms: 5, message: "OK" })
-    );
+    return this._call("maintenance_reconcile_files");
   }
 
   async rebuildSearchIndex(): Promise<MaintenanceResult> {
-    return this._call(
-      "maintenance_rebuild_search_index",
-      undefined,
-      () => ({ operation: "rebuild_search_index", items_processed: this.mockStore.books.length, duration_ms: 10, message: "OK" })
-    );
+    return this._call("maintenance_rebuild_search_index");
   }
 
   async cleanupCaches(): Promise<MaintenanceResult> {
-    return this._call(
-      "maintenance_cleanup_caches",
-      undefined,
-      () => ({ operation: "cleanup_caches", items_processed: 0, duration_ms: 2, message: "OK" })
-    );
+    return this._call("maintenance_cleanup_caches");
   }
 
   async vacuumDatabase(): Promise<MaintenanceResult> {
-    return this._call(
-      "maintenance_vacuum_database",
-      undefined,
-      () => ({ operation: "vacuum_database", items_processed: 1, duration_ms: 15, message: "OK" })
-    );
+    return this._call("maintenance_vacuum_database");
   }
 
+  // Named aliases kept for call-site compatibility.
   async maintenanceReconcileFiles(): Promise<MaintenanceResult> {
     return this.reconcileFiles();
   }
+
   async maintenanceRebuildSearchIndex(): Promise<MaintenanceResult> {
     return this.rebuildSearchIndex();
   }
+
   async maintenanceCleanupCaches(): Promise<MaintenanceResult> {
     return this.cleanupCaches();
   }
+
   async maintenanceVacuumDatabase(): Promise<MaintenanceResult> {
     return this.vacuumDatabase();
   }
 
-  // Diagnostics
   async runDiagnostics(): Promise<DiagnosticsReport> {
-    return this._call(
-      "run_diagnostics",
-      undefined,
-      () => ({
-        overall_status: "healthy",
-        timestamp: new Date().toISOString(),
-        subsystems: [
-          { name: "Database", status: "healthy", details: "Mock in-memory database" },
-          { name: "Filesystem", status: "healthy", details: "Mock storage" },
-          { name: "Search", status: "healthy", details: "Mock FTS5" },
-          { name: "Cache", status: "healthy", details: "Mock cache" },
-          { name: "Jobs", status: "healthy", details: "0 active" },
-        ],
-        metrics: { total_books: this.mockStore.books.length },
-      })
-    );
+    return this._call("run_diagnostics");
   }
 
-  // Jobs
   async getJobProgress(jobId: string): Promise<JobProgress | null> {
-    return this._call(
-      "get_job_progress",
-      { jobId },
-      () => null
-    );
+    return this._call("get_job_progress", { jobId });
   }
 
   async cancelJob(jobId: string): Promise<boolean> {
-    return this._call(
-      "cancel_job",
-      { jobId },
-      () => true
-    );
+    return this._call("cancel_job", { jobId });
   }
 
   async listRecentJobs(limit?: number): Promise<JobProgress[]> {
-    return this._call(
-      "list_recent_jobs",
-      { limit },
-      () => []
-    );
+    return this._call("list_recent_jobs", { limit });
   }
 
+  // --------------------------------------------------------------------------
   // Event Listeners
-  async onDomainEvent<T = unknown>(event: string, callback: (payload: T) => void): Promise<() => void> {
-    if (this.isMock()) {
+  // --------------------------------------------------------------------------
+
+  async onDomainEvent<T = unknown>(
+    event: string,
+    callback: (payload: T) => void
+  ): Promise<() => void> {
+    if (!this.config.transport && !isTauri()) {
+      this.logger.warn(
+        `Cannot subscribe to [${event}]: domain events require the desktop runtime.`
+      );
+      return () => {};
+    }
+    if (this.config.transport) {
+      if (this.config.transport.subscribe) {
+        return this.config.transport.subscribe<T>(event, callback);
+      }
+      this.logger.debug(
+        `Domain event subscription [${event}] is not available over an injected transport.`
+      );
       return () => {};
     }
     try {
@@ -1327,173 +598,96 @@ export class LumaApiClient {
     return this.onDomainEvent("luma://annotation/changed", callback);
   }
 
-  // ============================================================================
+  // --------------------------------------------------------------------------
   // Knowledge: Notes
-  // ============================================================================
+  // --------------------------------------------------------------------------
+
   async listNotes(): Promise<Note[]> {
-    return this._call("list_notes", undefined, () => {
-      if (typeof localStorage !== "undefined") {
-        const saved = localStorage.getItem("luma_notes_workspace");
-        if (saved) {
-          try {
-            return JSON.parse(saved);
-          } catch (err) {
-            this.logger.warn("localStorage notes store is corrupt, returning empty list:", err);
-            return [];
-          }
-        }
-      }
-      return [];
-    });
+    return this._call("list_notes");
   }
 
   async createNote(note: Note): Promise<Note> {
-    return this._call("create_note", { note }, () => {
-      if (typeof localStorage !== "undefined") {
-        const notes = this.listNotesSync();
-        const existingIdx = notes.findIndex((n) => n.id === note.id);
-        if (existingIdx >= 0) {
-          notes[existingIdx] = note;
-        } else {
-          notes.push(note);
-        }
-        localStorage.setItem("luma_notes_workspace", JSON.stringify(notes));
-      }
-      return note;
-    });
+    return this._call("create_note", { note });
   }
 
   async updateNote(note: Note): Promise<Note> {
-    return this._call("update_note", { note }, () => {
-      if (typeof localStorage !== "undefined") {
-        const notes = this.listNotesSync();
-        const idx = notes.findIndex((n) => n.id === note.id);
-        if (idx >= 0) notes[idx] = note;
-        else notes.push(note);
-        localStorage.setItem("luma_notes_workspace", JSON.stringify(notes));
-      }
-      return note;
-    });
+    return this._call("update_note", { note });
   }
 
   async deleteNote(id: string): Promise<void> {
-    return this._call("delete_note", { id }, () => {
-      if (typeof localStorage !== "undefined") {
-        const notes = this.listNotesSync().filter((n) => n.id !== id);
-        localStorage.setItem("luma_notes_workspace", JSON.stringify(notes));
-      }
-    });
+    return this._call("delete_note", { id });
   }
 
-  // ============================================================================
+  // --------------------------------------------------------------------------
   // Knowledge: Flashcards & Reviews
-  // ============================================================================
+  // --------------------------------------------------------------------------
+
   async listFlashcards(): Promise<Flashcard[]> {
-    return this._call("list_flashcards", undefined, () => {
-      if (typeof localStorage !== "undefined") {
-        const saved = localStorage.getItem("luma_flashcards");
-        if (saved) {
-          try {
-            return JSON.parse(saved);
-          } catch {
-            return [];
-          }
-        }
-      }
-      return [];
-    });
+    return this._call("list_flashcards");
   }
 
   async createFlashcard(flashcard: Flashcard): Promise<Flashcard> {
-    return this._call("create_flashcard", { flashcard }, () => {
-      if (typeof localStorage !== "undefined") {
-        const cards = this.listFlashcardsSync();
-        const existingIdx = cards.findIndex((c) => c.id === flashcard.id);
-        if (existingIdx >= 0) {
-          cards[existingIdx] = flashcard;
-        } else {
-          cards.push(flashcard);
-        }
-        localStorage.setItem("luma_flashcards", JSON.stringify(cards));
-      }
-      return flashcard;
-    });
+    return this._call("create_flashcard", { flashcard });
   }
 
   async recordStudyReview(review: StudyReview): Promise<StudyReview> {
-    return this._call("record_study_review", { review }, () => review);
+    return this._call("record_study_review", { review });
   }
 
   async deleteFlashcard(id: string): Promise<void> {
-    return this._call("delete_flashcard", { id }, () => {
-      if (typeof localStorage !== "undefined") {
-        const cards = this.listFlashcardsSync().filter((c) => c.id !== id);
-        localStorage.setItem("luma_flashcards", JSON.stringify(cards));
-      }
-    });
+    return this._call("delete_flashcard", { id });
   }
 
-  // ============================================================================
+  // --------------------------------------------------------------------------
   // Knowledge: Research Workspace
-  // ============================================================================
+  // --------------------------------------------------------------------------
+
   async listResearchProjects(): Promise<ResearchProject[]> {
-    return this._call("list_research_projects", undefined, () => []);
+    return this._call("list_research_projects");
   }
 
   async createResearchProject(project: ResearchProject): Promise<ResearchProject> {
-    return this._call("create_research_project", { project }, () => project);
+    return this._call("create_research_project", { project });
   }
 
   async deleteResearchProject(id: string): Promise<void> {
-    return this._call("delete_research_project", { id }, () => {});
+    return this._call("delete_research_project", { id });
   }
 
   async listResearchQuestions(projectId: string): Promise<ResearchQuestion[]> {
-    return this._call("list_research_questions", { projectId }, () => []);
+    return this._call("list_research_questions", { projectId });
   }
 
   async createResearchQuestion(question: ResearchQuestion): Promise<ResearchQuestion> {
-    return this._call("create_research_question", { question }, () => question);
+    return this._call("create_research_question", { question });
   }
 
   async listResearchEvidence(projectId: string): Promise<ResearchEvidence[]> {
-    return this._call("list_research_evidence", { projectId }, () => []);
+    return this._call("list_research_evidence", { projectId });
   }
 
   async createResearchEvidence(evidence: ResearchEvidence): Promise<ResearchEvidence> {
-    return this._call("create_research_evidence", { evidence }, () => evidence);
+    return this._call("create_research_evidence", { evidence });
   }
 
   async deleteResearchEvidence(id: string): Promise<void> {
-    return this._call("delete_research_evidence", { id }, () => {});
+    return this._call("delete_research_evidence", { id });
   }
 
   async saveResearchDraft(draft: ResearchDraft): Promise<ResearchDraft> {
-    return this._call("save_research_draft", { draft }, () => draft);
+    return this._call("save_research_draft", { draft });
   }
 
   async getResearchDraft(projectId: string): Promise<ResearchDraft | null> {
-    return this._call("get_research_draft", { projectId }, () => null);
+    return this._call("get_research_draft", { projectId });
   }
 
-  // ============================================================================
-  // Reading Sessions & Real Analytics
-  // ============================================================================
+  // --------------------------------------------------------------------------
+  // Reading Sessions & Analytics
+  // --------------------------------------------------------------------------
+
   async startReadingSession(bookId: string, startProgress: number): Promise<ReadingSession> {
-    return this._call(
-      "start_reading_session",
-      { bookId, startProgress },
-      () => ({
-        id: `sess_${Date.now()}`,
-        book_id: bookId,
-        device_id: "local_dev",
-        started_at: new Date().toISOString(),
-        ended_at: null,
-        duration_seconds: 0,
-        start_progress_pct: startProgress,
-        end_progress_pct: startProgress,
-      })
-    );
+    return this._call("start_reading_session", { bookId, startProgress });
   }
 
   async completeReadingSession(
@@ -1501,35 +695,21 @@ export class LumaApiClient {
     endProgress: number,
     durationSeconds: number
   ): Promise<void> {
-    return this._call(
-      "complete_reading_session",
-      { sessionId, endProgress, durationSeconds },
-      () => {}
-    );
+    return this._call("complete_reading_session", { sessionId, endProgress, durationSeconds });
   }
 
   async getReadingAnalytics(): Promise<ReadingAnalytics> {
-    return this._call("get_reading_analytics", undefined, () => ({
-      total_reading_time_seconds: 0,
-      weekly_reading_seconds: 0,
-      books_completed_count: this.mockStore.books.filter((b) => b.reading_status === "completed").length,
-      daily_reading_minutes_last_28_days: Array.from({ length: 28 }, (_, i) => {
-        const d = new Date();
-        d.setDate(d.getDate() - (27 - i));
-        return {
-          date: d.toISOString().substring(0, 10),
-          minutes: 0,
-          intensity: 0,
-        };
-      }),
-      recent_sessions: [],
-      time_focus_data: [0, 0, 0, 0, 0, 0],
-    }));
+    return this._call("get_reading_analytics");
   }
 
-  // ============================================================================
+  // --------------------------------------------------------------------------
   // Legacy LocalStorage -> SQLite Migration
-  // ============================================================================
+  //
+  // Real product behaviour: users upgrading from the pre-SQLite build have
+  // notes and flashcards in localStorage. This reads that user data once and
+  // hands it to the owning store. It never invents records.
+  // --------------------------------------------------------------------------
+
   async migrateLegacyKnowledge(): Promise<void> {
     if (typeof localStorage === "undefined") return;
     const migrationFlag = localStorage.getItem("luma_knowledge_migrated_v1");
@@ -1594,30 +774,10 @@ export class LumaApiClient {
       this.logger.error("Failed during legacy knowledge migration:", e);
     }
   }
-
-  private listNotesSync(): Note[] {
-    if (typeof localStorage === "undefined") return [];
-    const saved = localStorage.getItem("luma_notes_workspace");
-    try {
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  }
-
-  private listFlashcardsSync(): Flashcard[] {
-    if (typeof localStorage === "undefined") return [];
-    const saved = localStorage.getItem("luma_flashcards");
-    try {
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  }
 }
 
 // ============================================================================
-// 5. Singleton Factory & Exports (100% Backward-Compatible)
+// 4. Singleton Factory & Exports
 // ============================================================================
 
 let _instance: LumaApiClient | null = null;
@@ -1633,4 +793,18 @@ export function resetLumaApi(): void {
   _instance = null;
 }
 
-export const LumaApi = createLumaApi();
+/**
+ * Live delegate to the current client instance.
+ *
+ * Modules import this binding once, at module-evaluation time, but the runtime
+ * transport is only chosen during bootstrap. Forwarding every property access
+ * to the *current* instance keeps those imports correct after bootstrap
+ * installs a transport, instead of silently pinning the pre-bootstrap client.
+ */
+export const LumaApi: LumaApiClient = new Proxy({} as LumaApiClient, {
+  get(_target, property) {
+    const instance = createLumaApi();
+    const value = Reflect.get(instance as object, property);
+    return typeof value === "function" ? value.bind(instance) : value;
+  },
+});

@@ -195,11 +195,8 @@ impl ImportService {
         }
 
         // 5. Logical Book Resolution
-        let book_repo = BookRepository::new(self.db.clone());
-        let file_repo = BookFileRepository::new(self.db.clone());
         let author_repo = AuthorRepository::new(self.db.clone());
         let series_repo = SeriesRepository::new(self.db.clone());
-        let tag_repo = TagRepository::new(self.db.clone());
         let cover_repo = CoverRepository::new(self.db.clone());
 
         let mut book = Book::new(title, device_id);
@@ -253,30 +250,83 @@ impl ImportService {
             canonical_str.clone(),
             format,
             file_size_bytes,
-            sha256_hash,
+            sha256_hash.clone(),
         );
         book_file.canonical_path = Some(canonical_str);
-        book.primary_file_id = Some(book_file.id);
 
         // 8. Database transaction persistence
-        book_repo
-            .insert(&book)
-            .map_err(|e| LumaError::StorageError(e.to_string()))?;
-        file_repo
-            .insert(&book_file)
-            .map_err(|e| LumaError::StorageError(e.to_string()))?;
+        //
+        // Book, file, tags, and the FTS index row are written in ONE transaction on the
+        // writer connection. Previously each repository call auto-committed independently,
+        // so a failure mid-sequence left the library in a partial state (book without file,
+        // file without book, or stale FTS). If the transaction fails, the staged file that
+        // was already committed to the library directory is removed as compensation so no
+        // orphaned file remains.
+        let persistence_result: crate::error::StorageResult<()> = self.db.with_write_conn(|conn| {
+            let tx = conn.transaction()?;
 
-        for sub in subjects {
-            let tag = tag_repo
-                .get_or_create_by_name(&sub, device_id)
-                .map_err(|e| LumaError::StorageError(e.to_string()))?;
-            tag_repo
-                .add_tag_to_book(&book.id, &tag.id)
-                .map_err(|e| LumaError::StorageError(e.to_string()))?;
+            BookRepository::insert_with_conn(&tx, &book)?;
+            BookFileRepository::insert_with_conn(&tx, &book_file)?;
+
+            for sub in &subjects {
+                let tag = TagRepository::get_or_create_by_name_with_conn(&tx, sub, device_id)?;
+                TagRepository::add_tag_to_book_with_conn(&tx, &book.id, &tag.id)?;
+            }
+
+            Self::update_fts_index_with_conn(&tx, &book)?;
+
+            tx.commit()?;
+            Ok(())
+        });
+
+        if let Err(err) = persistence_result {
+            // BACKEND-03: if the failure is the UNIQUE(hash) constraint, a
+            // concurrent import of the same physical file won the race. That
+            // is not an error — resolve the existing book and return it,
+            // making concurrent duplicate import idempotent end-to-end.
+            let is_duplicate_race = err
+                .to_string()
+                .to_lowercase()
+                .contains("unique constraint failed");
+            if is_duplicate_race {
+                let file_repo = BookFileRepository::new(self.db.clone());
+                if let Ok(Some(existing_file)) = file_repo.get_by_hash(&sha256_hash) {
+                    let book_repo = BookRepository::new(self.db.clone());
+                    if let Ok(Some(existing_book)) = book_repo.get_by_id(&existing_file.book_id) {
+                        tracing::info!(
+                            book_id = %existing_book.id,
+                            "Concurrent duplicate import resolved to existing book via hash constraint"
+                        );
+                        let _ = fs::remove_file(&permanent_file_path);
+                        let existing_file_id = existing_file.id;
+                        let existing_book_id = existing_file.book_id;
+                        return Ok((
+                            existing_book,
+                            existing_file,
+                            DuplicateAssessment {
+                                level: DuplicateMatchLevel::ExactDuplicate,
+                                existing_book_id: Some(existing_book_id),
+                                existing_file_id: Some(existing_file_id),
+                                confidence_score: 1.0,
+                                reason: "Concurrent import: identical file hash already persisted"
+                                    .to_string(),
+                            },
+                        ));
+                    }
+                }
+            }
+            let err = LumaError::StorageError(err.to_string());
+            tracing::error!(
+                book_id = %book.id,
+                file = %permanent_file_path.display(),
+                error = %err,
+                "Import database persistence failed; removing committed library file as compensation"
+            );
+            // Compensation: remove the file that was already committed to the library
+            // directory so a failed import leaves no orphaned artifact behind.
+            let _ = fs::remove_file(&permanent_file_path);
+            return Err(err);
         }
-
-        // 9. Update FTS5 Search Index
-        self.update_fts_index(&book)?;
 
         // 10. Invalidate search cache & Publish Domain Event
         if let Ok(handle) = tokio::runtime::Handle::try_current() {
@@ -452,50 +502,68 @@ impl ImportService {
         Ok(())
     }
 
+    /// FTS update on the dedicated writer connection for callers outside the import
+    /// transaction (kept for other services; the import path uses the in-transaction variant).
+    #[allow(dead_code)]
     fn update_fts_index(&self, book: &Book) -> Result<()> {
         self.db
-            .with_conn(|conn| {
-                let mut authors_stmt = conn.prepare(
-                    r#"
+            .with_write_conn(|conn| {
+                Self::update_fts_index_with_conn(conn, book)?;
+                self.event_bus.publish(DomainEvent::SearchIndexUpdated {
+                    book_id: Some(book.id),
+                });
+                Ok(())
+            })
+            .map_err(|e| LumaError::StorageError(e.to_string()))
+    }
+
+    /// Connection-injected FTS update so the index write participates in the
+    /// caller's transaction (FTS5 is transactional in SQLite).
+    fn update_fts_index_with_conn(
+        conn: &rusqlite::Connection,
+        book: &Book,
+    ) -> crate::error::StorageResult<()> {
+        {
+            let mut authors_stmt = conn.prepare(
+                r#"
                 SELECT a.name FROM authors a
                 JOIN book_authors ba ON ba.author_id = a.id
                 WHERE ba.book_id = ?1
                 "#,
-                )?;
-                let author_rows =
-                    authors_stmt.query_map([book.id.to_string()], |r| r.get::<_, String>(0))?;
-                let mut authors_vec = Vec::new();
-                for name in author_rows.flatten() {
-                    authors_vec.push(name);
-                }
-                let authors_str = authors_vec.join(", ");
+            )?;
+            let author_rows =
+                authors_stmt.query_map([book.id.to_string()], |r| r.get::<_, String>(0))?;
+            let mut authors_vec = Vec::new();
+            for name in author_rows.flatten() {
+                authors_vec.push(name);
+            }
+            let authors_str = authors_vec.join(", ");
 
-                let series_str: String = if let Some(ref sid) = book.series_id {
-                    conn.query_row(
-                        "SELECT title FROM series WHERE id = ?1",
-                        [sid.to_string()],
-                        |r| r.get(0),
-                    )?
-                } else {
-                    String::new()
-                };
+            let series_str: String = if let Some(ref sid) = book.series_id {
+                conn.query_row(
+                    "SELECT title FROM series WHERE id = ?1",
+                    [sid.to_string()],
+                    |r| r.get(0),
+                )?
+            } else {
+                String::new()
+            };
 
-                let mut tags_stmt = conn.prepare(
-                    r#"
+            let mut tags_stmt = conn.prepare(
+                r#"
                 SELECT t.name FROM tags t
                 JOIN book_tags bt ON bt.tag_id = t.id
                 WHERE bt.book_id = ?1
                 "#,
-                )?;
-                let tag_rows =
-                    tags_stmt.query_map([book.id.to_string()], |r| r.get::<_, String>(0))?;
-                let mut tags_vec = Vec::new();
-                for tag_name in tag_rows.flatten() {
-                    tags_vec.push(tag_name);
-                }
-                let tags_str = tags_vec.join(", ");
+            )?;
+            let tag_rows = tags_stmt.query_map([book.id.to_string()], |r| r.get::<_, String>(0))?;
+            let mut tags_vec = Vec::new();
+            for tag_name in tag_rows.flatten() {
+                tags_vec.push(tag_name);
+            }
+            let tags_str = tags_vec.join(", ");
 
-                conn.execute(
+            conn.execute(
                     r#"
                 INSERT OR REPLACE INTO books_fts (book_id, title, subtitle, authors, series, tags, description, isbn)
                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
@@ -511,14 +579,7 @@ impl ImportService {
                         book.isbn.clone().unwrap_or_default(),
                     ],
                 )?;
-                Ok(())
-            })
-            .map_err(|e| LumaError::StorageError(e.to_string()))?;
-
-        self.event_bus.publish(DomainEvent::SearchIndexUpdated {
-            book_id: Some(book.id),
-        });
-
-        Ok(())
+            Ok(())
+        }
     }
 }

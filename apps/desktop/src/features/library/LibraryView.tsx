@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, useCallback } from "react";
+import React, { Suspense, lazy, useEffect, useState, useMemo, useCallback } from "react";
 import { Author, Book, BookDetailViewData, Collection, DocumentFormat, ImportJob, LibrarySortBy, ReadingAnalytics, ReadingStatus, Tag } from "@luma/shared-types";
 import { BookCard, BookTable, Pagination } from "@luma/library-ui";
 import { LumaApi, isTauri } from "../../lib/tauri";
@@ -12,18 +12,60 @@ import { CollectionModal } from "./CollectionModal";
 import { DropZoneOverlay } from "./DropZoneOverlay";
 import { LumaHomeView } from "./LumaHomeView";
 import { DuplicateReviewModal } from "./DuplicateReviewModal";
-import { GlobalAnnotationCenter, AnnotationItem } from "../annotations/GlobalAnnotationCenter";
-import { ReadingIntelligenceDashboard, DashboardData } from "../intelligence/ReadingIntelligenceDashboard";
-import { KnowledgeHome } from "../workspace/KnowledgeHome";
-import { NotesWorkspace } from "../workspace/NotesWorkspace";
-import { StudyFlashcards } from "../workspace/StudyFlashcards";
-import { ResearchProjectWorkspace } from "../workspace/ResearchProjectWorkspace";
-import { SyncDeviceCenter } from "../devices/SyncDeviceCenter";
-import { IntegrationsPluginsView } from "../plugins/IntegrationsPluginsView";
-import { CommandPaletteModal } from "../palette/CommandPaletteModal";
-import { SettingsModal } from "../settings/SettingsModal";
+// Types only — erased at build time so they do not pull the module in eagerly.
+import type { AnnotationItem } from "../annotations/GlobalAnnotationCenter";
+import type { DashboardData } from "../intelligence/ReadingIntelligenceDashboard";
 import { BookOpen, Loader2, AlertCircle } from "lucide-react";
 import { perfTelemetry } from "../../lib/perfTelemetry";
+import { clampPage, paginate } from "../../lib/pagination";
+import { formatReadingDuration } from "../../lib/readingFormat";
+import { buildReport, describeError, reportError } from "../../lib/errorReporting";
+
+// Every non-library screen is split out of the initial bundle (FE-HIGH-4). The
+// shell plus this library view is the landing surface; workspace, annotation,
+// device, plugin and settings screens are fetched on first visit.
+const GlobalAnnotationCenter = lazy(() =>
+  import("../annotations/GlobalAnnotationCenter").then((m) => ({ default: m.GlobalAnnotationCenter }))
+);
+const ReadingIntelligenceDashboard = lazy(() =>
+  import("../intelligence/ReadingIntelligenceDashboard").then((m) => ({
+    default: m.ReadingIntelligenceDashboard,
+  }))
+);
+const KnowledgeHome = lazy(() =>
+  import("../workspace/KnowledgeHome").then((m) => ({ default: m.KnowledgeHome }))
+);
+const NotesWorkspace = lazy(() =>
+  import("../workspace/NotesWorkspace").then((m) => ({ default: m.NotesWorkspace }))
+);
+const StudyFlashcards = lazy(() =>
+  import("../workspace/StudyFlashcards").then((m) => ({ default: m.StudyFlashcards }))
+);
+const ResearchProjectWorkspace = lazy(() =>
+  import("../workspace/ResearchProjectWorkspace").then((m) => ({
+    default: m.ResearchProjectWorkspace,
+  }))
+);
+const SyncDeviceCenter = lazy(() =>
+  import("../devices/SyncDeviceCenter").then((m) => ({ default: m.SyncDeviceCenter }))
+);
+const IntegrationsPluginsView = lazy(() =>
+  import("../plugins/IntegrationsPluginsView").then((m) => ({ default: m.IntegrationsPluginsView }))
+);
+const CommandPaletteModal = lazy(() =>
+  import("../palette/CommandPaletteModal").then((m) => ({ default: m.CommandPaletteModal }))
+);
+const SettingsModal = lazy(() =>
+  import("../settings/SettingsModal").then((m) => ({ default: m.SettingsModal }))
+);
+
+/** Fallback for a lazily loaded section, so the sidebar stays mounted. */
+const SectionFallback: React.FC = () => (
+  <div className="flex-1 flex items-center justify-center py-20" role="status" aria-live="polite">
+    <Loader2 className="w-5 h-5 animate-spin text-[#78716C] mr-2 dark:text-[#B8AEA2]" aria-hidden="true" />
+    <span className="text-xs text-[#78716C] dark:text-[#B8AEA2]">Loading section…</span>
+  </div>
+);
 
 
 // ------------------------------------------------------------------
@@ -51,6 +93,8 @@ export interface LibraryViewLabels {
   // Error
   errorMessage?: string;
   retryLabel?: string;
+  // Missing metadata (never substituted with another book's metadata)
+  unknownAuthor?: string;
   // Pagination
   showingItemsLabel?: (start: number, end: number, total: number) => string;
   // Sub‑component labels (passed through)
@@ -130,6 +174,7 @@ const DEFAULT_LABELS: Required<LibraryViewLabels> = {
   loadingMessage: "Loading library collection...",
   errorMessage: "Failed to load library data. Please try again.",
   retryLabel: "Retry",
+  unknownAuthor: "Unknown Author",
   showingItemsLabel: (start: number, end: number, total: number) =>
     `Showing ${start}-${end} of ${total} book${total === 1 ? "" : "s"}`,
   sidebarLabels: {},
@@ -203,6 +248,9 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
   const [editingBook, setEditingBook] = useState<Book | null>(null);
   const [activeImportJob, setActiveImportJob] = useState<ImportJob | null>(null);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  // An import that is rejected outright has no job to report progress with. It
+  // used to be a console line, so the user saw the drop do nothing at all.
+  const [importError, setImportError] = useState<string | null>(null);
   const [isDuplicateModalOpen, setIsDuplicateModalOpen] = useState(false);
   const [duplicateExistingBook, setDuplicateExistingBook] = useState<Book | null>(null);
   const [duplicateImportingFile, setDuplicateImportingFile] = useState<{
@@ -219,12 +267,22 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
 
   const setCurrentBook = useReaderStore((s) => s.setCurrentBook);
 
+  // One entry point for "open this book", replacing five copies of the same
+  // inline handler (and its debug logging).
+  const handleSelectBook = useCallback(
+    (book: Book) => {
+      setCurrentBook(book);
+    },
+    [setCurrentBook]
+  );
+
+  // Reading analytics are real database aggregates. The history dashboard and
+  // the library home hero both read them, so both sections load them.
   useEffect(() => {
-    if (currentSection === "history") {
-      LumaApi.getReadingAnalytics()
-        .then(setAnalytics)
-        .catch((e) => console.error("Failed to load reading analytics:", e));
-    }
+    if (currentSection !== "history" && currentSection !== "library") return;
+    LumaApi.getReadingAnalytics()
+      .then(setAnalytics)
+      .catch((e) => console.error("Failed to load reading analytics:", e));
   }, [currentSection]);
 
   // Keyboard shortcut for command palette
@@ -335,8 +393,6 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
         perfTelemetry.mark("LUMA_PERF_SEARCH_RESULTS", { query: searchQuery, count: fetchedBooks?.length || 0 });
       }
     } catch (err) {
-
-
       console.error("Failed to load books:", err);
       setError(labels.errorMessage);
     } finally {
@@ -356,6 +412,17 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
     loadBooks();
   }, [loadBooks]);
 
+  // A section/filter/sort/search change must not strand the user on a page that
+  // no longer exists.
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [currentSection, selectedCollectionId, selectedTagId, formatFilter, statusFilter, sortBy, searchQuery]);
+
+  // Shrinking the result set (trash emptied, metadata change) clamps the page.
+  useEffect(() => {
+    setCurrentPage((previous) => clampPage(previous, books.length));
+  }, [books.length]);
+
 
 
   // Event handlers
@@ -366,6 +433,18 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
     } catch (err) {
       console.error("Failed to load book details:", err);
     }
+  }, []);
+
+  /**
+   * Report a refused import to both the telemetry sink and the user. A rejected
+   * import is neither a rendered error nor a handled one: before this, the
+   * failure existed only in the devtools console and the drop looked inert.
+   */
+  const failImport = useCallback((err: unknown, context: string) => {
+    reportError(buildReport("window-error", err));
+    setImportError(`${context}: ${describeError(err)}`);
+    setActiveImportJob(null);
+    setIsImportModalOpen(true);
   }, []);
 
   const handleImportFiles = useCallback(async (filePaths: string[]) => {
@@ -397,9 +476,9 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
       }
       await loadData();
     } catch (err) {
-      console.error("Import error:", err);
+      failImport(err, "The file could not be imported");
     }
-  }, [books, config.enableDuplicateModal, loadData]);
+  }, [books, config.enableDuplicateModal, loadData, failImport]);
 
   // Drag and drop listener (Tauri)
   useEffect(() => {
@@ -474,14 +553,19 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
     } else {
       // Browser fallback
       for (const file of files) {
-        const buf = await file.arrayBuffer();
-        const job = await LumaApi.importFileBytes(file.name, new Uint8Array(buf));
-        setActiveImportJob(job);
-        setIsImportModalOpen(true);
+        try {
+          const buf = await file.arrayBuffer();
+          const job = await LumaApi.importFileBytes(file.name, new Uint8Array(buf));
+          setActiveImportJob(job);
+          setIsImportModalOpen(true);
+        } catch (err) {
+          failImport(err, `“${file.name}” could not be imported`);
+          return;
+        }
       }
       await loadData();
     }
-  }, [config.enableDragAndDrop, handleImportFiles, loadData]);
+  }, [config.enableDragAndDrop, failImport, handleImportFiles, loadData]);
 
   const openImportPicker = useCallback(async () => {
     if (isTauri()) {
@@ -504,15 +588,20 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
       const target = e.target as HTMLInputElement;
       const files = Array.from(target.files || []);
       for (const file of files) {
-        const buf = await file.arrayBuffer();
-        const job = await LumaApi.importFileBytes(file.name, new Uint8Array(buf));
-        setActiveImportJob(job);
-        setIsImportModalOpen(true);
+        try {
+          const buf = await file.arrayBuffer();
+          const job = await LumaApi.importFileBytes(file.name, new Uint8Array(buf));
+          setActiveImportJob(job);
+          setIsImportModalOpen(true);
+        } catch (err) {
+          failImport(err, `“${file.name}” could not be imported`);
+          return;
+        }
       }
       await loadData();
     };
     input.click();
-  }, [handleImportFiles, loadData]);
+  }, [failImport, handleImportFiles, loadData]);
 
   // Derived section title
   const sectionTitle = useMemo(() => {
@@ -538,8 +627,37 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
     return map[currentSection] || labels.library;
   }, [currentSection, labels]);
 
+  /**
+   * Per-book progress, taken from recorded reading sessions only.
+   * A book with no recorded session has no entry, and the UI shows no bar for
+   * it rather than an invented percentage.
+   */
+  const progressByBook = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const session of analytics?.recent_sessions ?? []) {
+      map[session.book_id] = session.end_progress_pct;
+    }
+    return map;
+  }, [analytics]);
+
   // Render content based on section
   const renderContent = useMemo(() => {
+    // Real paging: the grid/list render exactly one page of the filtered result
+    // set, and the pager reports the true page count (FE-MED-4).
+    const page = paginate(books, currentPage);
+    const pager = (
+      <div className="flex items-center justify-between gap-4 pt-2">
+        <span className="text-xs text-[#78716C] dark:text-[#B8AEA2]" aria-live="polite">
+          {labels.showingItemsLabel(page.startIndex, page.endIndex, page.totalItems)}
+        </span>
+        <Pagination
+          currentPage={page.page}
+          totalPages={page.totalPages}
+          onPageChange={setCurrentPage}
+        />
+      </div>
+    );
+
     if (loading) {
       return (
         <div className="flex-1 flex items-center justify-center py-20" aria-live="polite">
@@ -566,22 +684,14 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
 
     // Special section views
     if (currentSection === "history") {
+      const authorOf = (bookId: string) => authorMap[bookId] || labels.unknownAuthor;
+
       const completed = books
         .filter((b) => b.reading_status === "completed")
         .map((b) => ({
           id: b.id,
           title: b.title,
-          author: authorMap[b.id] || "Unknown Author",
-        }));
-
-      const reading = books
-        .filter((b) => b.reading_status === "reading")
-        .map((b) => ({
-          id: b.id,
-          title: b.title,
-          author: authorMap[b.id] || "Unknown Author",
-          focusTime: "Active Session",
-          progressPercent: 50,
+          author: authorOf(b.id),
         }));
 
       const queue = books
@@ -589,7 +699,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
         .map((b) => ({
           id: b.id,
           title: b.title,
-          author: authorMap[b.id] || "Unknown Author",
+          author: authorOf(b.id),
         }));
 
       // Real heatmap matrix from database (4 weeks x 7 days)
@@ -601,24 +711,15 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
         weeks.push(weekSlice);
       }
 
-      // Real recent sessions from SQLite
-      const recentSessions = (analytics?.recent_sessions && analytics.recent_sessions.length > 0)
-        ? analytics.recent_sessions.map((s) => ({
-            id: s.book_id,
-            title: s.book_title,
-            author: s.book_author,
-            focusTime: `${Math.round(s.duration_seconds / 60)}m`,
-            progressPercent: Math.round(s.end_progress_pct * 100),
-          }))
-        : reading.length > 0
-        ? reading
-        : books.slice(0, 3).map((b) => ({
-            id: b.id,
-            title: b.title,
-            author: authorMap[b.id] || "Unknown Author",
-            focusTime: "0m",
-            progressPercent: 0,
-          }));
+      // Recent sessions are recorded reading sessions only. A book that has
+      // never been opened is not a session, and no focus time is invented for it.
+      const recentSessions = (analytics?.recent_sessions ?? []).map((s) => ({
+        id: s.book_id,
+        title: s.book_title,
+        author: s.book_author || labels.unknownAuthor,
+        focusTime: formatReadingDuration(s.duration_seconds),
+        progressPercent: Math.round(s.end_progress_pct * 100),
+      }));
 
       const weeklyHours = analytics ? Number((analytics.weekly_reading_seconds / 3600).toFixed(1)) : 0;
       const completedCount = analytics?.books_completed_count ?? completed.length;
@@ -634,17 +735,10 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
         recentSessions,
         weeklyFocus: {
           hours: weeklyHours,
-          change: weeklyHours > 0 ? `+${weeklyHours} Hours` : "0 Hours",
+          // No week-over-week comparison is stored, so none is claimed.
           message: `${books.length} publications indexed • ${completedCount} completed.`,
         },
-        queue:
-          queue.length > 0
-            ? queue
-            : books.slice(0, 4).map((b) => ({
-                id: b.id,
-                title: b.title,
-                author: authorMap[b.id] || "Unknown Author",
-              })),
+        queue,
         timeFocusData,
       };
 
@@ -696,35 +790,11 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
         <LumaHomeView
           books={books}
           authorMap={authorMap}
-          onSelectBook={(b) => {
-            console.log("[LUMA-OPEN] 1. BOOK_CLICK", {
-              timestamp: new Date().toISOString(),
-              bookId: b.id,
-              title: b.title,
-              source: "LumaHomeView.onSelectBook",
-            });
-            console.log("[LUMA-OPEN] 7. ROUTE_NAVIGATION_START", {
-              timestamp: new Date().toISOString(),
-              bookId: b.id,
-              targetRoute: "reader",
-            });
-            setCurrentBook(b);
-          }}
-          onOpenReader={(b) => {
-            console.log("[LUMA-OPEN] 1. BOOK_CLICK", {
-              timestamp: new Date().toISOString(),
-              bookId: b.id,
-              title: b.title,
-              source: "LumaHomeView.onOpenReader",
-            });
-            console.log("[LUMA-OPEN] 7. ROUTE_NAVIGATION_START", {
-              timestamp: new Date().toISOString(),
-              bookId: b.id,
-              targetRoute: "reader",
-            });
-            setCurrentBook(b);
-          }}
+          progressByBook={progressByBook}
+          onSelectBook={handleSelectBook}
+          onOpenReader={handleSelectBook}
           onViewAll={() => setCurrentSection("all")}
+          onEmptyAction={openImportPicker}
         />
       );
     }
@@ -753,34 +823,24 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
     // Grid/List view
     if (viewMode === "grid") {
       return (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6 pt-2">
-          {books.map((book) => {
-            const author = authorMap[book.id] || "Unknown Author";
-            const isSelected = selectedBookDetails?.book.id === book.id;
-            return (
-              <BookCard
-                key={book.id}
-                book={book}
-                authorName={author}
-                isSelected={isSelected}
-                onSelect={() => {
-                  console.log("[LUMA-OPEN] 1. BOOK_CLICK", {
-                    timestamp: new Date().toISOString(),
-                    bookId: book.id,
-                    title: book.title,
-                    source: "BookCard.onSelect",
-                  });
-                  console.log("[LUMA-OPEN] 7. ROUTE_NAVIGATION_START", {
-                    timestamp: new Date().toISOString(),
-                    bookId: book.id,
-                    targetRoute: "reader",
-                  });
-                  setCurrentBook(book);
-                }}
-                onOpenDetails={() => handleOpenDetails(book.id)}
-              />
-            );
-          })}
+        <div className="space-y-4 pt-2">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
+            {page.items.map((book) => {
+              const author = authorMap[book.id] || "Unknown Author";
+              const isSelected = selectedBookDetails?.book.id === book.id;
+              return (
+                <BookCard
+                  key={book.id}
+                  book={book}
+                  authorName={author}
+                  isSelected={isSelected}
+                  onSelect={() => handleSelectBook(book)}
+                  onOpenDetails={() => handleOpenDetails(book.id)}
+                />
+              );
+            })}
+          </div>
+          {pager}
         </div>
       );
     }
@@ -789,39 +849,13 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
     return (
       <div className="space-y-4 pt-1">
         <BookTable
-          books={books}
+          books={page.items}
           authorMap={authorMap}
           selectedBookId={selectedBookDetails?.book.id}
-          onSelectBook={(book) => {
-            console.log("[LUMA-OPEN] 1. BOOK_CLICK", {
-              timestamp: new Date().toISOString(),
-              bookId: book.id,
-              title: book.title,
-              source: "BookTable.onSelectBook",
-            });
-            console.log("[LUMA-OPEN] 7. ROUTE_NAVIGATION_START", {
-              timestamp: new Date().toISOString(),
-              bookId: book.id,
-              targetRoute: "reader",
-            });
-            setCurrentBook(book);
-          }}
+          onSelectBook={handleSelectBook}
           onOpenDetails={(book) => handleOpenDetails(book.id)}
         />
-        <div className="flex items-center justify-between pt-2">
-          <span className="text-xs text-[#78716C] dark:text-[#B8AEA2]">
-            {labels.showingItemsLabel(
-              1,
-              books.length,
-              books.length
-            )}
-          </span>
-          <Pagination
-            currentPage={currentPage}
-            totalPages={Math.max(1, Math.ceil(books.length / 20))}
-            onPageChange={setCurrentPage}
-          />
-        </div>
+        {pager}
       </div>
     );
   }, [
@@ -835,13 +869,15 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
     formatFilter,
     statusFilter,
     viewMode,
-    selectedBookDetails,
-    currentPage,
+    selectedBookDetails,    currentPage,
+    progressByBook,
+    analytics,
     labels,
     handleOpenDetails,
-    setCurrentBook,
+    handleSelectBook,
     openImportPicker,
   ]);
+
 
   // Render child components with labels merged
   const SidebarComponent = components.LibrarySidebar || LibrarySidebar;
@@ -879,7 +915,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
       {/* Main Content */}
       {["atrium", "notes", "flashcards", "projects", "history", "annotations", "devices", "plugins"].includes(currentSection) ? (
         <div className="flex-1 flex flex-col h-full overflow-hidden w-full">
-          {renderContent}
+          <Suspense fallback={<SectionFallback />}>{renderContent}</Suspense>
         </div>
       ) : (
         <div className="flex-1 flex flex-col px-8 py-6 overflow-y-auto w-full">
@@ -930,7 +966,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
           )}
 
           <div className="flex-1 pb-10">
-            {renderContent}
+            <Suspense fallback={<SectionFallback />}>{renderContent}</Suspense>
           </div>
         </div>
       )}
@@ -941,18 +977,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
         onClose={() => setSelectedBookDetails(null)}
         onOpenReader={() => {
           if (selectedBookDetails) {
-            console.log("[LUMA-OPEN] 1. BOOK_CLICK", {
-              timestamp: new Date().toISOString(),
-              bookId: selectedBookDetails.book.id,
-              title: selectedBookDetails.book.title,
-              source: "BookDetailsDrawer.onOpenReader",
-            });
-            console.log("[LUMA-OPEN] 7. ROUTE_NAVIGATION_START", {
-              timestamp: new Date().toISOString(),
-              bookId: selectedBookDetails.book.id,
-              targetRoute: "reader",
-            });
-            setCurrentBook(selectedBookDetails.book);
+            handleSelectBook(selectedBookDetails.book);
             setSelectedBookDetails(null);
           }
         }}
@@ -1025,10 +1050,12 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
 
       <ImportProgressModal
         job={activeImportJob}
+        error={importError}
         isOpen={isImportModalOpen}
         onClose={() => {
           setIsImportModalOpen(false);
           setActiveImportJob(null);
+          setImportError(null);
         }}
       />
 
@@ -1056,7 +1083,8 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
         />
       )}
 
-      {config.enableCommandPalette && (
+      {config.enableCommandPalette && isCommandPaletteOpen && (
+        <Suspense fallback={null}>
         <CommandPaletteModal
           isOpen={isCommandPaletteOpen}
           onClose={() => setIsCommandPaletteOpen(false)}
@@ -1075,14 +1103,19 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
             }
           }}
         />
+        </Suspense>
       )}
 
-      <SettingsModal
-        isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
-        isDarkMode={isDarkMode}
-        onToggleDarkMode={onToggleDarkMode}
-      />
+      {isSettingsOpen && (
+        <Suspense fallback={null}>
+          <SettingsModal
+            isOpen={isSettingsOpen}
+            onClose={() => setIsSettingsOpen(false)}
+            isDarkMode={isDarkMode}
+            onToggleDarkMode={onToggleDarkMode}
+          />
+        </Suspense>
+      )}
     </div>
   );
 };

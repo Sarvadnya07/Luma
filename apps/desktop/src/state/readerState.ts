@@ -15,7 +15,10 @@ import {
 import { DEFAULT_READER_SETTINGS } from "@luma/reader-ui";
 import { LumaApi, type LumaApiClient } from "../lib/tauri";
 import { perfTelemetry } from "../lib/perfTelemetry";
+import { describeError } from "../lib/errorReporting";
+import { resolveInitialTheme } from "../lib/theme";
 import { generateUuid } from "../lib/uuid";
+import { getDeviceId } from "../lib/deviceIdentity";
 
 
 // ----------------------------------------------------------------------------
@@ -43,6 +46,12 @@ export interface ReaderStoreState {
   activeTab: "library" | "reader";
   loading: boolean;
   statusMessage: string | null;
+  /**
+   * Set when opening or navigating a document fails. Distinct from
+   * `statusMessage` (transient success feedback) and from `loading`, so a
+   * failed load can never render as an indefinite blank viewport.
+   */
+  loadError: string | null;
   activeSessionId: string | null;
   sessionStartTime: number | null;
   pendingScrollLocator: string | null;
@@ -75,6 +84,9 @@ export interface ReaderStoreState {
   clearSearch: () => void;
   setStatusMessage: (msg: string | null) => void;
   toggleTypography: () => void;
+  clearLoadError: () => void;
+  /** Re-attempt the load that failed (open, chapter, or page). */
+  retryLoad: () => Promise<void>;
 }
 
 // ----------------------------------------------------------------------------
@@ -113,7 +125,8 @@ export interface ReaderStoreConfig {
 // ----------------------------------------------------------------------------
 
 const DEFAULT_LABELS: Required<ReaderStoreLabels> = {
-  deviceId: "00000000-0000-0000-0000-000000000001",
+  /** Resolved from the real installation identity when not overridden. */
+  deviceId: "",
   defaultChapterTitle: "Untitled Chapter",
   highlightCreated: "Highlight created & anchored.",
   bookmarkAdded: "Bookmark added.",
@@ -128,7 +141,6 @@ const DEFAULT_SYNC_DEFAULTS: Partial<SyncMetadata> = {
   version: 1,
   created_at: new Date().toISOString(),
   updated_at: new Date().toISOString(),
-  device_id: DEFAULT_LABELS.deviceId,
   is_deleted: false,
 };
 
@@ -160,7 +172,7 @@ export function createReaderStore(config: ReaderStoreConfig = {}) {
   // Helper to create sync metadata with current timestamps and valid UUID device_id
   function createSyncMeta(overrideDeviceId?: string): SyncMetadata {
     const now = new Date().toISOString();
-    const fallbackId = "00000000-0000-0000-0000-000000000001";
+    const fallbackId = getDeviceId();
     const rawDevId = overrideDeviceId || mergedSyncDefaults.device_id || mergedLabels.deviceId || fallbackId;
     const isValidUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawDevId);
     const deviceId = isValidUuid ? rawDevId : fallbackId;
@@ -200,7 +212,7 @@ export function createReaderStore(config: ReaderStoreConfig = {}) {
     bookmarks: [],
     settings: {
       ...DEFAULT_READER_SETTINGS,
-      theme: typeof localStorage !== "undefined" && localStorage.getItem("luma_theme") === "dark" ? "dark" : "light",
+      theme: resolveInitialTheme(),
     },
     sidebarTab: null,
     isTypographyOpen: false,
@@ -209,6 +221,7 @@ export function createReaderStore(config: ReaderStoreConfig = {}) {
     activeTab: "library",
     loading: false,
     statusMessage: null,
+    loadError: null,
     activeSessionId: null,
     sessionStartTime: null,
     pendingScrollLocator: null,
@@ -225,32 +238,10 @@ export function createReaderStore(config: ReaderStoreConfig = {}) {
     },
 
     openBook: async (book: Book, fileId?: string) => {
-      console.log("[LUMA-OPEN] 2. OPEN_BOOK_START", {
-        timestamp: new Date().toISOString(),
-        bookId: book.id,
-        format: book.primary_file_id ? "resolving" : "unknown",
-        title: book.title,
-      });
-      set({ loading: true, currentBook: book, activeTab: "reader" });
+      set({ loading: true, loadError: null, currentBook: book, activeTab: "reader" });
       perf.mark("LUMA_PERF_READER_OPEN", { bookId: book.id, title: book.title });
       try {
-        console.log("[LUMA-OPEN] 3. OPEN_READER_DOCUMENT_REQUEST", {
-          timestamp: new Date().toISOString(),
-          bookId: book.id,
-          fileId: fileId || book.primary_file_id || null,
-        });
         const docData = await api.openReaderDocument(book.id, fileId);
-
-        console.log("[LUMA-OPEN] 4. OPEN_READER_DOCUMENT_SUCCESS", {
-          timestamp: new Date().toISOString(),
-          bookId: book.id,
-          format: docData?.file?.format,
-          fileId: docData?.file?.id,
-          totalPagesOrSpines: docData?.total_pages_or_spines,
-          hasInitialProgress: !!docData?.initial_progress,
-          initialPage: docData?.initial_progress?.current_page_number ?? null,
-          initialLocator: docData?.initial_progress?.current_locator ?? null,
-        });
 
         const annotations = docData.annotations || [];
         const bookmarks = docData.bookmarks || [];
@@ -270,14 +261,6 @@ export function createReaderStore(config: ReaderStoreConfig = {}) {
           readingProgress: docData.initial_progress || null,
           activeSessionId: session?.id || null,
           sessionStartTime: Date.now(),
-        });
-
-        console.log("[LUMA-OPEN] 6. READER_STATE_UPDATED", {
-          timestamp: new Date().toISOString(),
-          bookId: book.id,
-          format: docData.file.format,
-          totalPagesOrSpines: docData.total_pages_or_spines,
-          activeTab: "reader",
         });
 
         // Restore initial position
@@ -330,14 +313,9 @@ export function createReaderStore(config: ReaderStoreConfig = {}) {
           set({ readingProgress: progress });
         }
       } catch (err) {
-        console.error("[LUMA-OPEN] 5. OPEN_READER_DOCUMENT_FAILURE", {
-          timestamp: new Date().toISOString(),
-          bookId: book.id,
-          error: String(err),
-        });
         logger.error("Failed to open book:", err);
-        const msg = `${mergedLabels.openFailedMessage}${err}`;
-        set({ statusMessage: msg });
+        const msg = `${mergedLabels.openFailedMessage}${describeError(err)}`;
+        set({ statusMessage: msg, loadError: msg });
       } finally {
         set({ loading: false });
       }
@@ -348,11 +326,14 @@ export function createReaderStore(config: ReaderStoreConfig = {}) {
       if (progressDebounceTimer) {
         clearTimeout(progressDebounceTimer);
         progressDebounceTimer = null;
-        if (readingProgress) {
-          api.saveReadingProgress(readingProgress).catch((err) => {
-            logger.warn("[readerStore] Failed to flush reading progress:", err);
-          });
-        }
+      }
+      // Flush unconditionally. Previously the final position was only written
+      // when a debounce timer happened to still be pending, so any reader left
+      // open long enough for the timer to fire lost its last position on close.
+      if (readingProgress) {
+        api.saveReadingProgress(readingProgress).catch((err) => {
+          logger.warn("[readerStore] Failed to flush reading progress:", err);
+        });
       }
 
       if (activeSessionId && sessionStartTime) {
@@ -372,6 +353,7 @@ export function createReaderStore(config: ReaderStoreConfig = {}) {
         isTypographyOpen: false,
         activeSessionId: null,
         sessionStartTime: null,
+        loadError: null,
       });
     },
 
@@ -399,12 +381,14 @@ export function createReaderStore(config: ReaderStoreConfig = {}) {
           currentChapter: chapter,
           currentSpineIndex: spineIndex,
           readingProgress: progress,
+          loadError: null,
         });
 
         perf.mark("LUMA_PERF_EPUB_CONTENT_READY", { spineIndex, title: chapter.title });
         debouncedSaveProgress(progress);
       } catch (err) {
         logger.error("Failed to load chapter:", err);
+        set({ loadError: `Could not load this chapter. ${describeError(err)}` });
       }
     },
 
@@ -441,11 +425,13 @@ export function createReaderStore(config: ReaderStoreConfig = {}) {
           leftPdfPageData: leftData,
           rightPdfPageData: rightData,
           readingProgress: progress,
+          loadError: null,
         });
 
         debouncedSaveProgress(progress);
       } catch (err) {
         logger.error("Failed to load PDF page:", err);
+        set({ loadError: `Could not load this page. ${describeError(err)}` });
       }
     },
 
@@ -534,20 +520,11 @@ export function createReaderStore(config: ReaderStoreConfig = {}) {
     },
 
     updateSettings: (newSettings) => {
-      set((state) => {
-        const nextSettings = { ...state.settings, ...newSettings };
-        if (newSettings.theme) {
-          const isDark = newSettings.theme === "dark";
-          if (typeof document !== "undefined") {
-            document.documentElement.classList.toggle("dark", isDark);
-            document.documentElement.style.colorScheme = isDark ? "dark" : "light";
-          }
-          if (typeof localStorage !== "undefined") {
-            localStorage.setItem("luma_theme", isDark ? "dark" : "light");
-          }
-        }
-        return { settings: nextSettings };
-      });
+      // Reader presentation settings only. The application chrome theme is owned
+      // by `App` + `lib/theme.ts`; this store no longer writes the document
+      // class or localStorage (FE-HIGH-2: it used to be a second writer of the
+      // very same preference, which made the two able to disagree).
+      set((state) => ({ settings: { ...state.settings, ...newSettings } }));
     },
 
     setSidebarTab: (tab) => {
@@ -652,6 +629,7 @@ export function createReaderStore(config: ReaderStoreConfig = {}) {
         set({ searchResults: results });
       } catch (err) {
         logger.error("In-doc search failed:", err);
+        set({ statusMessage: "Search failed. Please try again." });
       }
     },
 
@@ -665,6 +643,25 @@ export function createReaderStore(config: ReaderStoreConfig = {}) {
 
     setStatusMessage: (msg) => {
       set({ statusMessage: msg });
+    },
+
+    clearLoadError: () => {
+      set({ loadError: null });
+    },
+
+    retryLoad: async () => {
+      const { currentBook, documentData, currentSpineIndex, currentPdfPage } = get();
+      set({ loadError: null });
+      if (!currentBook) return;
+      if (!documentData) {
+        await get().openBook(currentBook);
+        return;
+      }
+      if (documentData.file.format === "pdf") {
+        await get().loadPdfPage(currentPdfPage);
+        return;
+      }
+      await get().loadChapter(currentSpineIndex);
     },
   }));
 }
