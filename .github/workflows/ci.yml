@@ -16,6 +16,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Tauri 2 Linux system dependencies (per v2.tauri.app/start/prerequisites).
+      # Without these, glib/gio/gobject -sys build scripts fail on pkg-config lookups.
+      - name: Install Tauri Linux system dependencies
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev \
+            build-essential \
+            curl \
+            wget \
+            file \
+            libxdo-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev
+
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -53,8 +70,9 @@ jobs:
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: 9
+        # No explicit version: the action honors root package.json
+        # "packageManager": "pnpm@11.20.0" (pinning 9 here caused
+        # ERR_PNPM_BAD_PM_VERSION / "Multiple versions of pnpm specified").
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
