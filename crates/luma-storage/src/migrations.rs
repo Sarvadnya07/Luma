@@ -403,9 +403,33 @@ pub fn run_migrations(conn: &mut Connection) -> StorageResult<()> {
         )?;
     }
 
+    if current_version < 5 {
+        tx.execute_batch(V5_DATA_INTEGRITY_SCHEMA)?;
+        tx.execute(
+            "INSERT INTO schema_migrations (version, applied_at) VALUES (5, datetime('now'))",
+            [],
+        )?;
+    }
+
     tx.commit()?;
     Ok(())
 }
+
+/// BACKEND-03 (BE-003): database-enforced guard against duplicate physical
+/// imports. The application-level duplicate check (DuplicateDetector) races
+/// between the assessment read and the persistence write, so two concurrent
+/// imports of the same file could both pass assessment and create two books.
+/// A UNIQUE index on the file hash makes the second import fail at commit
+/// time, regardless of race timing.
+///
+/// Note: `book_files` rows are removed physically (FK cascade on permanent
+/// book delete; trash keeps the row), so the hash is a permanent identity
+/// key while the row exists — matching DuplicateDetector's unfiltered
+/// `get_by_hash` semantics.
+pub const V5_DATA_INTEGRITY_SCHEMA: &str = r#"
+CREATE UNIQUE INDEX IF NOT EXISTS uq_book_files_sha256
+    ON book_files(sha256_hash);
+"#;
 
 pub const V4_KNOWLEDGE_AND_SESSIONS_SCHEMA: &str = r#"
 -- Notes table

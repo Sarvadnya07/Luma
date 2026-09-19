@@ -56,8 +56,7 @@ export const BookCard: React.FC<BookCardProps> = ({
 
   return (
     <div
-      onClick={onSelect}
-      className={`group relative flex flex-col cursor-pointer transition-all duration-200 ${
+      className={`group relative flex flex-col transition-all duration-200 ${
         isSelected ? "ring-2 ring-[#18181B] ring-offset-2 ring-offset-[#FAF7F2] rounded-lg" : ""
       }`}
     >
@@ -94,14 +93,13 @@ export const BookCard: React.FC<BookCardProps> = ({
         {/* Hover Inspect Details Button */}
         {onOpenDetails && (
           <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onOpenDetails();
-            }}
-            className="absolute top-2 right-2 p-1.5 rounded-md bg-[#FAF7F2]/90 text-[#57534E] hover:text-[#18181B] hover:bg-[#FFFFFF] opacity-0 group-hover:opacity-100 transition-all shadow-sm border border-[#DDD5C7]"
+            type="button"
+            onClick={() => onOpenDetails()}
+            className="absolute top-2 right-2 z-20 p-1.5 rounded-md bg-[#FAF7F2]/90 text-[#57534E] hover:text-[#18181B] hover:bg-[#FFFFFF] opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-all shadow-sm border border-[#DDD5C7] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#18181B]"
+            aria-label={`Details for ${displayTitle}`}
             title="Inspect Details"
           >
-            <MoreVertical className="w-3.5 h-3.5" />
+            <MoreVertical className="w-3.5 h-3.5" aria-hidden="true" />
           </button>
         )}
       </div>
@@ -118,6 +116,16 @@ export const BookCard: React.FC<BookCardProps> = ({
           {authorName}
         </p>
       </div>
+
+      {/* Primary action as a real button covering the card. The previous root
+          `<div onClick>` was unreachable by keyboard. Rendered last so it paints
+          above the cover; the details button sits above it via z-index. */}
+      <button
+        type="button"
+        onClick={onSelect}
+        aria-label={`Open ${displayTitle}`}
+        className="absolute inset-0 z-10 cursor-pointer rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#18181B] focus-visible:ring-offset-2 focus-visible:ring-offset-[#FAF7F2]"
+      />
     </div>
   );
 };
@@ -135,23 +143,29 @@ export const BookTable: React.FC<BookTableProps> = ({
   authorMap = {},
   selectedBookId,
   onSelectBook,
-  onOpenDetails: _onOpenDetails,
+  onOpenDetails,
 }) => {
-  const getProgressNumber = (book: Book) => {
+  // Progress is only known where the reading status implies it, and format is
+  // not a field of `Book` at all — so neither is invented here any more. The
+  // previous implementation showed a fabricated "35%" and a format guessed by
+  // substring-matching a file id.
+  const getProgressNumber = (book: Book): number | null => {
     if (book.reading_status === "completed") return 100;
     if (book.reading_status === "unread") return 0;
-    return 35;
+    return null;
   };
 
-  const getFormat = (book: Book) => {
-    if (book.primary_file_id) {
-      const lower = book.primary_file_id.toLowerCase();
-      if (lower.includes("pdf")) return "PDF";
-      if (lower.includes("cbz")) return "CBZ";
-      if (lower.includes("md")) return "MD";
-      if (lower.includes("txt")) return "TXT";
+  const getStatusMeta = (book: Book): { label: string; className: string } => {
+    switch (book.reading_status) {
+      case "completed":
+        return { label: "Finished", className: "bg-emerald-50 text-emerald-800 border-emerald-200" };
+      case "reading":
+        return { label: "Reading", className: "bg-amber-50 text-amber-800 border-amber-200" };
+      case "archived":
+        return { label: "Archived", className: "bg-stone-100 text-stone-600 border-stone-200" };
+      default:
+        return { label: "Unread", className: "bg-stone-100 text-stone-600 border-stone-200" };
     }
-    return "EPUB";
   };
 
   const getCategory = (book: Book) => {
@@ -179,21 +193,27 @@ export const BookTable: React.FC<BookTableProps> = ({
   return (
     <div className="w-full bg-[#FFFFFF] border border-[#18181B]/15 dark:border-white/15 rounded-xl overflow-hidden shadow-sm">
       <table className="w-full text-left border-collapse">
+        <caption className="sr-only">Library books</caption>
         <thead>
           <tr className="border-b border-[#E5DFD3] bg-[#FAF7F2]/80 text-[10px] font-semibold text-[#78716C] uppercase tracking-wider">
             <th className="py-3 px-4 w-16">COVER</th>
             <th className="py-3 px-4">TITLE</th>
             <th className="py-3 px-4">AUTHOR</th>
-            <th className="py-3 px-4">FORMAT</th>
             <th className="py-3 px-4">PROGRESS</th>
             <th className="py-3 px-4">STATUS</th>
             <th className="py-3 px-4">ADDED</th>
+            {onOpenDetails && (
+              <th className="py-3 px-4 text-right">
+                <span className="sr-only">Actions</span>
+              </th>
+            )}
           </tr>
         </thead>
         <tbody className="divide-y divide-[#EFEAE1] text-xs text-[#292524]">
           {books.map((book) => {
             const author = authorMap[book.id] || "Unknown Author";
             const progress = getProgressNumber(book);
+            const status = getStatusMeta(book);
             const isSelected = selectedBookId === book.id;
             const seriesTag = getSeriesTag(book);
             const category = getCategory(book);
@@ -221,9 +241,13 @@ export const BookTable: React.FC<BookTableProps> = ({
                 <td className="py-3 px-4">
                   <div className="space-y-0.5">
                     <div className="flex items-center gap-1.5">
-                      <span className="font-serif font-bold text-[#1C1917] group-hover:text-black">
+                      <button
+                        type="button"
+                        onClick={() => onSelectBook(book)}
+                        className="font-serif font-bold text-left text-[#1C1917] group-hover:text-black rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#18181B]"
+                      >
                         {book.title}
-                      </span>
+                      </button>
                       {seriesTag && (
                         <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#EFEAE1] text-[#78716C] border border-[#DDD5C7]">
                           {seriesTag}
@@ -241,46 +265,39 @@ export const BookTable: React.FC<BookTableProps> = ({
                   {author}
                 </td>
 
-                {/* Format */}
+                {/* Progress — shown only when the reading status implies it */}
                 <td className="py-3 px-4">
-                  <span className="inline-block px-1.5 py-0.5 text-[10px] font-mono font-medium rounded border border-[#D6CEC2] bg-[#F2EDE4] text-[#443F39]">
-                    {getFormat(book)}
+                  <span className="text-[11px] font-mono text-[#57534E]">
+                    {progress === null ? "—" : `${progress}%`}
                   </span>
                 </td>
 
-                {/* Progress */}
+                {/* Status badge — the real reading status, not a derived guess */}
                 <td className="py-3 px-4">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[11px] text-[#78716C]">—</span>
-                    <span className="text-[11px] font-mono text-[#57534E] min-w-[32px]">
-                      {progress}%
-                    </span>
-                  </div>
-                </td>
-
-                {/* Status Badge */}
-                <td className="py-3 px-4">
-                  {progress === 100 ? (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-50 text-emerald-800 border border-emerald-200">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
-                      Finished
-                    </span>
-                  ) : progress > 0 ? (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-50 text-amber-800 border border-amber-200">
-                      <BookOpen className="w-3 h-3 text-amber-700" />
-                      Reading
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-stone-100 text-stone-600 border border-stone-200">
-                      Unread
-                    </span>
-                  )}
+                  <span
+                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border ${status.className}`}
+                  >
+                    {status.label}
+                  </span>
                 </td>
 
                 {/* Added Date */}
                 <td className="py-3 px-4 text-[11px] text-[#78716C]">
                   {formatDate(book.sync.created_at)}
                 </td>
+
+                {onOpenDetails && (
+                  <td className="py-3 px-4 text-right">
+                    <button
+                      type="button"
+                      onClick={() => onOpenDetails(book)}
+                      className="px-2 py-1 text-[11px] font-medium rounded-md border border-[#DDD5C7] text-[#57534E] hover:text-[#18181B] hover:bg-[#EFEAE1] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#18181B]"
+                      aria-label={`Details for ${book.title}`}
+                    >
+                      Details
+                    </button>
+                  </td>
+                )}
               </tr>
             );
           })}
@@ -294,81 +311,104 @@ export interface PaginationProps {
   currentPage: number;
   totalPages: number;
   onPageChange: (page: number) => void;
+  /** Accessible label for the navigation landmark. */
+  ariaLabel?: string;
 }
 
+const PAGE_GAP = "gap" as const;
+
+/**
+ * Windowed page numbers: first and last page are always present, with a bounded
+ * neighbourhood around the current page. `"gap"` renders as an ellipsis.
+ */
+function pageWindow(currentPage: number, totalPages: number, siblingCount = 1): (number | typeof PAGE_GAP)[] {
+  const total = Math.max(1, totalPages);
+  const current = Math.min(Math.max(1, currentPage), total);
+  const start = Math.max(1, current - siblingCount);
+  const end = Math.min(total, current + siblingCount);
+
+  const ascending = new Set<number>([1]);
+  for (let page = start; page <= end; page += 1) ascending.add(page);
+  ascending.add(total);
+
+  const numbers = Array.from(ascending).sort((a, b) => a - b);
+  const tokens: (number | typeof PAGE_GAP)[] = [];
+  numbers.forEach((page, index) => {
+    const previous = numbers[index - 1];
+    if (previous !== undefined && page - previous > 1) tokens.push(PAGE_GAP);
+    tokens.push(page);
+  });
+  return tokens;
+}
+
+/**
+ * Real pager: every rendered page number is navigable and the count comes from
+ * the caller's actual total. (Previously this component was hardcoded to
+ * `1, 2, 3, …, 12` regardless of how many pages existed — see FE-MED-4.)
+ */
 export const Pagination: React.FC<PaginationProps> = ({
   currentPage = 1,
-  totalPages = 12,
+  totalPages = 1,
   onPageChange,
+  ariaLabel = "Pagination",
 }) => {
+  const total = Math.max(1, totalPages);
+  const current = Math.min(Math.max(1, currentPage), total);
+  const tokens = pageWindow(current, total);
+
+  const pageButtonClass = (isActive: boolean) =>
+    `w-7 h-7 rounded-md font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#18181B] ${
+      isActive
+        ? "bg-[#18181B] text-white dark:bg-[#F5F1EA] dark:text-[#18181B]"
+        : "text-[#57534E] hover:bg-[#EFEAE1] hover:text-[#18181B]"
+    }`;
+
   return (
-    <div className="flex items-center justify-center gap-1.5 py-6 select-none text-xs text-[#57534E]">
+    <nav
+      aria-label={ariaLabel}
+      className="flex items-center justify-center gap-1.5 py-6 select-none text-xs text-[#57534E]"
+    >
       <button
-        onClick={() => onPageChange(Math.max(1, currentPage - 1))}
-        disabled={currentPage === 1}
-        className="flex items-center gap-1 px-3 py-1 rounded-md text-[#78716C] hover:text-[#18181B] hover:bg-[#EFEAE1] disabled:opacity-30 disabled:pointer-events-none transition-colors"
+        type="button"
+        onClick={() => onPageChange(Math.max(1, current - 1))}
+        disabled={current === 1}
+        className="flex items-center gap-1 px-3 py-1 rounded-md text-[#78716C] hover:text-[#18181B] hover:bg-[#EFEAE1] disabled:opacity-30 disabled:pointer-events-none transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#18181B]"
       >
-        <ChevronLeft className="w-3.5 h-3.5" />
+        <ChevronLeft className="w-3.5 h-3.5" aria-hidden="true" />
         Previous
       </button>
 
       <div className="flex items-center gap-1 mx-2">
-        <button
-          onClick={() => onPageChange(1)}
-          className={`w-7 h-7 rounded-md font-medium transition-colors ${
-            currentPage === 1
-              ? "bg-[#18181B] text-white"
-              : "text-[#57534E] hover:bg-[#EFEAE1] hover:text-[#18181B]"
-          }`}
-        >
-          1
-        </button>
-
-        <button
-          onClick={() => onPageChange(2)}
-          className={`w-7 h-7 rounded-md font-medium transition-colors ${
-            currentPage === 2
-              ? "bg-[#18181B] text-white"
-              : "text-[#57534E] hover:bg-[#EFEAE1] hover:text-[#18181B]"
-          }`}
-        >
-          2
-        </button>
-
-        <button
-          onClick={() => onPageChange(3)}
-          className={`w-7 h-7 rounded-md font-medium transition-colors ${
-            currentPage === 3
-              ? "bg-[#18181B] text-white"
-              : "text-[#57534E] hover:bg-[#EFEAE1] hover:text-[#18181B]"
-          }`}
-        >
-          3
-        </button>
-
-        <span className="px-1 text-[#A8A29E]">...</span>
-
-        <button
-          onClick={() => onPageChange(12)}
-          className={`w-7 h-7 rounded-md font-medium transition-colors ${
-            currentPage === 12
-              ? "bg-[#18181B] text-white"
-              : "text-[#57534E] hover:bg-[#EFEAE1] hover:text-[#18181B]"
-          }`}
-        >
-          12
-        </button>
+        {tokens.map((token, index) =>
+          token === PAGE_GAP ? (
+            <span key={`gap-${index}`} className="px-1 text-[#A8A29E]" aria-hidden="true">
+              …
+            </span>
+          ) : (
+            <button
+              key={token}
+              type="button"
+              onClick={() => onPageChange(token)}
+              aria-label={`Page ${token}`}
+              aria-current={token === current ? "page" : undefined}
+              className={pageButtonClass(token === current)}
+            >
+              {token}
+            </button>
+          )
+        )}
       </div>
 
       <button
-        onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
-        disabled={currentPage >= totalPages}
-        className="flex items-center gap-1 px-3 py-1 rounded-md text-[#78716C] hover:text-[#18181B] hover:bg-[#EFEAE1] disabled:opacity-30 disabled:pointer-events-none transition-colors"
+        type="button"
+        onClick={() => onPageChange(Math.min(total, current + 1))}
+        disabled={current >= total}
+        className="flex items-center gap-1 px-3 py-1 rounded-md text-[#78716C] hover:text-[#18181B] hover:bg-[#EFEAE1] disabled:opacity-30 disabled:pointer-events-none transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#18181B]"
       >
         Next
-        <ChevronRight className="w-3.5 h-3.5" />
+        <ChevronRight className="w-3.5 h-3.5" aria-hidden="true" />
       </button>
-    </div>
+    </nav>
   );
 };
 

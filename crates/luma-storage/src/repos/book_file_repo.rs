@@ -82,7 +82,12 @@ impl BookFileRepository {
     }
 
     pub fn insert(&self, file: &BookFile) -> StorageResult<()> {
-        self.db.with_conn(|conn| {
+        self.db.with_conn(|conn| Self::insert_with_conn(conn, file))
+    }
+
+    /// Connection-injected variant for composing multiple writes into one transaction.
+    pub fn insert_with_conn(conn: &rusqlite::Connection, file: &BookFile) -> StorageResult<()> {
+        {
             conn.execute(
                 SQL_INSERT_BOOK_FILE,
                 params![
@@ -101,7 +106,7 @@ impl BookFileRepository {
                 ],
             )?;
             Ok(())
-        })
+        }
     }
 
     pub fn get_by_id(&self, id: &FileId) -> StorageResult<Option<BookFile>> {

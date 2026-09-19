@@ -598,9 +598,10 @@ impl PdfDocument {
 
         // Check for UTF-16 BE BOM
         if bytes.len() >= 2 && bytes[0] == UTF16_BE_BOM[0] && bytes[1] == UTF16_BE_BOM[1] {
-            let u16_slice: Vec<u16> = bytes[2..]
-                .chunks_exact(2)
-                .map(|chunk| u16::from_be_bytes([chunk[0], chunk[1]]))
+            let (pairs, _): (&[[u8; 2]], &[u8]) = bytes[2..].as_chunks::<2>();
+            let u16_slice: Vec<u16> = pairs
+                .iter()
+                .map(|chunk| u16::from_be_bytes(*chunk))
                 .collect();
             return String::from_utf16_lossy(&u16_slice);
         }

@@ -1,0 +1,35 @@
+{
+  "timestamp": "2026-09-17T04:22:00.434Z",
+  "browser": {
+    "name": "Chromium",
+    "browserVersion": "153.0.8010.12",
+    "engine": "Chromium"
+  },
+  "viewport": {
+    "width": 1280,
+    "height": 860
+  },
+  "runtimeClassification": "BROWSER-PRODUCTION-CODE-TESTED",
+  "frontend": {
+    "loaded": true,
+    "route": "/",
+    "apiTransport": "TEST-ONLY-BRIDGE"
+  },
+  "document": {
+    "fixture": "tests/fixtures/sample_book.epub",
+    "bookId": "01a0ad99-791e-7900-8489-6b9a87e91eae",
+    "chapterId": "ch1"
+  },
+  "productionCode": {
+    "importService": true,
+    "readerService": true,
+    "epubDocument": true,
+    "epubReaderView": true
+  },
+  "diagnostics": {
+    "consoleErrors": [],
+    "pageErrors": [],
+    "failedRequests": []
+  },
+  "screenshot": "browser-production-reader.png"
+}

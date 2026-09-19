@@ -3,7 +3,7 @@ use tauri::State;
 use tracing::{debug, error, info, instrument};
 
 use luma_core::error::BackendError;
-use luma_core::ids::{BookId, DeviceId, SessionId};
+use luma_core::ids::{BookId, SessionId};
 use luma_core::models::reading::{ReadingProgress, ReadingSession};
 use luma_storage::repos::{ReadingAnalytics, ReadingSessionRepository};
 
@@ -77,7 +77,7 @@ pub fn start_reading_session(
     start_progress: f32,
 ) -> Result<ReadingSession, BackendError> {
     let bid = parse_book_id(&book_id)?;
-    let dev_id = DeviceId::new();
+    let dev_id = ctx.device_id;
     let session = ReadingSession::start(bid, dev_id, start_progress);
     debug!(session_id = %session.id, "Starting reading session");
 

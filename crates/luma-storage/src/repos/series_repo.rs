@@ -20,7 +20,17 @@ impl SeriesRepository {
         title: &str,
         device_id: DeviceId,
     ) -> StorageResult<Series> {
-        self.db.with_conn(|conn| {
+        self.db
+            .with_conn(|conn| Self::get_or_create_by_title_with_conn(conn, title, device_id))
+    }
+
+    /// Connection-injected variant for composing multiple writes into one transaction.
+    pub fn get_or_create_by_title_with_conn(
+        conn: &mut rusqlite::Connection,
+        title: &str,
+        device_id: DeviceId,
+    ) -> StorageResult<Series> {
+        {
             let mut stmt = conn.prepare("SELECT id, title, description, version, created_at, updated_at, device_id, is_deleted, deleted_at FROM series WHERE title = ?1 AND is_deleted = 0")?;
             let mut rows = stmt.query(params![title])?;
             if let Some(row) = rows.next()? {
@@ -45,7 +55,7 @@ impl SeriesRepository {
             )?;
 
             Ok(series)
-        })
+        }
     }
 
     pub fn list_all(&self) -> StorageResult<Vec<Series>> {

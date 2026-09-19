@@ -137,7 +137,7 @@ export const ReaderSidebar: React.FC = () => {
             Luma
           </h2>
           <p className="text-xs text-[#78716C] dark:text-[#A1A1AA] truncate mt-0.5 font-medium">
-            {currentBook?.title || "Meditations"}
+            {currentBook?.title || "No book open"}
           </p>
         </div>
         <button

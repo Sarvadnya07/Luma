@@ -1,8 +1,20 @@
+# Dependency policy for cargo-deny (`cargo deny check advisories licenses bans sources`).
 [licenses]
-# Deny unknown or problematic licenses by default; allow standard permissive licenses.
-unknown = "deny"
-allow = ["MIT", "Apache-2.0"]
+# In cargo-deny config v2, unlicensed and unknown licenses always error by default;
+# the removed `unknown`/`unlicensed` keys need no replacement.
+allow = [
+	"MIT",
+	"Apache-2.0",
+	# Permissive licenses present in the real dependency tree
+	# (first validated when the Dependency Policy step first ran, 2026-09-19):
+	"MPL-2.0",
+	"ISC",
+	"Zlib",
+	"Unicode-3.0",
+]
 
 [advisories]
+version = 2
 # Keep advisories strict in CI; teams can opt to whitelist specific advisories after review.
+# In config v2, vulnerability/unsound advisories always error; `ignore` lists exceptions.
 ignore = []

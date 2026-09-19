@@ -2,6 +2,7 @@ import React, { useMemo, useCallback } from "react";
 import { Book } from "@luma/shared-types";
 import { BookOpen } from "lucide-react";
 import { BookCoverThumbnail, cleanDisplayTitle } from "./BookCoverThumbnail";
+import { readingPercent } from "../../lib/readingFormat";
 
 // ------------------------------------------------------------------
 // Types
@@ -31,6 +32,11 @@ export interface LumaHomeViewLabels {
 
 export interface LumaHomeViewProps {
   books?: Book[];
+  /**
+   * Real reading progress per book id, as a 0..1 fraction, from recorded
+   * reading sessions. Books without an entry are shown without a percentage.
+   */
+  progressByBook?: Record<string, number>;
   authorMap?: Record<string, string>;
   onSelectBook: (book: Book) => void;
   onOpenReader: (book: Book) => void;
@@ -79,6 +85,7 @@ const DEFAULT_LABELS: Required<LumaHomeViewLabels> = {
 
 export const LumaHomeView: React.FC<LumaHomeViewProps> = ({
   books = [],
+  progressByBook = {},
   authorMap = {},
   onSelectBook,
   onOpenReader,
@@ -134,6 +141,10 @@ export const LumaHomeView: React.FC<LumaHomeViewProps> = ({
       totalCount: total,
     };
   }, [books, authorMap, labels.unknownAuthor]);
+
+  // Progress is displayed only when a recorded session produced it.
+  const heroProgress = heroBook ? progressByBook[heroBook.id] : undefined;
+  const heroPercent = heroProgress === undefined ? null : readingPercent(heroProgress);
 
   // Handlers
   const handleSelectBook = useCallback(
@@ -278,34 +289,22 @@ export const LumaHomeView: React.FC<LumaHomeViewProps> = ({
                       {heroBook.subtitle || labels.continueWhereLabel}
                     </span>
                     <span className="font-mono font-semibold text-[#1C1917]">
-                      {heroBook.reading_status === "completed"
-                        ? "100%"
-                        : labels.readingStatusLabel}
+                      {heroPercent === null ? labels.readingStatusLabel : `${heroPercent}%`}
                     </span>
                   </div>
-                  <div className="w-full h-[3px] bg-[#E5DFD3] rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-[#18181B] transition-all duration-300"
-                      style={{
-                        width:
-                          heroBook.reading_status === "completed"
-                            ? "100%"
-                            : heroBook.reading_status === "reading"
-                            ? "50%"
-                            : "0%",
-                      }}
-                      role="progressbar"
-                      aria-valuenow={
-                        heroBook.reading_status === "completed"
-                          ? 100
-                          : heroBook.reading_status === "reading"
-                          ? 50
-                          : 0
-                      }
-                      aria-valuemin={0}
-                      aria-valuemax={100}
-                    />
-                  </div>
+                  {/* Progress is only drawn from recorded reading sessions. */}
+                  {heroPercent !== null && (
+                    <div className="w-full h-[3px] bg-[#E5DFD3] rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-[#18181B] transition-all duration-300"
+                        style={{ width: `${heroPercent}%` }}
+                        role="progressbar"
+                        aria-valuenow={heroPercent}
+                        aria-valuemin={0}
+                        aria-valuemax={100}
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

@@ -1,5 +1,8 @@
 packages:
   - 'apps/*'
   - 'packages/*'
+# pnpm 11 build-script allowlist (per-package, no allow-all). Only esbuild
+# requests build scripts in this repo: its postinstall resolves the platform
+# binary. Replaces the placeholder pnpm auto-inserted with ERR_PNPM_IGNORED_BUILDS.
 allowBuilds:
-  esbuild: set this to true or false
+  esbuild: true

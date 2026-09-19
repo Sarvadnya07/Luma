@@ -4,7 +4,7 @@ use tauri::State;
 use tracing::{debug, error, info, instrument, warn};
 
 use luma_core::error::BackendError;
-use luma_core::ids::{AuthorId, BookId, CollectionId, DeviceId, SeriesId};
+use luma_core::ids::{AuthorId, BookId, CollectionId, SeriesId};
 use luma_core::models::book::{Book, DocumentFormat, LibraryState, ReadingStatus};
 use luma_storage::repos::{LibraryFilterOptions, LibrarySortBy, LibrarySortOptions};
 use luma_storage::services::{BookDetailViewData, BulkOperationResult};
@@ -230,7 +230,7 @@ pub fn bulk_add_tags(
 
     let result = ctx
         .library_service
-        .bulk_add_tags(&book_ids, &payload.tag_names, DeviceId::new())
+        .bulk_add_tags(&book_ids, &payload.tag_names, ctx.device_id)
         .map_err(|e| {
             error!(error = %e, "Failed to bulk add tags");
             BackendError::from(e)

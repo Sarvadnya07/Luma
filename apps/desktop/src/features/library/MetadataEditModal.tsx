@@ -142,11 +142,21 @@ export const MetadataEditModal: React.FC<MetadataEditModalProps> = ({
 
   const titleInputRef = useRef<HTMLInputElement>(null);
 
+  // Focus restoration on close (see CollectionModal for the rationale).
+  const openerRef = useRef<HTMLElement | null>(null);
+
   // Auto‑focus on mount
   useEffect(() => {
     if (isOpen && titleInputRef.current) {
-      setTimeout(() => titleInputRef.current?.focus(), 50);
+      openerRef.current = document.activeElement as HTMLElement | null;
+      const timer = setTimeout(() => titleInputRef.current?.focus(), 50);
+      return () => clearTimeout(timer);
     }
+    if (!isOpen && openerRef.current) {
+      openerRef.current.focus();
+      openerRef.current = null;
+    }
+    return undefined;
   }, [isOpen]);
 
   // Reset form when book changes or modal opens

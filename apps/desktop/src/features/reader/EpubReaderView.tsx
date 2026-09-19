@@ -29,25 +29,6 @@ export const EpubReaderView: React.FC = () => {
 
   const totalSpines = documentData?.total_pages_or_spines || 1;
 
-  useEffect(() => {
-    console.log("[LUMA-OPEN] 10. FORMAT_READER_MOUNT", {
-      timestamp: new Date().toISOString(),
-      format: documentData?.file?.format ?? "epub",
-      totalSpines,
-    });
-  }, [documentData?.file?.format, totalSpines]);
-
-  useEffect(() => {
-    if (currentChapter) {
-      console.log("[LUMA-OPEN] 11. FIRST_CONTENT_READY", {
-        timestamp: new Date().toISOString(),
-        format: documentData?.file?.format ?? "epub",
-        spineIndex: currentSpineIndex,
-        chapterTitle: currentChapter.title,
-      });
-    }
-  }, [currentChapter, currentSpineIndex, documentData?.file?.format]);
-
   const scrollToLocator = useCallback((loc: string) => {
     if (!containerRef.current || !loc) return;
 

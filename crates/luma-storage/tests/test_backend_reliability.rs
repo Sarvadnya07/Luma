@@ -146,7 +146,21 @@ fn test_security_bounds_and_defenses() {
     let base = PathBuf::from("/safe/library");
     assert!(sanitize_relative_path(&base, "documents/book.epub").is_ok());
     assert!(sanitize_relative_path(&base, "../../etc/shadow").is_err());
+    // Windows drive-letter prefixes are only 'absolute' on Windows targets:
+    // on POSIX, `C:\Windows\System32` is a legal single relative filename
+    // (backslash is not a separator), so the sanitizer correctly accepts it
+    // there and the resolved path must stay under base.
+    #[cfg(windows)]
     assert!(sanitize_relative_path(&base, "C:\\Windows\\System32").is_err());
+    #[cfg(not(windows))]
+    {
+        let resolved = sanitize_relative_path(&base, "C:\\Windows\\System32")
+            .expect("POSIX treats a drive-letter string as a plain relative filename");
+        assert!(
+            resolved.starts_with(&base),
+            "resolved path must stay under base"
+        );
+    }
 
     // 2. Zip bomb expansion limit
     assert!(verify_archive_safety(10_000_000, 20_000_000, 50).is_ok());

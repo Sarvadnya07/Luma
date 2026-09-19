@@ -1,204 +1,137 @@
-import React, { useState } from "react";
-import { Search, AlertTriangle, Sparkles, BookOpen, Layers } from "lucide-react";
+import React, { useCallback, useEffect, useState } from "react";
+import { AlertCircle, Layers, Loader2, Plug } from "lucide-react";
+import { LumaApi } from "../../lib/tauri";
 
-export const IntegrationsPluginsView: React.FC = () => {
-  const [isReadwiseEnabled, setIsReadwiseEnabled] = useState(true);
-  const [isZoteroEnabled, setIsZoteroEnabled] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
+export interface IntegrationsPluginsViewProps {
+  title?: string;
+  description?: string;
+}
 
-  const plugins = [
-    {
-      id: "lexicon_parser",
-      name: "Lexicon Parser",
-      version: "v1.2",
-      description: "Provides inline Latin and Greek translations on hover in text views.",
-      icon: BookOpen,
-      installed: true,
-    },
-    {
-      id: "citation_formatter",
-      name: "Citation Formatter",
-      version: "v2.0",
-      description: "Automatically format copied excerpts into APA, MLA, or Chicago styles.",
-      icon: Layers,
-      installed: true,
-    },
-    {
-      id: "reading_vitals",
-      name: "Reading Vitals",
-      version: "v0.9",
-      description: "Tracks scholarly reading velocity and comprehension metrics.",
-      icon: Sparkles,
-      installed: false,
-    },
-  ];
+interface IntegrationRecord {
+  id: string;
+  label: string;
+  enabled: boolean;
+}
 
-  const filteredPlugins = plugins.filter((p) =>
-    p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    p.description.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+/**
+ * Integrations & Plugins.
+ *
+ * The desktop core exposes no plugin or third-party integration commands, so
+ * this screen reports exactly that: no integrations are installed, nothing can
+ * be toggled. It reads whatever integration settings the user's database
+ * actually contains (currently none by default) instead of listing a
+ * catalogue of tools that do not exist in this build.
+ */
+export const IntegrationsPluginsView: React.FC<IntegrationsPluginsViewProps> = ({
+  title = "Integrations & Plugins",
+  description = "External services connected to this Luma installation.",
+}) => {
+  const [integrations, setIntegrations] = useState<IntegrationRecord[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setError(null);
+    try {
+      const settings = await LumaApi.getAllSettings();
+      const prefix = "integration.";
+      setIntegrations(
+        Object.entries(settings)
+          .filter(([key]) => key.startsWith(prefix))
+          .map(([key, value]) => ({
+            id: key.slice(prefix.length),
+            label: key.slice(prefix.length),
+            enabled: value === true,
+          }))
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load integrations.");
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-[#FAF7F2] text-[#1C1917] overflow-y-auto px-8 py-6 justify-between">
+    <div className="flex-1 flex flex-col h-full bg-[#FAF7F2] text-[#1C1917] overflow-y-auto px-8 py-6">
       <div className="max-w-5xl mx-auto w-full space-y-8 pb-12">
-        {/* Main Heading */}
         <div className="space-y-1 border-b border-[#E5DFD3] pb-6">
-          <h1 className="font-serif text-3xl font-bold text-[#1C1917] tracking-tight">
-            Integrations & Plugins
-          </h1>
-          <p className="text-xs text-[#78716C] leading-relaxed max-w-xl">
-            Manage external scholarly connections and extend your reading environment with community-developed tools.
-          </p>
+          <h1 className="font-serif text-3xl font-bold text-[#1C1917] tracking-tight">{title}</h1>
+          <p className="text-xs text-[#78716C] leading-relaxed max-w-xl">{description}</p>
         </div>
 
-        {/* 2-Column Grid: Active Integrations (Left) vs Plugin Directory (Right) */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-          {/* Left Column: Active Integrations */}
-          <div className="lg:col-span-2 space-y-4">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-[#78716C] font-mono block">
-              ACTIVE INTEGRATIONS
-            </span>
-
-            {/* Readwise Integration Card */}
-            <div className="bg-[#FFFFFF] border border-[#18181B]/15 dark:border-white/15 rounded-2xl p-6 shadow-xs space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-[#FAF7F2] border border-[#18181B]/15 dark:border-white/15 flex items-center justify-center font-serif text-base font-bold text-[#1C1917] shadow-2xs">
-                    R
-                  </div>
-                  <div>
-                    <h3 className="font-serif text-sm font-bold text-[#1C1917]">Readwise</h3>
-                    <p className="text-[11px] text-emerald-700 font-medium">Running automatically</p>
-                  </div>
-                </div>
-
-                <button
-                  onClick={() => setIsReadwiseEnabled(!isReadwiseEnabled)}
-                  className={`w-11 h-6 rounded-full transition-colors relative ${
-                    isReadwiseEnabled ? "bg-[#18181B]" : "bg-[#E5DFD3]"
-                  }`}
-                >
-                  <div
-                    className={`w-4 h-4 rounded-full bg-white transition-transform absolute top-1 ${
-                      isReadwiseEnabled ? "right-1" : "left-1"
-                    }`}
-                  />
-                </button>
-              </div>
-
-              <p className="text-xs text-[#57534E] leading-relaxed">
-                Continuously export highlights and annotations to your Readwise account for spaced repetition review.
-              </p>
-
-              {/* Permissions */}
-              <div className="bg-[#FAF7F2] border border-[#18181B]/10 dark:border-white/10 rounded-xl p-3 space-y-1.5 text-xs text-[#78716C]">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-[#1C1917] block font-mono">
-                  PERMISSIONS
-                </span>
-                <p>• Read access to Highlights (421 Reflections)</p>
-                <p>• Read access to Scholarly Notes</p>
-              </div>
-            </div>
-
-            {/* Zotero Integration Card */}
-            <div className="bg-[#FFFFFF] border border-[#18181B]/15 dark:border-white/15 rounded-2xl p-6 shadow-xs space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-[#FAF7F2] border border-[#18181B]/15 dark:border-white/15 flex items-center justify-center font-serif text-base font-bold text-[#1C1917] shadow-2xs">
-                    Z
-                  </div>
-                  <div>
-                    <h3 className="font-serif text-sm font-bold text-[#1C1917]">Zotero</h3>
-                    <p className="text-[11px] text-[#78716C]">Manual sync required</p>
-                  </div>
-                </div>
-
-                <button
-                  onClick={() => setIsZoteroEnabled(!isZoteroEnabled)}
-                  className={`w-11 h-6 rounded-full transition-colors relative ${
-                    isZoteroEnabled ? "bg-[#18181B]" : "bg-[#E5DFD3]"
-                  }`}
-                >
-                  <div
-                    className={`w-4 h-4 rounded-full bg-white transition-transform absolute top-1 ${
-                      isZoteroEnabled ? "right-1" : "left-1"
-                    }`}
-                  />
-                </button>
-              </div>
-
-              <p className="text-xs text-[#57534E] leading-relaxed">
-                Two-way synchronization of bibliographic metadata, PDFs, and scholarly citations.
-              </p>
-
-              {/* Alert Box */}
-              <div className="flex items-center gap-2 p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800">
-                <AlertTriangle className="w-4 h-4 text-amber-700 flex-shrink-0" />
-                <span>Authentication token expired. Re-connect required.</span>
-              </div>
-            </div>
+        {error && (
+          <div role="alert" className="flex items-center gap-2 text-xs text-rose-700">
+            <AlertCircle className="w-4 h-4" aria-hidden="true" />
+            <span>{error}</span>
+            <button onClick={() => void load()} className="underline font-semibold">
+              Retry
+            </button>
           </div>
+        )}
 
-          {/* Right Column: Plugin Directory */}
-          <div className="space-y-4">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-[#78716C] font-mono block">
-              PLUGIN DIRECTORY
-            </span>
+        {integrations === null && !error && (
+          <div role="status" aria-live="polite" className="flex items-center gap-2 text-xs text-[#78716C]">
+            <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
+            <span>Checking connected services…</span>
+          </div>
+        )}
 
-            {/* Search */}
-            <div className="relative">
-              <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-[#78716C]" />
-              <input
-                type="text"
-                placeholder="Search extensions..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-8 pr-3 py-1.5 bg-[#FFFFFF] border border-[#DDD5C7] rounded-lg text-xs placeholder:text-[#A8A29E] focus:outline-none focus:border-[#18181B]"
-              />
-            </div>
+        {integrations !== null && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+            <section className="lg:col-span-2 space-y-4">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-[#78716C] font-mono block">
+                CONNECTED SERVICES
+              </span>
 
-            {/* Plugin Cards List */}
-            <div className="space-y-2.5">
-              {filteredPlugins.map((plugin) => {
-                const Icon = plugin.icon;
-                return (
-                  <div
-                    key={plugin.id}
-                    className="p-3.5 bg-[#FFFFFF] border border-[#18181B]/15 dark:border-white/15 hover:border-[#18181B]/30 rounded-xl space-y-1.5 shadow-xs group"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Icon className="w-3.5 h-3.5 text-[#78716C]" />
-                        <h4 className="font-serif text-xs font-bold text-[#1C1917] group-hover:text-black">
-                          {plugin.name}
-                        </h4>
-                      </div>
-                      <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[#FAF7F2] text-[#78716C] border border-[#E5DFD3]">
-                        {plugin.version}
+              {integrations.length === 0 ? (
+                <div className="border border-dashed border-[#DDD5C7] rounded-2xl p-8 bg-[#FFFFFF]/60 space-y-2">
+                  <Plug className="w-6 h-6 text-[#A8A29E]" aria-hidden="true" />
+                  <h2 className="font-serif text-base font-bold text-[#1C1917]">
+                    No integrations connected
+                  </h2>
+                  <p className="text-xs text-[#78716C] leading-relaxed max-w-md">
+                    This build has no third-party connectors installed. Nothing is connected, and
+                    no data leaves your device. Integrations will be listed here once they exist.
+                  </p>
+                </div>
+              ) : (
+                <ul className="space-y-2">
+                  {integrations.map((integration) => (
+                    <li
+                      key={integration.id}
+                      className="flex items-center justify-between p-4 bg-[#FFFFFF] border border-[#E5DFD3] rounded-xl"
+                    >
+                      <span className="text-xs font-semibold text-[#1C1917]">
+                        {integration.label}
                       </span>
-                    </div>
-                    <p className="text-[11px] text-[#57534E] leading-relaxed">
-                      {plugin.description}
-                    </p>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      </div>
+                      <span className="text-[10px] font-mono uppercase text-[#78716C]">
+                        {integration.enabled ? "enabled" : "disabled"}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
 
-      {/* Bottom Footer */}
-      <footer className="max-w-5xl mx-auto w-full pt-4 border-t border-[#E5DFD3] flex items-center justify-between text-[11px] text-[#78716C]">
-        <span className="font-mono text-[10px]">
-          • LUMA SCHOLARLY PROFESSIONAL — SYNC ACTIVE
-        </span>
-        <div className="flex items-center gap-4 text-xs">
-          <a href="#docs" className="hover:text-[#1C1917]">Documentation</a>
-          <a href="#privacy" className="hover:text-[#1C1917]">Privacy Policy</a>
-          <a href="#status" className="hover:text-[#1C1917]">System Status</a>
-        </div>
-      </footer>
+            <section className="space-y-3">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-[#78716C] font-mono block">
+                PLUGIN DIRECTORY
+              </span>
+              <div className="border border-dashed border-[#DDD5C7] rounded-2xl p-5 bg-[#FFFFFF]/60 space-y-2">
+                <Layers className="w-5 h-5 text-[#A8A29E]" aria-hidden="true" />
+                <h3 className="font-serif text-sm font-bold text-[#1C1917]">
+                  Plugin directory unavailable
+                </h3>
+                <p className="text-[11px] text-[#78716C] leading-relaxed">
+                  There is no plugin runtime in this build, so no catalogue is shown. A placeholder
+                  catalogue would misrepresent what the application can do.
+                </p>
+              </div>
+            </section>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

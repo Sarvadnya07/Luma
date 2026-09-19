@@ -10,7 +10,7 @@ import {
   Check,
 } from "lucide-react";
 import { LumaApi } from "../../lib/tauri";
-import { AnnotationRepairWorkflow } from "./AnnotationRepairWorkflow";
+import { AnnotationRepairWorkflow, type RepairWorkflowData } from "./AnnotationRepairWorkflow";
 
 // ------------------------------------------------------------------
 // Types
@@ -196,6 +196,10 @@ export const GlobalAnnotationCenter: React.FC<GlobalAnnotationCenterProps> = ({
     filterTypes.reduce((acc, f) => ({ ...acc, [f.value]: f.defaultChecked ?? false }), {})
   );
   const [isRepairOpen, setIsRepairOpen] = useState(false);
+  // The repair workflow shows the real annotation it was opened for. There is
+  // no placeholder content here: the quote, note and book title all come from
+  // the stored annotation.
+  const [repairTarget, setRepairTarget] = useState<RepairWorkflowData | null>(null);
   const [copied, setCopied] = useState(false);
   const [loadedAnnotations, setLoadedAnnotations] = useState<AnnotationItem[]>([]);
   const [recentBooks, setRecentBooks] = useState<{ id: string; title: string; author: string }[]>([]);
@@ -426,7 +430,18 @@ export const GlobalAnnotationCenter: React.FC<GlobalAnnotationCenterProps> = ({
                   <div className="flex items-center gap-3">
                     {item.needs_repair ? (
                       <button
-                        onClick={() => setIsRepairOpen(true)}
+                        onClick={() => {
+                          setRepairTarget({
+                            bookTitle: item.book_title,
+                            originalPassage: item.quote,
+                            highlightedQuote: item.quote,
+                            note: { text: item.note ?? "", createdAt: item.created_at },
+                            // Candidates come from the anchor resolver; none are
+                            // computed here, so none are shown.
+                            candidates: [],
+                          });
+                          setIsRepairOpen(true);
+                        }}
                         className="py-1.5 px-3.5 bg-[#18181B] hover:bg-[#27272A] text-white text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-colors shadow-2xs"
                       >
                         <span>Resolve Re‑Anchor</span>
@@ -461,19 +476,13 @@ export const GlobalAnnotationCenter: React.FC<GlobalAnnotationCenterProps> = ({
       />
 
       {/* Repair Modal */}
-      {isRepairOpen && (
+      {isRepairOpen && repairTarget && (
         <AnnotationRepairWorkflow
           isOpen={isRepairOpen}
           onClose={() => setIsRepairOpen(false)}
-          // We need to pass data here – ideally we have it from the annotation that triggered repair.
-          // For now, we'll pass a placeholder, but in a real app you'd pass the specific item's data.
-          data={{
-            bookTitle: "Meditations", // should come from the item
-            originalPassage: "…", // etc.
-            highlightedQuote: "…",
-            note: { text: "…", createdAt: new Date().toISOString() },
-            candidates: [],
-          }}
+          // Only opened from a real annotation; the workflow reads that
+          // annotation's own passage, quote and note.
+          data={repairTarget}
           onAcceptCandidate={onRepairAccept}
         />
       )}

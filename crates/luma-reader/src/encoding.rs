@@ -161,16 +161,18 @@ pub fn decode_text_bytes_with_config(bytes: &[u8], config: &TextDecoderConfig) -
 
     if config.try_utf16 {
         if bytes.len() >= 2 && bytes[0..2] == UTF16_LE_BOM {
-            let u16_slice: Vec<u16> = bytes[2..]
-                .chunks_exact(2)
-                .map(|chunk| u16::from_le_bytes([chunk[0], chunk[1]]))
+            let (pairs, _): (&[[u8; 2]], &[u8]) = bytes[2..].as_chunks::<2>();
+            let u16_slice: Vec<u16> = pairs
+                .iter()
+                .map(|chunk| u16::from_le_bytes(*chunk))
                 .collect();
             return String::from_utf16_lossy(&u16_slice);
         }
         if bytes.len() >= 2 && bytes[0..2] == UTF16_BE_BOM {
-            let u16_slice: Vec<u16> = bytes[2..]
-                .chunks_exact(2)
-                .map(|chunk| u16::from_be_bytes([chunk[0], chunk[1]]))
+            let (pairs, _): (&[[u8; 2]], &[u8]) = bytes[2..].as_chunks::<2>();
+            let u16_slice: Vec<u16> = pairs
+                .iter()
+                .map(|chunk| u16::from_be_bytes(*chunk))
                 .collect();
             return String::from_utf16_lossy(&u16_slice);
         }

@@ -15,7 +15,13 @@ impl CoverRepository {
     }
 
     pub fn insert(&self, cover: &CoverImage) -> StorageResult<()> {
-        self.db.with_conn(|conn| {
+        self.db
+            .with_conn(|conn| Self::insert_with_conn(conn, cover))
+    }
+
+    /// Connection-injected variant for composing multiple writes into one transaction.
+    pub fn insert_with_conn(conn: &rusqlite::Connection, cover: &CoverImage) -> StorageResult<()> {
+        {
             conn.execute(
                 r#"
                 INSERT INTO cover_images (
@@ -36,7 +42,7 @@ impl CoverRepository {
                 ],
             )?;
             Ok(())
-        })
+        }
     }
 
     pub fn get_by_id(&self, id: &CoverImageId) -> StorageResult<Option<CoverImage>> {

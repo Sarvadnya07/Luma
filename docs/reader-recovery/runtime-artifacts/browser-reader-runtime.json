@@ -1,0 +1,12 @@
+{
+  "bookId": "01a0b714-4f54-7ca0-8b1e-0ba3718d87d4",
+  "chapterId": "ch1",
+  "epubDocument": {
+    "loaded": true
+  },
+  "fixture": "C:\\Users\\ASUS\\Desktop\\STUDY\\PROJECTS\\Luma\\apps\\desktop\\src-tauri\\../../../tests/fixtures/sample_book.epub",
+  "readerService": {
+    "getChapter": true,
+    "openDocument": true
+  }
+}

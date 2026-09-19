@@ -53,6 +53,12 @@ impl LumaAppContextConfig {
     pub fn db_path(&self) -> std::path::PathBuf {
         self.data_dir.join(&self.db_filename)
     }
+
+    /// Resolve the stable per-install device identity for this data directory.
+    /// See `device_identity` / BACKEND-01 finding BE-002.
+    pub fn device_id(&self) -> luma_core::ids::DeviceId {
+        crate::device_identity::load_or_create_device_id(&self.data_dir)
+    }
 }
 
 // ============================================================================
@@ -61,6 +67,9 @@ impl LumaAppContextConfig {
 
 #[derive(Clone)]
 pub struct LumaAppContext {
+    /// Stable per-install device identity (BE-002). Replaces per-call
+    /// `DeviceId::new()` stamps in the commands layer.
+    pub device_id: luma_core::ids::DeviceId,
     pub db: Database,
     pub event_bus: EventBus,
     #[allow(dead_code)]
@@ -87,6 +96,7 @@ pub struct LumaAppContext {
 
 impl LumaAppContext {
     pub fn new(config: LumaAppContextConfig) -> Self {
+        let device_id = config.device_id();
         let db_path = config.db_path();
         let data_dir = config.data_dir;
 
@@ -146,6 +156,7 @@ impl LumaAppContext {
         );
 
         Self {
+            device_id,
             db,
             event_bus,
             file_service,

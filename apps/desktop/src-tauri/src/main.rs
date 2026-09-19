@@ -1,5 +1,6 @@
 mod commands;
 mod context;
+mod device_identity;
 
 use context::{LumaAppContext, LumaAppContextConfig};
 use tauri::Manager;

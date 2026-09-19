@@ -53,16 +53,6 @@ export const PdfReaderView: React.FC = () => {
     }
   }, [currentPdfPage, isDualSpread]);
 
-  useEffect(() => {
-    console.log("[LUMA-OPEN] 10. FORMAT_READER_MOUNT", {
-      timestamp: new Date().toISOString(),
-      bookId: currentBook?.id,
-      format: "pdf",
-      totalPages,
-      currentPage: currentPdfPage,
-    });
-  }, [currentBook?.id]);
-
   // Load PDF Document bytes into PDF.js proxy
   useEffect(() => {
     let isCancelled = false;
