@@ -5,8 +5,10 @@
 //! REGRESSION GUARD: every tier ASSERTS its measured p95 against the recorded
 //! budget constants below. A regression past budget fails the test in CI.
 
-/// Recorded budgets (ms), p95, debug profile. These are the single source of
-/// truth; docs/performance/PERF-03-VALIDATION-REPORT.md references these values.
+/// Recorded budgets (ms), p95, debug profile, **measured on the maintainer's
+/// local Windows 11 x86_64 desktop** (see docs/performance/PERF-03-VALIDATION-REPORT.md
+/// "Environment"). These are the single source of truth; that report references
+/// these values.
 mod budget {
     /// Startup (context + DB + services).
     pub const STARTUP_P95_MS: f64 = 40.0;
@@ -24,6 +26,45 @@ mod budget {
     pub const PAGINATION_10K_QUERY_P95_MS: f64 = 20.0;
     /// Capacity ramp budget: page query p95 at any recorded scale.
     pub const CAPACITY_RAMP_P95_MS: f64 = 20.0;
+
+    /// Multiplier applied to every budget when the harness runs on a CI runner
+    /// (detected via the `CI` env var, set by GitHub Actions).
+    ///
+    /// Why 1.5: all budgets were recorded on a local Windows 11 desktop, but
+    /// this workload (SQLite in-memory migrations + service construction) is
+    /// CPU/allocator-bound, and GitHub's shared macos-26-arm64 runners run it
+    /// 2.4x-3.0x slower at the median with a heavy tail (full evidence:
+    /// docs/audits/CI-PERFORMANCE-CALIBRATION.md). Worst observed no-regression
+    /// CI p95 = 45.1 ms (jitter); worst local p95 = 16.8 ms.
+    ///
+    /// The evidence-derived window for the multiplier is (1.13, 2.0):
+    /// - LOWER bound 1.13x = worst observed CI jitter (45.1/40) must pass.
+    /// - UPPER bound 2.0x = a genuine 2x code regression shifts the whole
+    ///   distribution 2x (worst no-regression CI p95 45.1 -> ~90), so the
+    ///   effective budget must stay below ~80 ms to catch it.
+    /// 1.5 is the midpoint: worst jitter passes with 33% headroom (45.1 vs 60),
+    /// and a genuine >=1.7x regression (p95 ~77 ms) still breaches. Local runs
+    /// keep the unscaled 40 ms budget, so local regression sensitivity is
+    /// completely unchanged. The guard is NOT disabled on CI — every budget
+    /// still asserts; only the environmental offset is compensated.
+    pub const CI_RUNNER_MULTIPLIER: f64 = 1.5;
+}
+
+/// Effective budget for a path: the recorded constant, scaled by the CI runner
+/// multiplier when executing on CI. Prints which regime is active so logs are
+/// self-describing.
+fn effective_budget(name: &str, base_budget_ms: f64) -> f64 {
+    if std::env::var_os("CI").is_some_and(|v| !v.is_empty()) {
+        let scaled = base_budget_ms * budget::CI_RUNNER_MULTIPLIER;
+        println!(
+            "BUDGET-CALIB|{name}|base={base_budget_ms:.3}ms|ci_multiplier={}|effective={scaled:.3}ms|regime=CI",
+            budget::CI_RUNNER_MULTIPLIER
+        );
+        scaled
+    } else {
+        println!("BUDGET-CALIB|{name}|base={base_budget_ms:.3}ms|regime=LOCAL");
+        base_budget_ms
+    }
 }
 
 mod common;
@@ -91,7 +132,7 @@ async fn test_multi_run_hot_paths_with_percentiles() {
     assert_budget(
         "startup_context_init",
         percentiles(startup).1,
-        budget::STARTUP_P95_MS,
+        effective_budget("startup_context_init", budget::STARTUP_P95_MS),
     );
 
     // --- Library pagination @1k books: fresh DB, then 10 sample runs of a
@@ -121,7 +162,10 @@ async fn test_multi_run_hot_paths_with_percentiles() {
     assert_budget(
         "library_pagination_1k_20pages",
         percentiles(paginate).1,
-        budget::PAGINATION_1K_WALK_P95_MS,
+        effective_budget(
+            "library_pagination_1k_20pages",
+            budget::PAGINATION_1K_WALK_P95_MS,
+        ),
     );
 
     // --- FTS5 search: 50 query samples over a populated index
@@ -143,7 +187,7 @@ async fn test_multi_run_hot_paths_with_percentiles() {
     assert_budget(
         "fts5_search_1k_books",
         percentiles(search).1,
-        budget::FTS5_SEARCH_P95_MS,
+        effective_budget("fts5_search_1k_books", budget::FTS5_SEARCH_P95_MS),
     );
 
     // --- PDF cold open x 10 (fresh parse each run, 250-page synthetic doc)
@@ -161,7 +205,7 @@ async fn test_multi_run_hot_paths_with_percentiles() {
     assert_budget(
         "pdf_cold_open_250p",
         percentiles(pdf_open).1,
-        budget::PDF_COLD_OPEN_P95_MS,
+        effective_budget("pdf_cold_open_250p", budget::PDF_COLD_OPEN_P95_MS),
     );
 
     // --- PDF sequential 20-page nav x 10 (fresh doc each sample to stay cold)
@@ -179,7 +223,7 @@ async fn test_multi_run_hot_paths_with_percentiles() {
     assert_budget(
         "pdf_sequential_nav_20p",
         percentiles(pdf_nav).1,
-        budget::PDF_NAV_20P_P95_MS,
+        effective_budget("pdf_sequential_nav_20p", budget::PDF_NAV_20P_P95_MS),
     );
 
     // --- 10k ingestion: 3 fresh-DB bulk-insert samples (expensive: not 10x)
@@ -192,7 +236,7 @@ async fn test_multi_run_hot_paths_with_percentiles() {
     assert_budget(
         "bulk_ingest_10k",
         percentiles(ingest).1,
-        budget::BULK_INGEST_10K_P95_MS,
+        effective_budget("bulk_ingest_10k", budget::BULK_INGEST_10K_P95_MS),
     );
 
     // --- 10k pagination: one seeded DB, 20 samples of a 50-book page query
@@ -214,7 +258,7 @@ async fn test_multi_run_hot_paths_with_percentiles() {
     assert_budget(
         "pagination_query_10k",
         percentiles(paginate10k).1,
-        budget::PAGINATION_10K_QUERY_P95_MS,
+        effective_budget("pagination_query_10k", budget::PAGINATION_10K_QUERY_P95_MS),
     );
 }
 
@@ -396,7 +440,7 @@ async fn test_capacity_ramp_to_first_breach() {
         assert_budget(
             &format!("capacity_ramp_scale_{scale}"),
             *p95,
-            budget::CAPACITY_RAMP_P95_MS,
+            effective_budget("capacity_ramp", budget::CAPACITY_RAMP_P95_MS),
         );
     }
 

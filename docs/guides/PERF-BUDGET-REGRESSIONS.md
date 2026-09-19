@@ -29,6 +29,8 @@ crates/luma-storage/tests/test_perf_validation.rs  →  mod budget
 
 `docs/performance/PERF-03-VALIDATION-REPORT.md` documents these same values; the harness constants are the single source of truth. Debug-profile numbers — do not compare against release builds.
 
+> **CI calibration**: the constants were recorded on the maintainer's local Windows 11 desktop. On GitHub-hosted CI runners (especially shared `macos-26-arm64`) this CPU-bound workload runs 2.4×–3.0× slower with a heavy tail, so the harness applies a documented `CI_RUNNER_MULTIPLIER = 1.5` to every budget when the `CI` env var is set (evidence and derivation: `docs/audits/CI-PERFORMANCE-CALIBRATION.md`). Local runs always use the unscaled constants. A `BUDGET-CALIB|...|regime=...` line in the output shows which regime is active.
+
 ## 2. Run the harness locally
 
 ```bash
