@@ -107,6 +107,13 @@ CI p50 is **2.4×–3.0×** local p50; CI p95 reaches **6.4×** local p95. A sec
 | Genuine 2× regression | ≈90.2 ms | 60 | BREACH ✅ |
 | Local: any regression past 40 ms | — | 40 (unscaled) | BREACH ✅ unchanged |
 
+## 2026-09-19 addendum: multiplier window collapsed → statistic stabilized instead
+
+A third CI datapoint invalidated the (1.13, 2.0) window: run 35444985378 (commit 2fccef4, code unchanged on the measured path) breached the scaled budget with **p95 = 82.0 ms vs effective 60 ms**. With the no-regression jitter ceiling now 2.05× and the catch-a-2×-regression ceiling at 2.0×, **no global CI multiplier can satisfy both** — the problem is the statistic, not the constant.
+
+Root statistical cause: at n=10, nearest-rank p95 IS the 2nd-largest sample. One OS scheduler stall (observed: 82 ms vs an 8–18 ms CI median) occupies that slot and becomes the verdict.
+
+**Implemented fix (smallest correct change):** raise startup_context_init sampling from n=10 to n=30. The p95 remains the 2nd-largest sample, but a lone stall no longer occupies that slot; a systematic slowdown still shifts the whole tail and breaches. The 1.5× CI multiplier is retained. Local regime unchanged (verified: local p95 21.9 ms vs 40 ms budget, n=30).
 ## Reason
 
 The budget is a real, useful contract, but its recorded constant encodes one machine's speed. Demanding that contract unscaled from a shared virtualized arm64 runner produces false positives that mask true signals (the guard spent multiple runs failing on noise while a *different* real defect class — the pdf.js worker crash — was found by hand). The calibration removes the environmental confound while keeping — and numerically proving — regression detection.

@@ -117,9 +117,14 @@ fn assert_budget(name: &str, p95_ms: f64, budget_ms: f64) {
 
 #[tokio::test]
 async fn test_multi_run_hot_paths_with_percentiles() {
-    // --- Startup (context + db + services), 10 runs, fresh in-memory DB each run
+    // --- Startup (context + db + services), 30 runs, fresh in-memory DB each run.
+    // n=30 (not 10): on shared CI runners a single OS scheduler stall can be 5-10x
+    // the median; at n=10 the nearest-rank p95 IS the 2nd-largest sample, so one
+    // such stall fails the guard (observed: 82.0ms outlier vs 8-18ms median).
+    // At n=30 the p95 is still the 2nd-largest sample but a lone stall no longer
+    // occupies that slot, while a systematic slowdown still shifts the whole tail.
     let mut startup = Vec::new();
-    for _ in 0..10 {
+    for _ in 0..30 {
         let start = Instant::now();
         let db = Database::open_in_memory().expect("db");
         let cache = CacheManager::new();
