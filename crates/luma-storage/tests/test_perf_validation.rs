@@ -154,7 +154,8 @@ async fn test_multi_run_hot_paths_with_percentiles() {
     }
 
     let mut paginate = Vec::new();
-    for _ in 0..10 {
+    // n=30, same outlier rationale as startup_context_init above.
+    for _ in 0..30 {
         let start = Instant::now();
         for page in 0..20 {
             let results = book_repo.list(&filter, &sort, page, 50).expect("list");
@@ -420,12 +421,13 @@ async fn test_capacity_ramp_to_first_breach() {
 
         // Warm-up + 20 page-query samples.
         let _ = repo.list(&filter, &sort, 0, 50).expect("warmup");
-        let mut samples = Vec::new();
-        let max_page = (scale / 50) as i32 - 1;
-        for i in 0..20 {
+    let mut samples = Vec::new();
+    let max_page = (scale / 50) as i32 - 1;
+    // 30 page-query samples, same outlier rationale as startup_context_init.
+    for i in 0..30 {
             let start = Instant::now();
             let results = repo
-                .list(&filter, &sort, (i * 3 % max_page.max(1)) as usize, 50)
+                .list(&filter, &sort, (i * 5 % max_page.max(1)) as usize, 50)
                 .expect("list");
             assert_eq!(results.len(), 50);
             samples.push(start.elapsed().as_secs_f64() * 1000.0);
