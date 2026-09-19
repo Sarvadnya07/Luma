@@ -63,28 +63,34 @@ for (const ctor of prototypes) {
 // pdf.js v6's WorkerTransport uses map.getOrInsertComputed(key, fn) on the
 // main thread. Polyfill both upsert methods on Map.prototype when missing.
 
-type MapUpsert<K, V> = {
-  getOrInsert(key: K, value: V): V;
-  getOrInsertComputed(key: K, callbackfn: (key: K) => V): V;
+const mapProto = Map.prototype as unknown as {
+  getOrInsert?: <K, V>(this: Map<K, V>, key: K, value: V) => V;
+  getOrInsertComputed?: <K, V>(this: Map<K, V>, key: K, callbackfn: (key: K) => V) => V;
 };
 
-const mapProto = Map.prototype as unknown as MapUpsert<unknown, unknown> & Record<string, unknown>;
-
 if (typeof mapProto.getOrInsert !== "function") {
-  mapProto.getOrInsert = function (key, value) {
+  mapProto.getOrInsert = function getOrInsert<K, V>(
+    this: Map<K, V>,
+    key: K,
+    value: V
+  ): V {
     if (!this.has(key)) {
       this.set(key, value);
     }
-    return this.get(key);
+    return this.get(key) as V;
   };
 }
 
 if (typeof mapProto.getOrInsertComputed !== "function") {
-  mapProto.getOrInsertComputed = function (key, callbackfn) {
+  mapProto.getOrInsertComputed = function getOrInsertComputed<K, V>(
+    this: Map<K, V>,
+    key: K,
+    callbackfn: (key: K) => V
+  ): V {
     if (!this.has(key)) {
       this.set(key, callbackfn(key));
     }
-    return this.get(key);
+    return this.get(key) as V;
   };
 }
 
