@@ -2,7 +2,16 @@
 [licenses]
 # In cargo-deny config v2, unlicensed and unknown licenses always error by default;
 # the removed `unknown`/`unlicensed` keys need no replacement.
-allow = ["MIT", "Apache-2.0"]
+allow = [
+	"MIT",
+	"Apache-2.0",
+	# Permissive licenses present in the real dependency tree
+	# (first validated when the Dependency Policy step first ran, 2026-09-19):
+	"MPL-2.0",
+	"ISC",
+	"Zlib",
+	"Unicode-3.0",
+]
 
 [advisories]
 version = 2
